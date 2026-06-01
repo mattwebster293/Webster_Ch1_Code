@@ -1,0 +1,65 @@
+
+model {
+
+  for (i in 1:N) {
+    SWA[i] ~ dnorm(mu[i], tau)
+
+    mu[i] <- alpha
+             + (beta1 + b_stream[stream[i]] + b_year[year_id[i]]) * damPresence[i]
+             + beta2 * TO[i] 
+             + beta3 * RIPA[i]
+             + beta4 * UDA[i]
+             + eta_stream[stream[i]]
+             + eta_event[sampleEvent[i]]
+             + eta_cluster[clusterID[i]]
+  }
+
+  # Fixed effects
+  alpha ~ dnorm(0, 0.001)
+  beta1 ~ dnorm(0, 0.001)
+  beta2 ~ dnorm(0, 0.001)
+  beta3 ~ dnorm(0, 0.001)
+  beta4 ~ dnorm(0, 0.001)
+
+  # Random Effects
+  # Stream/Watershed
+  for (j in 1:n_stream) {
+    eta_stream[j] ~ dnorm(0, tau_stream)     # random intercept for stream
+    b_stream[j]   ~ dnorm(0, tau_b_stream)   # random slope for stream
+  }
+  
+  # Year
+  for(yr in 1:n_year) {
+    b_year[yr] ~ dnorm(0, tau_b_year)        # random slope for year
+  }
+  
+  # Sampling Event
+  for (k in 1:n_event) {
+    eta_event[k] ~ dnorm(0, tau_event)       # random intercept for year/survey 'sampling event'
+  }
+  
+  # Cluster ID
+  for (c in 1:n_cluster) {
+    eta_cluster[c] ~ dnorm(0, tau_cluster)
+  }
+
+  # Hyperpriors
+  sigma ~ dunif(0, 10)
+  tau <- pow(sigma, -2)
+
+  sigma_stream ~ dunif(0, 10)
+  tau_stream <- pow(sigma_stream, -2)
+
+  sigma_b_stream ~ dunif(0, 10)
+  tau_b_stream <- pow(sigma_b_stream, -2)
+  
+  sigma_b_year ~ dunif(0,10)
+  tau_b_year <- pow(sigma_b_year, -2)
+
+  sigma_event ~ dunif(0, 10)
+  tau_event <- pow(sigma_event, -2)
+  
+  sigma_cluster ~ dunif(0,10)
+  tau_cluster <- pow(sigma_cluster, -2)
+}
+
