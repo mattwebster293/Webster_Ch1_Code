@@ -5263,11 +5263,32 @@ uda_lookup <- aoi_GLM_Data_mod %>%
   summarise(max_catchment = max(catchment_km2, na.rm = TRUE)) %>%
   arrange(max_catchment)
 
+
+
+# Start from the full modeled data
+aoi_GLM_Data_mod_3_4 <- aoi_GLM_Data_mod %>% 
+  filter(!(sampleEvent %in% 17:20))   # drop 2023 t1–t4
+
+event_lookup <- data.frame(
+  old = sort(unique(aoi_GLM_Data_mod_3_4$sampleEvent)),
+  new = 1:length(unique(aoi_GLM_Data_mod_3_4$sampleEvent))
+)
+
+aoi_GLM_Data_mod_3_4 <- aoi_GLM_Data_mod_3_4 %>%
+  left_join(event_lookup, by = c("sampleEvent" = "old")) %>%
+  mutate(sampleEvent_new = new) %>%
+  select(-new)
+
+event_year_3_4 <- tapply(aoi_GLM_Data_mod_3_4$year_id,
+                         aoi_GLM_Data_mod_3_4$sampleEvent_new,
+                         unique)
+event_year_3_4 <- as.numeric(event_year_3_4)
+
 ```
 
 ----
 
-Implement HGLMs:
+Implement HGLMMs:
 ----
 
 
@@ -5280,69 +5301,69 @@ library(jagsUI)
 
 Sys.time()
 
-#sink("m1_HGLM_SWA.jags")
+sink("m1_HGLM_SWA.jags")
 
-#cat("
-#model {
+cat("
+model {
 
-#  for (i in 1:N) {
-#    SWA[i] ~ dnorm(mu[i], tau)
+  for (i in 1:N) {
+    SWA[i] ~ dnorm(mu[i], tau)
 
-#    mu[i] <- alpha
-#             + (beta1 + b_stream[stream[i]] + b_year[year_id[i]]) * damPresence[i]
-#             + eta_stream[stream[i]]
-#             + eta_event[sampleEvent[i]]
-#             + eta_cluster[clusterID[i]]
-#  }
+  mu[i] <- alpha
+             + (beta1 + b_stream[stream[i]] + b_year[year_id[i]]) * damPresence[i]
+             + eta_stream[stream[i]]
+             + eta_event[sampleEvent[i]]
+             + eta_cluster[clusterID[i]]
+  }
 
-#  # Fixed effects
-#  alpha ~ dnorm(0, 0.001)
-#  beta1 ~ dnorm(0, 0.001)
+  # Fixed effects
+  alpha ~ dnorm(0, 0.001)
+  beta1 ~ dnorm(0, 0.001)
 
-#  # Random Effects
-#  # Stream/Watershed
-#  for (j in 1:n_stream) {
-#    eta_stream[j] ~ dnorm(0, tau_stream)     # random intercept for stream
-#    b_stream[j]   ~ dnorm(0, tau_b_stream)   # random slope for stream
-#  }
+  # Random Effects
+  # Stream/Watershed
+  for (j in 1:n_stream) {
+    eta_stream[j] ~ dnorm(0, tau_stream)     # random intercept for stream
+    b_stream[j]   ~ dnorm(0, tau_b_stream)   # random slope for stream
+  }
   
-#  # Year
-#  for(yr in 1:n_year) {
-#    b_year[yr] ~ dnorm(0, tau_b_year)        # random slope for year
-#  }
+  # Year
+  for(yr in 1:n_year) {
+    b_year[yr] ~ dnorm(0, tau_b_year)        # random slope for year
+  }
   
-#  # Sampling Event
-#  for (k in 1:n_event) {
-#    eta_event[k] ~ dnorm(0, tau_event)       # random intercept for year/survey 'sampling event'
-#  }
+  # Sampling Event
+  for (k in 1:n_event) {
+    eta_event[k] ~ dnorm(0, tau_event)       # random intercept for year/survey 'sampling event'
+  }
   
-#  # Cluster ID
-#  for (c in 1:n_cluster) {
-#    eta_cluster[c] ~ dnorm(0, tau_cluster)
-#  }
+  # Cluster ID
+  for (c in 1:n_cluster) {
+    eta_cluster[c] ~ dnorm(0, tau_cluster)
+  }
 
-#  # Hyperpriors
-#  sigma ~ dunif(0, 10)
-#  tau <- pow(sigma, -2)
+  # Hyperpriors
+  sigma ~ dunif(0, 10)
+  tau <- pow(sigma, -2)
 
-#  sigma_stream ~ dunif(0, 10)
-#  tau_stream <- pow(sigma_stream, -2)
+  sigma_stream ~ dunif(0, 10)
+  tau_stream <- pow(sigma_stream, -2)
 
-#  sigma_b_stream ~ dunif(0, 10)
-#  tau_b_stream <- pow(sigma_b_stream, -2)
+  sigma_b_stream ~ dunif(0, 10)
+  tau_b_stream <- pow(sigma_b_stream, -2)
   
-#  sigma_b_year ~ dunif(0,10)
-#  tau_b_year <- pow(sigma_b_year, -2)
+  sigma_b_year ~ dunif(0,10)
+  tau_b_year <- pow(sigma_b_year, -2)
 
-#  sigma_event ~ dunif(0, 10)
-#  tau_event <- pow(sigma_event, -2)
+  sigma_event ~ dunif(0, 10)
+  tau_event <- pow(sigma_event, -2)
   
-#  sigma_cluster ~ dunif(0,10)
-#  tau_cluster <- pow(sigma_cluster, -2)
-#}
-#", fill = TRUE)
+  sigma_cluster ~ dunif(0,10)
+  tau_cluster <- pow(sigma_cluster, -2)
+}
+", fill = TRUE)
 
-#sink()
+sink()
 
 
 m1_data_list <- list(
@@ -5603,75 +5624,75 @@ library(jagsUI)
 
 Sys.time()
 
-#sink("m2_HGLM_SWA.jags")
+sink("m2_HGLM_SWA.jags")
 
-#cat("
-#model {
+cat("
+model {
 
-#  for (i in 1:N) {
-#    SWA[i] ~ dnorm(mu[i], tau)
+  for (i in 1:N) {
+    SWA[i] ~ dnorm(mu[i], tau)
 
-#    mu[i] <- alpha
-#             + (beta1 + b_stream[stream[i]] + b_year[year_id[i]]) * damPresence[i]
-#             + beta2 * TO[i] 
-#             + beta3 * RIPA[i]
-#             + beta4 * UDA[i]
-#             + eta_stream[stream[i]]
-#             + eta_event[sampleEvent[i]]
-#             + eta_cluster[clusterID[i]]
-#  }
+    mu[i] <- alpha
+             + (beta1 + b_stream[stream[i]] + b_year[year_id[i]]) * damPresence[i]
+             + beta2 * TO[i] 
+             + beta3 * RIPA[i]
+             + beta4 * UDA[i]
+             + eta_stream[stream[i]]
+             + eta_event[sampleEvent[i]]
+             + eta_cluster[clusterID[i]]
+  }
 
-#  # Fixed effects
-#  alpha ~ dnorm(0, 0.001)
-#  beta1 ~ dnorm(0, 0.001)
-#  beta2 ~ dnorm(0, 0.001)
-#  beta3 ~ dnorm(0, 0.001)
-#  beta4 ~ dnorm(0, 0.001)
+  # Fixed effects
+  alpha ~ dnorm(0, 0.001)
+  beta1 ~ dnorm(0, 0.001)
+  beta2 ~ dnorm(0, 0.001)
+  beta3 ~ dnorm(0, 0.001)
+  beta4 ~ dnorm(0, 0.001)
 
-#  # Random Effects
-#  # Stream/Watershed
-#  for (j in 1:n_stream) {
-#    eta_stream[j] ~ dnorm(0, tau_stream)     # random intercept for stream
-#    b_stream[j]   ~ dnorm(0, tau_b_stream)   # random slope for stream
-#  }
+  # Random Effects
+  # Stream/Watershed
+  for (j in 1:n_stream) {
+    eta_stream[j] ~ dnorm(0, tau_stream)     # random intercept for stream
+    b_stream[j]   ~ dnorm(0, tau_b_stream)   # random slope for stream
+  }
   
-#  # Year
-#  for(yr in 1:n_year) {
-#    b_year[yr] ~ dnorm(0, tau_b_year)        # random slope for year
-#  }
+  # Year
+  for(yr in 1:n_year) {
+    b_year[yr] ~ dnorm(0, tau_b_year)        # random slope for year
+  }
   
-#  # Sampling Event
-#  for (k in 1:n_event) {
-#    eta_event[k] ~ dnorm(0, tau_event)       # random intercept for year/survey 'sampling event'
-#  }
+  # Sampling Event
+  for (k in 1:n_event) {
+    eta_event[k] ~ dnorm(0, tau_event)       # random intercept for year/survey 'sampling event'
+  }
   
-#  # Cluster ID
-#  for (c in 1:n_cluster) {
-#    eta_cluster[c] ~ dnorm(0, tau_cluster)
-#  }
+  # Cluster ID
+  for (c in 1:n_cluster) {
+    eta_cluster[c] ~ dnorm(0, tau_cluster)
+  }
 
-#  # Hyperpriors
-#  sigma ~ dunif(0, 10)
-#  tau <- pow(sigma, -2)
+  # Hyperpriors
+  sigma ~ dunif(0, 10)
+  tau <- pow(sigma, -2)
 
-#  sigma_stream ~ dunif(0, 10)
-#  tau_stream <- pow(sigma_stream, -2)
+  sigma_stream ~ dunif(0, 10)
+  tau_stream <- pow(sigma_stream, -2)
 
-#  sigma_b_stream ~ dunif(0, 10)
-#  tau_b_stream <- pow(sigma_b_stream, -2)
+  sigma_b_stream ~ dunif(0, 10)
+  tau_b_stream <- pow(sigma_b_stream, -2)
   
-#  sigma_b_year ~ dunif(0,10)
-#  tau_b_year <- pow(sigma_b_year, -2)
+  sigma_b_year ~ dunif(0,10)
+  tau_b_year <- pow(sigma_b_year, -2)
 
-#  sigma_event ~ dunif(0, 10)
-#  tau_event <- pow(sigma_event, -2)
+  sigma_event ~ dunif(0, 10)
+  tau_event <- pow(sigma_event, -2)
   
-#  sigma_cluster ~ dunif(0,10)
-#  tau_cluster <- pow(sigma_cluster, -2)
-#}
-#", fill = TRUE)
+  sigma_cluster ~ dunif(0,10)
+  tau_cluster <- pow(sigma_cluster, -2)
+}
+", fill = TRUE)
 
-#sink()
+sink()
 
 
 m2_data_list <- list(
@@ -5721,9 +5742,9 @@ m2_HGLM_SWA <- jags(data = m2_data_list,
                    n.burnin = nburn)
 
 
-#Sys.time()
+Sys.time()
 
-print(m2_HGLM_SWA) # model with local and watershed dam density as fixed effects
+print(m2_HGLM_SWA)
 
 ```
 difference in sys.time = elapsed time for model to run
@@ -6053,4 +6074,890 @@ ggplot(prop_df, aes(x = prop)) +
 
 ```
 
+
+
+
+
+----
+
+----
+
+----
+
+----
+
+----
+
+----
+
+----
+
+
+This next section intends to explore seasonal variation in beaver dam effect. 
+
+Uses nested random slopes for beaver dam effect to allow for stream, year, and 
+sampleEvent to cause deviation from the global mean beaver effect.
+
+
+Implement HGLMMs:
+----
+
+
+M3: Dam Presence Only; seasonal random slope (sampleEvent)
+----
+
+
+```{r, echo=FALSE}
+library(jagsUI)
+
+Sys.time()
+
+sink("m3_HGLM_SWA.jags")
+
+cat("
+model {
+
+  for (i in 1:N) {
+    SWA[i] ~ dnorm(mu[i], tau)
+
+  mu[i] <- alpha
+             + (beta1 
+                + b_stream[stream[i]] 
+                + b_event[sampleEvent[i]]) * damPresence[i]
+             + eta_stream[stream[i]]
+             + eta_event[sampleEvent[i]]
+             + eta_cluster[clusterID[i]]
+  }
+
+  # Fixed effects
+  alpha ~ dnorm(0, 0.001)
+  beta1 ~ dnorm(0, 0.001)
+
+  # Random Effects
+  # Stream/Watershed
+  for (j in 1:n_stream) {
+    eta_stream[j] ~ dnorm(0, tau_stream)     # random intercept for stream
+    b_stream[j]   ~ dnorm(0, tau_b_stream)   # random slope for stream
+  }
+  
+  # Year-level dam effect
+  for(yr in 1:n_year) {
+    b_year[yr] ~ dnorm(0, tau_b_year)        # random slope for year
+  }
+  
+  # Event-level dam effect nested within year
+  for (k in 1:n_event) {
+    b_event[k] ~ dnorm(b_year[event_year[k]],tau_b_event)       # random slope for year/survey 'sampling event'
+    eta_event[k] ~ dnorm(0, tau_event)
+  }
+  
+  # Cluster ID
+  for (c in 1:n_cluster) {
+    eta_cluster[c] ~ dnorm(0, tau_cluster)
+  }
+
+  # Hyperpriors
+  sigma ~ dunif(0, 100)
+  tau <- pow(sigma, -2)
+
+  sigma_stream ~ dunif(0, 10)
+  tau_stream <- pow(sigma_stream, -2)
+
+  sigma_b_stream ~ dunif(0, 10)
+  tau_b_stream <- pow(sigma_b_stream, -2)
+  
+  sigma_b_year ~ dunif(0,10)
+  tau_b_year <- pow(sigma_b_year, -2)
+
+  sigma_b_event ~ dunif(0, 10)
+  tau_b_event <- pow(sigma_b_event, -2)
+  
+  sigma_event ~ dunif(0,10)
+  tau_event <- pow(sigma_event, -2)
+  
+  
+  sigma_cluster ~ dunif(0,10)
+  tau_cluster <- pow(sigma_cluster, -2)
+}
+", fill = TRUE)
+
+sink()
+
+
+m3_data_list <- list(
+  N = nrow(aoi_GLM_Data_mod_3_4),
+  SWA = aoi_GLM_Data_mod_3_4$SWA,
+  damPresence = aoi_GLM_Data_mod_3_4$damPresence,
+  stream = aoi_GLM_Data_mod_3_4$stream,
+  year_id = aoi_GLM_Data_mod_3_4$year_id,
+  clusterID = aoi_GLM_Data_mod_3_4$clusterID_num,
+  n_stream = length(unique(aoi_GLM_Data_mod_3_4$stream)),
+  n_year = length(unique(aoi_GLM_Data_mod_3_4$year_id)),
+  n_cluster = length(unique(aoi_GLM_Data_mod_3_4$clusterID_num)),
+  sampleEvent = aoi_GLM_Data_mod_3_4$sampleEvent_new,
+  n_event = length(unique(aoi_GLM_Data_mod_3_4$sampleEvent_new)),
+  event_year = event_year_3_4
+)
+
+m3inits <- function(){list(
+    alpha = rnorm(1, 0, 1),
+    beta1 = rnorm(1, 0, 1),
+    sigma = runif(1, 1, 20)
+    )}
+
+parameters_m3 <- c(
+  "alpha",
+  "beta1",
+  "b_stream",
+  "b_year",
+  "b_event",
+  "sigma",
+  "eta_stream",
+  "eta_event",
+  "eta_cluster",
+  "sigma_stream",
+  "sigma_b_stream",
+  "sigma_b_year",
+  "sigma_b_event",
+  "sigma_event",
+  "sigma_cluster"
+)
+
+nchains <- 3
+nthin <- 10
+niter <- 20000
+nburn <- 5000
+
+m3_HGLM_SWA <- jags(data = m3_data_list,
+                   inits = m3inits,
+                   parameters.to.save = parameters_m3,
+                   model.file = "m3_HGLM_SWA.jags",
+                   parallel = T,
+                   n.chains = nchains,
+                   n.thin = nthin,
+                   n.iter = niter,
+                   n.burnin = nburn)
+
+
+Sys.time()
+
+print(m3_HGLM_SWA) # model with local and watershed dam density as fixed effects
+
+```
+difference in sys.time = elapsed time for model to run
+
+```{r, echo=FALSE}
+# Extract posteriors for parameters of interest
+
+#library(dplyr)
+#library(tidyr)
+#library(ggplot2)
+#library(purrr)
+
+# Extract posterior draws
+M3post <- m3_HGLM_SWA$sims.list
+
+# Select only scalar parameters (convert random effects matrices)
+# Scalars
+M3df_scalar <- tibble(
+  parameter = c("alpha", "beta1"),
+  mean = c(mean(M3post$alpha), 
+           mean(M3post$beta1)),
+  lower = c(quantile(M3post$alpha, 0.025), 
+            quantile(M3post$beta1, 0.025)),
+  upper = c(quantile(M3post$alpha, 0.975), 
+            quantile(M3post$beta1, 0.975))
+)
+
+# Stream-level slopes
+M3df_stream <- map_df(1:ncol(M3post$b_stream), function(j){
+  tibble(
+    parameter = paste0("b_stream[", j, "]"),
+    mean = mean(M3post$b_stream[, j]),
+    lower = quantile(M3post$b_stream[, j], 0.025),
+    upper = quantile(M3post$b_stream[, j], 0.975)
+  )
+})
+
+# Season-level slopes
+M3df_event <- map_df(1:ncol(M3post$b_event), function(y){
+  tibble(
+    parameter = paste0("b_event[", y, "]"),
+    mean = mean(M3post$b_event[, y]),
+    lower = quantile(M3post$b_event[, y], 0.025),
+    upper = quantile(M3post$b_event[, y], 0.975)
+  )
+})
+
+M3summary_df <- bind_rows(M3df_scalar, M3df_stream, M3df_event)
+
+# Give parameters meaningful names
+pretty_names <- c(
+  alpha           = "Intercept",
+  beta1           = "Dam Presence",
+  "b_stream[1]"   = "Brazil Ck",
+  "b_stream[2]"   = "Lower Beaver Ck",
+  "b_stream[3]"   = "Larb Ck",
+  "b_stream[4]"   = "Lone Tree Ck",
+  "b_stream[5]"   = "Upper Beaver Ck",
+  "b_stream[6]"   = "Willow Ck",
+  "b_event[1]"     = "19_t1",
+  "b_event[2]"     = "19_t2",
+  "b_event[3]"     = "19_t3",
+  "b_event[4]"     = "19_t4",
+  "b_event[5]"     = "19_t5",
+  "b_event[6]"     = "19_t6",
+  "b_event[7]"     = "19_t7",
+  "b_event[8]"     = "19_t8",
+  "b_event[9]"     = "21_t1",
+  "b_event[10]"     = "21_t2",
+  "b_event[11]"     = "21_t3",
+  "b_event[12]"     = "21_t4",
+  "b_event[13]"     = "21_t5",
+  "b_event[14]"     = "21_t6",
+  "b_event[15]"     = "21_t7",
+  "b_event[16]"     = "21_t8",
+  "b_event[17]"     = "23_t5",
+  "b_event[18]"     = "23_t6",
+  "b_event[19]"     = "23_t7",
+  "b_event[20]"     = "23_t8"
+)
+
+
+# Plot
+ggplot(M3summary_df, 
+       aes(x = parameter, 
+           y = mean)) +
+  geom_point(size = 3) +
+  geom_errorbar(aes(ymin = lower, 
+                    ymax = upper), width = 0.1) +
+  geom_hline(yintercept = 0, color = "black", linewidth = 1) +
+  coord_flip() +
+  scale_x_discrete(labels = pretty_names) +
+  theme_minimal(base_size = 14) +
+  labs(
+    title = expression("Model 1: " * SWA ~ Dam_Presence ),
+    subtitle = "Posterior Means and 95% Credible Intervals",
+    x = "Parameter",
+    y = "Posterior Mean"
+  ) +
+  theme(axis.text.y = element_text(size = 12))
+
+print(mean(m3_HGLM_SWA$sims.list$beta1))
+```
+
+
+^^^ Average dam effect across the study area is 283.9. This translates to:
+
+"On average, dammed reaches pond about 284 m^2 more surface water than undammed 
+reaches."
+
+
+----
+
+
+```{r,echo=FALSE}
+# HEAT MAP IT
+
+M3n_sims   <- length(M3post$beta1)
+M3n_stream <- ncol(M3post$b_stream)
+M3n_event   <- ncol(M3post$b_event)
+
+#range(M3post$b_stream[,3] + M3post$b_year[,2] + M3post$beta1)
+
+
+M3DamEffect <- array(NA, dim = c(M3n_sims, 
+                                 M3n_stream, 
+                                 M3n_event))
+
+for(j in 1:M3n_stream){
+  for(e in 1:M3n_event){
+    M3DamEffect[, j, e] <- M3post$beta1 +
+                           M3post$b_stream[, j] +
+                           M3post$b_event[, e]
+  }
+}
+
+```
+
+
+```{r,echo=FALSE}
+#Summarize posteriors for each 
+
+M3summary_list <- list()
+
+for(j in 1:M3n_stream){
+  for(e in 1:M3n_event){
+    
+    eff <- as.vector(M3DamEffect[, j, e, drop = FALSE])
+    
+    M3summary_list[[paste(j, e, sep = "_")]] <- tibble(
+      stream = j,
+      event = e,
+      mean = mean(eff),
+      lower = quantile(eff, 0.025),
+      upper = quantile(eff, 0.975),
+      positive = quantile(eff, 0.025) > 0
+    )
+  }
+}
+
+# Build explicit lookups from the data actually used in the model
+stream_lookup <- aoi_GLM_Data_mod %>%
+  distinct(stream, watershed) %>%
+  arrange(stream)
+
+# Event lookup created above
+
+M3effect_df <- bind_rows(M3summary_list) %>%
+  left_join(stream_lookup, by = c("stream")) %>%
+  left_join(event_lookup,  by = c("event" = "new"))
+
+# order watersheds by factor levels of ascending max CDA
+M3effect_df <- M3effect_df %>%
+  mutate(watershed = factor(watershed, levels = uda_lookup$watershed))
+
+
+
+# Plot the heatmap
+
+ggplot(M3effect_df, aes(x = as.factor(event), 
+                        y = watershed, 
+                        fill = mean)) +
+  geom_tile(color = "black") +
+  scale_fill_gradient2(
+    low = "goldenrod",
+    mid = "white",
+    high = "navy",
+    midpoint = 0,
+    name = "Dam Effect"
+  ) +
+  labs(
+    x = "Sampling Event",
+    y = "Watershed",
+    title = "M3: Magnitude of Beaver Dam Effect on Surface Water Area"
+  ) +
+  theme_minimal(base_size = 14)
+```
+
+
+^^^^ With SUBSTANTIAL variation among watersheds and years
+
+
+
+Compare b1 trajectory across event, by stream:
+
+```{r, echo=FALSE}
+M3line_df <- M3effect_df %>%
+  arrange(watershed, event) %>%
+  mutate(event = as.numeric(event)) %>%
+  group_by(watershed) %>%
+  do({
+    df <- .
+
+    gap_rows <- tibble(
+      stream = df$stream[1],
+      event = c(8.5, 16.5),   # ← add as many gaps as you want
+      mean = NA,
+      lower = NA,
+      upper = NA,
+      positive = NA,
+      watershed = df$watershed[1]
+    )
+
+    bind_rows(df, gap_rows)
+  }) %>%
+  arrange(watershed, event)
+
+
+
+ggplot(M3line_df, aes(x = event, y = mean, color = watershed, group = watershed)) +
+  geom_line(linewidth = 1.2, na.rm = TRUE) +
+  geom_point(size = 2, na.rm = TRUE) +
+  geom_hline(yintercept = 0, color = "black", linewidth = 1) +
+  scale_x_continuous(
+    breaks = unique(M3effect_df$event),
+    labels = unique(event_lookup$label)   # if you want "19_t1", "19_t2", etc.
+  ) +
+  labs(
+    title = "Seasonal Trajectory of Beaver Dam Effect on SWA",
+    subtitle = "Each line represents a watershed; gap reflects missing early-season 2023 events",
+    x = "Sampling Event",
+    y = "Dam Effect (m²)"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "right"
+  )
+
+```
+
+
+
+
+----
+
+----
+
+----
+
+M2: Dam Presence + Context
+----
+
+
+```{r, echo=FALSE}
+library(jagsUI)
+
+Sys.time()
+
+sink("m2_HGLM_SWA.jags")
+
+cat("
+model {
+
+  for (i in 1:N) {
+    SWA[i] ~ dnorm(mu[i], tau)
+
+    mu[i] <- alpha
+             + (beta1 + b_stream[stream[i]] + b_year[year_id[i]]) * damPresence[i]
+             + beta2 * TO[i] 
+             + beta3 * RIPA[i]
+             + beta4 * UDA[i]
+             + eta_stream[stream[i]]
+             + eta_event[sampleEvent[i]]
+             + eta_cluster[clusterID[i]]
+  }
+
+  # Fixed effects
+  alpha ~ dnorm(0, 0.001)
+  beta1 ~ dnorm(0, 0.001)
+  beta2 ~ dnorm(0, 0.001)
+  beta3 ~ dnorm(0, 0.001)
+  beta4 ~ dnorm(0, 0.001)
+
+  # Random Effects
+  # Stream/Watershed
+  for (j in 1:n_stream) {
+    eta_stream[j] ~ dnorm(0, tau_stream)     # random intercept for stream
+    b_stream[j]   ~ dnorm(0, tau_b_stream)   # random slope for stream
+  }
+  
+  # Year
+  for(yr in 1:n_year) {
+    b_year[yr] ~ dnorm(0, tau_b_year)        # random slope for year
+  }
+  
+  # Sampling Event
+  for (k in 1:n_event) {
+    eta_event[k] ~ dnorm(0, tau_event)       # random intercept for year/survey 'sampling event'
+  }
+  
+  # Cluster ID
+  for (c in 1:n_cluster) {
+    eta_cluster[c] ~ dnorm(0, tau_cluster)
+  }
+
+  # Hyperpriors
+  sigma ~ dunif(0, 10)
+  tau <- pow(sigma, -2)
+
+  sigma_stream ~ dunif(0, 10)
+  tau_stream <- pow(sigma_stream, -2)
+
+  sigma_b_stream ~ dunif(0, 10)
+  tau_b_stream <- pow(sigma_b_stream, -2)
+  
+  sigma_b_year ~ dunif(0,10)
+  tau_b_year <- pow(sigma_b_year, -2)
+
+  sigma_event ~ dunif(0, 10)
+  tau_event <- pow(sigma_event, -2)
+  
+  sigma_cluster ~ dunif(0,10)
+  tau_cluster <- pow(sigma_cluster, -2)
+}
+", fill = TRUE)
+
+sink()
+
+
+m2_data_list <- list(
+  N = nrow(aoi_GLM_Data_mod),
+  SWA = aoi_GLM_Data_mod$SWA,
+  damPresence = aoi_GLM_Data_mod$damPresence,
+  TO = as.numeric(scale(1-(aoi_GLM_Data_mod$TO/90))),
+  RIPA = as.numeric(scale(aoi_GLM_Data_mod$riparian_area_m2)),
+  UDA = as.numeric(scale(aoi_GLM_Data_mod$catchment_km2)),
+  stream = aoi_GLM_Data_mod$stream,
+  year_id = aoi_GLM_Data_mod$year_id,
+  sampleEvent = aoi_GLM_Data_mod$sampleEvent,
+  clusterID = aoi_GLM_Data_mod$clusterID_num,
+  n_stream = length(unique(aoi_GLM_Data_mod$stream)),
+  n_event = length(unique(aoi_GLM_Data_mod$sampleEvent)),
+  n_year = length(unique(aoi_GLM_Data_mod$year_id)),
+  n_cluster = length(unique(aoi_GLM_Data_mod$clusterID_num))
+)
+
+parameters_m2 <- c(
+  "alpha",
+  "beta1",
+  "b_stream",
+  "b_year",
+  "beta2",
+  "beta3",
+  "beta4",
+  "sigma",
+  "eta_stream",
+  "eta_event",
+  "eta_cluster",
+  "sigma_stream",
+  "sigma_b_stream",
+  "sigma_b_year",
+  "sigma_event",
+  "sigma_cluster"
+)
+
+m2_HGLM_SWA <- jags(data = m2_data_list,
+                   inits = inits,
+                   parameters.to.save = parameters_m2,
+                   model.file = "m2_HGLM_SWA.jags",
+                   parallel = T,
+                   n.chains = nchains,
+                   n.thin = nthin,
+                   n.iter = niter,
+                   n.burnin = nburn)
+
+
+Sys.time()
+
+print(m2_HGLM_SWA)
+
+```
+difference in sys.time = elapsed time for model to run
+
+
+**NOTE:**
+----
+
+In M2, TO was transformed to "channel incision" by taking the inverse of proportion openness:
+
+$$ChannelIncision = 1 - (TO/90) $$
+
+Where $(TO/90)$ is the proportion of max openness (90 degrees = "flat"/"fully open")
+
+
+
+
+```{r, echo=FALSE}
+# Extract posteriors for parameters of interest
+
+#library(dplyr)
+#library(tidyr)
+#library(ggplot2)
+#library(purrr)
+
+# Extract posterior draws
+M2post <- m2_HGLM_SWA$sims.list
+
+# Select only scalar parameters (convert random effects matrices)
+# Scalars
+M2df_scalar <- tibble(
+  parameter = c("alpha", "beta1", "beta2", "beta3", "beta4"),
+  mean = c(mean(M2post$alpha), 
+           mean(M2post$beta1), 
+           mean(M2post$beta2), 
+           mean(M2post$beta3),
+           mean(M2post$beta4)),
+  lower = c(quantile(M2post$alpha, 0.025), 
+            quantile(M2post$beta1, 0.025),
+            quantile(M2post$beta2, 0.025),
+            quantile(M2post$beta3, 0.025),
+            quantile(M2post$beta4, 0.025)),
+  upper = c(quantile(M2post$alpha, 0.975), 
+            quantile(M2post$beta1, 0.975),
+            quantile(M2post$beta2, 0.975),
+            quantile(M2post$beta3, 0.975),
+            quantile(M2post$beta4, 0.975))
+)
+
+# Stream-level slopes
+M2df_stream <- map_df(1:ncol(M2post$b_stream), function(j){
+  tibble(
+    parameter = paste0("b_stream[", j, "]"),
+    mean = mean(M2post$b_stream[, j]),
+    lower = quantile(M2post$b_stream[, j], 0.025),
+    upper = quantile(M2post$b_stream[, j], 0.975)
+  )
+})
+
+# Year-level slopes
+M2df_year <- map_df(1:ncol(M2post$b_year), function(y){
+  tibble(
+    parameter = paste0("b_year[", y, "]"),
+    mean = mean(M2post$b_year[, y]),
+    lower = quantile(M2post$b_year[, y], 0.025),
+    upper = quantile(M2post$b_year[, y], 0.975)
+  )
+})
+
+M2summary_df <- bind_rows(M2df_scalar, M2df_stream, M2df_year)
+
+# Give parameters meaningful names
+pretty_names <- c(
+  alpha           = "Intercept",
+  beta1           = "Dam Presence",
+  beta2           = "Topographic Openness",
+  beta3           = "Riparian Area (m^2)",
+  beta4           = "Contributing Drainage Area",
+  "b_stream[1]"   = "Brazil Ck",
+  "b_stream[2]"   = "Lower Beaver Ck",
+  "b_stream[3]"   = "Larb Ck",
+  "b_stream[4]"   = "Lone Tree Ck",
+  "b_stream[5]"   = "Upper Beaver Ck",
+  "b_stream[6]"   = "Willow Ck",
+  "b_year[1]"     = "2019",
+  "b_year[2]"     = "2021",
+  "b_year[3]"     = "2023"
+)
+
+
+# Plot
+ggplot(M2summary_df %>% filter(parameter == "beta1" |
+                               parameter == "beta2" |
+                               parameter == "beta3" |
+                               parameter == "beta4"), 
+       aes(x = parameter, 
+           y = mean)) +
+  geom_point(size = 3) +
+  geom_errorbar(aes(ymin = lower, 
+                    ymax = upper), width = 0.1) +
+  geom_hline(yintercept = 0, color = "black", linewidth = 1) +
+  coord_flip() +
+  scale_x_discrete(labels = pretty_names) +
+  scale_y_continuous(limits = c(-100, 800)) +
+  theme_minimal(base_size = 14) +
+  labs(
+    title = expression("Model 2: (" * SWA * " ~ " * Dam_Presence * ") Considering Geomorphic Context" ),
+    subtitle = "Posterior Means and 95% Credible Intervals",
+    x = "Parameter",
+    y = "Posterior Mean"
+  ) +
+  theme(axis.text.y = element_text(size = 12))
+
+```
+
+M2 Mean Dam Effect:
+
+Same interpretation as M1
+
+```{r,echo=FALSE}
+print(mean(m2_HGLM_SWA$sims.list$beta1))
+```
+
+M2 Mean TO Effect
+
+Interpretation: SWA(m^2) change per 1 standard deviation increase in TO
+
+```{r,echo=FALSE}
+print(mean(m2_HGLM_SWA$sims.list$beta2))
+```
+
+M2 Mean RIPA Effect:
+
+Interpretation: SWA(m^2) change per 1 standard deviation increase in RIPA
+
+
+```{r,echo=FALSE}
+print(mean(m2_HGLM_SWA$sims.list$beta3))
+```
+
+M2 Mean CDA Effect
+
+Interpretation: SWA(m^2) change per 1 standard deviation increase in CDA
+
+
+```{r,echo=FALSE}
+print(mean(m2_HGLM_SWA$sims.list$beta4))
+```
+
+
+
+```{r,echo=FALSE}
+# HEAT MAP IT
+
+M2n_sims   <- length(M2post$beta1)
+M2n_stream <- ncol(M2post$b_stream)
+M2n_year   <- ncol(M2post$b_year)
+
+#range(M2post$b_stream[,3] + M2post$b_year[,2] + M2post$beta1)
+
+
+M2DamEffect <- array(NA, dim = c(M2n_sims, 
+                                 M2n_stream, 
+                                 M2n_year))
+
+for(j in 1:M2n_stream){
+  for(y in 1:M2n_year){
+    M2DamEffect[, j, y] <- M2post$beta1 +
+                           M2post$b_stream[, j] +
+                           M2post$b_year[, y]
+  }
+}
+
+```
+
+
+```{r,echo=FALSE}
+#Summarize posteriors for each 
+
+M2summary_list <- list()
+
+for(j in 1:M2n_stream){
+  for(y in 1:M2n_year){
+    
+    eff <- as.vector(M2DamEffect[, j, y, drop = FALSE])
+    
+    M2summary_list[[paste(j, y, sep = "_")]] <- tibble(
+      stream = j,
+      year = y,
+      mean = mean(eff),
+      lower = quantile(eff, 0.025),
+      upper = quantile(eff, 0.975),
+      positive = quantile(eff, 0.025) > 0
+    )
+  }
+}
+
+
+M2effect_df <- bind_rows(M2summary_list) %>%
+  left_join(stream_lookup, by = c("stream")) %>%
+  left_join(year_lookup,  by = c("year" = "year_id")) %>%
+  rename(year_id = year) %>% 
+  left_join(uda_lookup, by = "watershed")
+
+# order watersheds by factor levels of ascending max UDA
+M2effect_df <- M2effect_df %>%
+  mutate(watershed = factor(
+    watershed,
+    levels = c("WC", "LT", "BRZ", "LRB", "LBV", "UBV")
+  ))
+
+
+# Plot the heatmap
+
+ggplot(M2effect_df, aes(x = as.factor(year.y), 
+                        y = watershed, 
+                        fill = mean)) +
+  geom_tile(color = "black") +
+  scale_fill_gradient2(
+    low = "grey90",
+    mid = "grey100",
+    high = "dodgerblue4",
+    midpoint = 0,
+    name = "Model 2 
+Dam Effect"
+  ) +
+  labs(
+    x = "Year",
+    y = "Watershed 
+Arranged By Drainage Area",
+    title = "Magnitude of Dam Effect by Watershed and Year"
+  ) +
+  theme_minimal(base_size = 14)
+```
+
+^^^ Less dam effect overall, still lots of variation among watersheds and years
+
+Also, streams are ordered here ^^ by contributing drainage area. Higher on the y axis = greater drainage area
+
+
+
+
+
+Visualize proportional effect of beaver dams on riparian inundation
+----
+
+'average dam inundated ~2% of available riparian space'
+
+```{r, echo=FALSE}
+# Posterior draws of dam effect (population-level)
+dam_post <- M2post$beta1   # vector of length ~4500
+
+# Median riparian area (real units)
+RIPA_med <- median(aoi_GLM_Data_mod$riparian_area_m2)
+
+# Posterior distribution of proportional inundation
+prop_post <- dam_post / RIPA_med
+
+# Summaries
+quantile(prop_post, c(0.025, 0.5, 0.975))
+
+
+prop_df1 <- tibble(prop = prop_post)
+
+ggplot(prop_df1, aes(x = prop)) +
+  geom_density(fill = "skyblue", alpha = 0.4, linewidth = 1.2) +
+  geom_vline(xintercept = median(prop_post), color = "blue", linewidth = 1) +
+  geom_vline(xintercept = quantile(prop_post, 0.025), linetype = "dashed") +
+  geom_vline(xintercept = quantile(prop_post, 0.975), linetype = "dashed") +
+  scale_x_continuous(labels = scales::percent_format(accuracy = 0.1)) +
+  labs(
+    x = "Proportion of Riparian Area Inundated by Dams",
+    y = "Posterior Density",
+    title = "Posterior Distribution of Proportional Riparian Inundation",
+    subtitle = expression("Based on population-level dam effect ( " * beta * 1 * " ) and median riparian area")
+  ) +
+  theme_minimal(base_size = 14)
+
+
+
+```
+
+Check proportional change from undammed to dammed
+----
+
+```{r, echo=TRUE}
+# Compute predicted baseline for 'typical' reach for each stream/year
+
+TO_z_med <- median(as.numeric(scale(aoi_GLM_Data_mod$TO)))
+
+RIPA_z_med <- median(as.numeric(scale(aoi_GLM_Data_mod$riparian_area_m2)))
+
+UDA_z_med <- median(as.numeric(scale(aoi_GLM_Data_mod$catchment_km2)))
+
+post <- M2post
+
+SWA0_global <- post$alpha +
+  post$beta2 * TO_z_med +
+  post$beta3 * RIPA_z_med +
+  post$beta4 * UDA_z_med
+
+SWA0_global <- pmax(SWA0_global, 0)  # enforce SWA ≥ 0
+
+
+# global effect
+
+prop_global <- post$beta1 / SWA0_global
+quantile(prop_global, c(0.025, 0.5, 0.975))
+
+
+prop_df <- tibble(prop = prop_global)
+
+ggplot(prop_df, aes(x = prop)) +
+  geom_density(fill = "skyblue", alpha = 0.4, linewidth = 1.2) +
+  geom_vline(xintercept = median(prop_global), color = "blue", linewidth = 1) +
+  geom_vline(xintercept = quantile(prop_global, 0.025), linetype = "dashed") +
+  geom_vline(xintercept = quantile(prop_global, 0.975), linetype = "dashed") +
+  scale_x_continuous(labels = scales::percent_format(accuracy = 0.1)) +
+  labs(
+    x = "Proportional Change in SWA (Dammed vs Undammed)",
+    y = "Posterior Density",
+    title = "Global Proportional Effect of Beaver Dams",
+    subtitle = "Population-level dam effect relative to global baseline SWA"
+  ) +
+  theme_minimal(base_size = 14)
+
+
+```
 
