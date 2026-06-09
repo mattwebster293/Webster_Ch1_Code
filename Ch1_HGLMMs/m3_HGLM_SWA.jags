@@ -5,13 +5,12 @@ model {
     SWA[i] ~ dnorm(mu[i], tau)
 
   mu[i] <- alpha
-             + (beta1 
-                + b_stream[stream[i]] 
-                + b_event[sampleEvent[i]]) * damPresence[i]
+             + (beta1
+                + b_stream_event[stream[i],sampleEvent[i]]) * damPresence[i]
              + eta_stream[stream[i]]
              + eta_event[sampleEvent[i]]
              + eta_cluster[clusterID[i]]
-             }
+  }
 
   # Fixed effects
   alpha ~ dnorm(0, 0.001)
@@ -33,6 +32,13 @@ model {
   for (k in 1:n_event) {
     b_event[k] ~ dnorm(b_year[event_year[k]],tau_b_event)       # random slope for year/survey 'sampling event'
     eta_event[k] ~ dnorm(0, tau_event)
+  }
+  
+  # Stream/Event Interaction
+  for(j in 1:n_stream){
+    for(k in 1:n_event){
+      b_stream_event[j,k] ~ dnorm(b_event[k] + b_stream[j], tau_b_stream_event)
+    }
   }
   
   # Cluster ID
@@ -59,6 +65,8 @@ model {
   sigma_event ~ dunif(0,10)
   tau_event <- pow(sigma_event, -2)
   
+  sigma_b_stream_event ~ dunif(0,10)
+  tau_b_stream_event <- pow(sigma_b_stream_event, -2)
   
   sigma_cluster ~ dunif(0,10)
   tau_cluster <- pow(sigma_cluster, -2)
