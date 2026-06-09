@@ -6121,9 +6121,8 @@ model {
     SWA[i] ~ dnorm(mu[i], tau)
 
   mu[i] <- alpha
-             + (beta1 
-                + b_stream[stream[i]] 
-                + b_event[sampleEvent[i]]) * damPresence[i]
+             + (beta1
+                + b_stream_event[stream[i],sampleEvent[i]]) * damPresence[i]
              + eta_stream[stream[i]]
              + eta_event[sampleEvent[i]]
              + eta_cluster[clusterID[i]]
@@ -6151,6 +6150,13 @@ model {
     eta_event[k] ~ dnorm(0, tau_event)
   }
   
+  # Stream/Event Interaction
+  for(j in 1:n_stream){
+    for(k in 1:n_event){
+      b_stream_event[j,k] ~ dnorm(b_event[k] + b_stream[j], tau_b_stream_event)
+    }
+  }
+  
   # Cluster ID
   for (c in 1:n_cluster) {
     eta_cluster[c] ~ dnorm(0, tau_cluster)
@@ -6175,6 +6181,8 @@ model {
   sigma_event ~ dunif(0,10)
   tau_event <- pow(sigma_event, -2)
   
+  sigma_b_stream_event ~ dunif(0,10)
+  tau_b_stream_event <- pow(sigma_b_stream_event, -2)
   
   sigma_cluster ~ dunif(0,10)
   tau_cluster <- pow(sigma_cluster, -2)
@@ -6189,7 +6197,6 @@ m3_data_list <- list(
   SWA = aoi_GLM_Data_mod_3_4$SWA,
   damPresence = aoi_GLM_Data_mod_3_4$damPresence,
   stream = aoi_GLM_Data_mod_3_4$stream,
-  year_id = aoi_GLM_Data_mod_3_4$year_id,
   clusterID = aoi_GLM_Data_mod_3_4$clusterID_num,
   n_stream = length(unique(aoi_GLM_Data_mod_3_4$stream)),
   n_year = length(unique(aoi_GLM_Data_mod_3_4$year_id)),
@@ -6211,6 +6218,7 @@ parameters_m3 <- c(
   "b_stream",
   "b_year",
   "b_event",
+  "b_stream_event",
   "sigma",
   "eta_stream",
   "eta_event",
@@ -6219,6 +6227,7 @@ parameters_m3 <- c(
   "sigma_b_stream",
   "sigma_b_year",
   "sigma_b_event",
+  "sigma_b_stream_event",
   "sigma_event",
   "sigma_cluster"
 )
@@ -6336,7 +6345,7 @@ ggplot(M3summary_df,
   scale_x_discrete(labels = pretty_names) +
   theme_minimal(base_size = 14) +
   labs(
-    title = expression("Model 1: " * SWA ~ Dam_Presence ),
+    title = expression("Model 3: " * SWA ~ Dam_Presence ),
     subtitle = "Posterior Means and 95% Credible Intervals",
     x = "Parameter",
     y = "Posterior Mean"
@@ -6360,8 +6369,8 @@ reaches."
 # HEAT MAP IT
 
 M3n_sims   <- length(M3post$beta1)
-M3n_stream <- ncol(M3post$b_stream)
-M3n_event   <- ncol(M3post$b_event)
+M3n_stream <- dim(M3post$b_stream_event)[2]
+M3n_event   <- dim(M3post$b_stream_event)[3]
 
 #range(M3post$b_stream[,3] + M3post$b_year[,2] + M3post$beta1)
 
@@ -6373,8 +6382,7 @@ M3DamEffect <- array(NA, dim = c(M3n_sims,
 for(j in 1:M3n_stream){
   for(e in 1:M3n_event){
     M3DamEffect[, j, e] <- M3post$beta1 +
-                           M3post$b_stream[, j] +
-                           M3post$b_event[, e]
+                           M3post$b_stream_event[,j,e]
   }
 }
 
@@ -6480,10 +6488,11 @@ ggplot(M3line_df, aes(x = event, y = mean, color = watershed, group = watershed)
     labels = unique(event_lookup$label)   # if you want "19_t1", "19_t2", etc.
   ) +
   labs(
-    title = "Seasonal Trajectory of Beaver Dam Effect on SWA",
-    subtitle = "Each line represents a watershed; gap reflects missing early-season 2023 events",
-    x = "Sampling Event",
-    y = "Dam Effect (m²)"
+    title = "Seasonal Trajectory of Beaver Dam Effect on SWA, by Watershed",
+    subtitle = "Gaps represent breaks by Year; t1:t4 excluded for 2023",
+    x = "Sampling Event \n (2019, t1:t8) \n (2021,t1:t8) \n (2023, t5:t8)",
+    y = "Dam Effect (SWA m²)",
+    color = "Watershed"
   ) +
   theme_minimal(base_size = 14) +
   theme(
@@ -6492,7 +6501,6 @@ ggplot(M3line_df, aes(x = event, y = mean, color = watershed, group = watershed)
   )
 
 ```
-
 
 
 
