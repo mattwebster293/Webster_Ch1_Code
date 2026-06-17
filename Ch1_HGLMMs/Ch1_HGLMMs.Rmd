@@ -5265,9 +5265,14 @@ uda_lookup <- aoi_GLM_Data_mod %>%
 
 
 
-# Start from the full modeled data
+# Start from the full modeled data and remove early summer time periods
+# This analysis will look exclusively at late season mesic resource availability
+# 08/01-09/30
+# t5:t8
 aoi_GLM_Data_mod_3_4 <- aoi_GLM_Data_mod %>% 
-  filter(!(sampleEvent %in% 17:20))   # drop 2023 t1–t4
+  filter(!(sampleEvent %in% 1:4) &      # drop 2019 t1-t4
+           !(sampleEvent %in% 9:12) &   # drop 2021 t1-t4
+           !(sampleEvent %in% 17:20))   # drop 2023 t1–t4
 
 event_lookup <- data.frame(
   old = sort(unique(aoi_GLM_Data_mod_3_4$sampleEvent)),
@@ -6510,7 +6515,7 @@ ggplot(M3line_df, aes(x = event, y = mean, color = watershed, group = watershed)
 
 ----
 
-M2: Dam Presence + Context
+M4: Dam Presence + Context with updated random effects structure
 ----
 
 
@@ -6519,16 +6524,17 @@ library(jagsUI)
 
 Sys.time()
 
-sink("m2_HGLM_SWA.jags")
+sink("m4_HGLM_SWA.jags")
 
 cat("
-model {
+    model {
 
   for (i in 1:N) {
     SWA[i] ~ dnorm(mu[i], tau)
 
-    mu[i] <- alpha
-             + (beta1 + b_stream[stream[i]] + b_year[year_id[i]]) * damPresence[i]
+  mu[i] <- alpha
+             + (beta1
+                + b_stream_event[stream[i],sampleEvent[i]]) * damPresence[i]
              + beta2 * TO[i] 
              + beta3 * RIPA[i]
              + beta4 * UDA[i]
@@ -6551,14 +6557,22 @@ model {
     b_stream[j]   ~ dnorm(0, tau_b_stream)   # random slope for stream
   }
   
-  # Year
+  # Year-level dam effect
   for(yr in 1:n_year) {
     b_year[yr] ~ dnorm(0, tau_b_year)        # random slope for year
   }
   
-  # Sampling Event
+  # Event-level dam effect nested within year
   for (k in 1:n_event) {
-    eta_event[k] ~ dnorm(0, tau_event)       # random intercept for year/survey 'sampling event'
+    b_event[k] ~ dnorm(b_year[event_year[k]],tau_b_event)       # random slope for year/survey 'sampling event'
+    eta_event[k] ~ dnorm(0, tau_event)
+  }
+  
+  # Stream/Event Interaction
+  for(j in 1:n_stream){
+    for(k in 1:n_event){
+      b_stream_event[j,k] ~ dnorm(b_event[k] + b_stream[j], tau_b_stream_event)
+    }
   }
   
   # Cluster ID
@@ -6567,7 +6581,7 @@ model {
   }
 
   # Hyperpriors
-  sigma ~ dunif(0, 10)
+  sigma ~ dnorm(0, 1 / pow(sd_SWA, 2)) T(0,)   # half-normal with sd ≈ sd_SWA
   tau <- pow(sigma, -2)
 
   sigma_stream ~ dunif(0, 10)
@@ -6579,8 +6593,14 @@ model {
   sigma_b_year ~ dunif(0,10)
   tau_b_year <- pow(sigma_b_year, -2)
 
-  sigma_event ~ dunif(0, 10)
+  sigma_b_event ~ dunif(0, 10)
+  tau_b_event <- pow(sigma_b_event, -2)
+  
+  sigma_event ~ dunif(0,10)
   tau_event <- pow(sigma_event, -2)
+  
+  sigma_b_stream_event ~ dunif(0,10)
+  tau_b_stream_event <- pow(sigma_b_stream_event, -2)
   
   sigma_cluster ~ dunif(0,10)
   tau_cluster <- pow(sigma_cluster, -2)
@@ -6590,31 +6610,39 @@ model {
 sink()
 
 
-m2_data_list <- list(
-  N = nrow(aoi_GLM_Data_mod),
-  SWA = aoi_GLM_Data_mod$SWA,
-  damPresence = aoi_GLM_Data_mod$damPresence,
-  TO = as.numeric(scale(1-(aoi_GLM_Data_mod$TO/90))),
-  RIPA = as.numeric(scale(aoi_GLM_Data_mod$riparian_area_m2)),
-  UDA = as.numeric(scale(aoi_GLM_Data_mod$catchment_km2)),
-  stream = aoi_GLM_Data_mod$stream,
-  year_id = aoi_GLM_Data_mod$year_id,
-  sampleEvent = aoi_GLM_Data_mod$sampleEvent,
-  clusterID = aoi_GLM_Data_mod$clusterID_num,
-  n_stream = length(unique(aoi_GLM_Data_mod$stream)),
-  n_event = length(unique(aoi_GLM_Data_mod$sampleEvent)),
-  n_year = length(unique(aoi_GLM_Data_mod$year_id)),
-  n_cluster = length(unique(aoi_GLM_Data_mod$clusterID_num))
+m4_data_list <- list(
+  N = nrow(aoi_GLM_Data_mod_3_4),
+  SWA = aoi_GLM_Data_mod_3_4$SWA,
+  damPresence = aoi_GLM_Data_mod_3_4$damPresence,
+  TO = as.numeric(scale(1-(aoi_GLM_Data_mod_3_4$TO/90))),
+  RIPA = as.numeric(scale(aoi_GLM_Data_mod_3_4$riparian_area_m2)),
+  UDA = as.numeric(scale(aoi_GLM_Data_mod_3_4$catchment_km2)),
+  stream = aoi_GLM_Data_mod_3_4$stream,
+  clusterID = aoi_GLM_Data_mod_3_4$clusterID_num,
+  n_stream = length(unique(aoi_GLM_Data_mod_3_4$stream)),
+  n_year = length(unique(aoi_GLM_Data_mod_3_4$year_id)),
+  n_cluster = length(unique(aoi_GLM_Data_mod_3_4$clusterID_num)),
+  sampleEvent = aoi_GLM_Data_mod_3_4$sampleEvent_new,
+  n_event = length(unique(aoi_GLM_Data_mod_3_4$sampleEvent_new)),
+  event_year = event_year_3_4,
+  sd_SWA = sd(aoi_GLM_Data_mod_3_4$SWA, na.rm = TRUE)
 )
 
-parameters_m2 <- c(
+m4inits <- function(){list(
+    alpha = rnorm(1, 0, 1),
+    beta1 = rnorm(1, 0, 1)
+    )}
+
+parameters_m4 <- c(
   "alpha",
   "beta1",
-  "b_stream",
-  "b_year",
   "beta2",
   "beta3",
   "beta4",
+  "b_stream",
+  "b_year",
+  "b_event",
+  "b_stream_event",
   "sigma",
   "eta_stream",
   "eta_event",
@@ -6622,14 +6650,21 @@ parameters_m2 <- c(
   "sigma_stream",
   "sigma_b_stream",
   "sigma_b_year",
+  "sigma_b_event",
+  "sigma_b_stream_event",
   "sigma_event",
   "sigma_cluster"
 )
 
-m2_HGLM_SWA <- jags(data = m2_data_list,
-                   inits = inits,
-                   parameters.to.save = parameters_m2,
-                   model.file = "m2_HGLM_SWA.jags",
+nchains <- 3
+nthin <- 10
+niter <- 20000
+nburn <- 5000
+
+m4_HGLM_SWA <- jags(data = m4_data_list,
+                   inits = m4inits,
+                   parameters.to.save = parameters_m4,
+                   model.file = "m4_HGLM_SWA.jags",
                    parallel = T,
                    n.chains = nchains,
                    n.thin = nthin,
@@ -6639,8 +6674,7 @@ m2_HGLM_SWA <- jags(data = m2_data_list,
 
 Sys.time()
 
-print(m2_HGLM_SWA)
-
+print(m4_HGLM_SWA) # model with local and watershed dam density as fixed effects
 ```
 difference in sys.time = elapsed time for model to run
 
