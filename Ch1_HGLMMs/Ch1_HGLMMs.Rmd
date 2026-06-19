@@ -8,6 +8,12 @@ editor_options:
 ---
 
 
+The purpose of this script is to explore the effect of beaver dams on surface water area, relative to local geomorphology, and contributing drainage area. This modeling focusses solely on late summer months; August : September. 
+
+Two models are presented herein. Both models have the same random effects structure for stream, year, adn sample event. Model 1 examines the effect of beaver dam presence on surface water area, with no consideration for local context. Model 2 includes additional fixed effects of channel incision, riparian area, and drainage area. 
+
+----
+
 ```{r,echo=FALSE}
   knitr::opts_chunk$set(
   echo = FALSE,
@@ -34,22 +40,6 @@ library(ggcorrplot)
 library(lme4)
 library(broom.mixed)
 ```
-
-
-The purpose of this script is to:
-
-    - ORGANIZE DATA 
-    - Import and arrange .csv files of finalized paired sample data
-
-    - TEST MODELs
-    - Model difference in SWA between dammed and undammed pairs as a function of
-      - Dam Presence
-      - Topographic Openness
-      - Riparian Area
-      - Contributing Drainage Area
-      
-    - Model 1: Dam Presence Only
-    - Model 2: Dam Presence + Context
       
 ----
 
@@ -137,11 +127,13 @@ lateSummerFlow <- usgs_df %>%
          )
 ```
 
+LATE SUMMER FLOW CONDITIONS:
+----
 
 2019:
 ----
 
-High early/mid-summer flow followed by moderate/low late season. 
+Moderate August with peak in September 
 
 ```{r,echo=FALSE}
 
@@ -176,6 +168,9 @@ ggplot(flow19, aes(x = date,
 Low flow conditions throughout the summer season. Part of 3 year sustained drought conditions (2020, 2021, 2022).
 
 
+Gage recorded no flow during August & September
+
+
 
 ```{r,echo=FALSE}
 
@@ -207,7 +202,7 @@ ggplot(flow21, aes(x = date,
 2023:
 ----
 
-High early flow conditions followed by moderate to lower late summer. 
+Moderate to low August & September flows; after early season extreme flooding. 
 
 
 
@@ -237,7 +232,8 @@ ggplot(flow23, aes(x = date,
 
 
 
-
+Read in GEE-derived data for each stream:
+----
 
 ```{r, echo=FALSE}
 
@@ -494,7 +490,7 @@ UBV <- bind_rows(ubv_19,ubv_21,ubv_23) %>%
 
 Currently each incoming data frame is of the following structure:
 
-```{r,echo=FALSE}
+```{r,include=FALSE}
 str(brz_19)
 ```
 
@@ -527,4536 +523,60 @@ Where:
 ----
 ----
 
-WILLOW
+
+**Relative flow data**. 
 ----
-----
-
-Compute **Riparian Inundation**
-
-For survey window[i] at time[t], the proportion of riparian area that is covered in surface water
-
-$SWA = Surface Water Area (m^2)$
-
-$RIPA = Riparian Area (m^2)$
-
-$$RI[i,t] = SWA[i,t] / RIPA[i] $$
-
-
-```{r, echo=FALSE}
-# COMPUTE RI HERE!!!
-WC_RI <- WC %>% 
-  mutate(RI = SWA/riparian_area_m2)
-```
-
-Visualize riparian inundation **(RI)** $SWA/RIPA$ between dammed and undammed across years.
-
-```{r, echo=FALSE, fig.width=10}
-WC_RI %>%
-  filter(!is.na(RI)) %>%   # optional but recommended
-  ggplot(aes(x = factor(year),
-             y = RI,
-             fill = window_type)) +
-  geom_boxplot(outlier.alpha = 0.4) +
-  scale_fill_manual(values = c("dammed" = "brown",
-                               "undammed" = "steelblue")) +
-  labs(
-    x = "Year",
-    y = "Riparian Inundation (RI)",
-    fill = "Window type",
-    title = "RI across dammed vs undammed windows",
-    subtitle = "Willow Creek (2019, 2021, 2023)"
-  ) +
-  theme_bw(base_size = 14)
-
-```
-
-```{r,echo=FALSE}
-WC_RI %>%
-  filter(year == 2019) %>% 
-     ggplot(aes(x = t,
-                y = RI,
-                color = window_type)) +
-     geom_point(alpha = 0.4, size = 2) +
-     geom_smooth(method = "loess",
-                 se = TRUE,
-                 linewidth = 1.2) +
-     scale_color_manual(values = c("dammed" = "brown",
-                                   "undammed" = "steelblue")) +
-     scale_x_continuous(breaks = 1:8,
-                        labels = paste0("t", 1:8)) +
-     labs(x = "Time Period (t)",
-          y = "Riparian Inundation (SWA/RIPA)",
-          color = "Window Type",
-          title = "Riparian proportion inundated over time",
-          subtitle = "Willow Ck; Summer 2019") +
-     theme_bw(base_size = 15)
-
-```
-
-```{r,echo=FALSE}
-WC_RI %>%
-  filter(year == 2021) %>% 
-     ggplot(aes(x = t,
-                y = RI,
-                color = window_type)) +
-     geom_point(alpha = 0.4, size = 2) +
-     geom_smooth(method = "loess",
-                 se = TRUE,
-                 linewidth = 1.2) +
-     scale_color_manual(values = c("dammed" = "brown",
-                                   "undammed" = "steelblue")) +
-     scale_x_continuous(breaks = 1:8,
-                        labels = paste0("t", 1:8)) +
-     labs(x = "Time Period (t)",
-          y = "Riparian Inundation (SWA/RIPA)",
-          color = "Window Type",
-          title = "Riparian proportion inundated over time",
-          subtitle = "Willow Ck; Summer 2021") +
-     theme_bw(base_size = 15)
-
-```
-
-```{r,echo=FALSE}
-WC_RI %>%
-  filter(year == 2023) %>% 
-     ggplot(aes(x = t,
-                y = RI,
-                color = window_type)) +
-     geom_point(alpha = 0.4, size = 2) +
-     geom_smooth(method = "loess",
-                 se = TRUE,
-                 linewidth = 1.2) +
-     scale_color_manual(values = c("dammed" = "brown",
-                                   "undammed" = "steelblue")) +
-     scale_x_continuous(breaks = 1:8,
-                        labels = paste0("t", 1:8)) +
-     labs(x = "Time Period (t)",
-          y = "Riparian Inundation (SWA/RIPA)",
-          color = "Window Type",
-          title = "Riparian proportion inundated over time",
-          subtitle = "Willow Ck; Summer 2023") +
-     theme_bw(base_size = 15)
-
-```
-
-----
-
-Add **relative flow data**. 
-
 NOTE: currently this represents data from the USGS Guston Coulee gage that has been z-standardized over the current data acquisition range (June-Sept; 2019, 2021, 2023). 
 
-Then, for each 2-week survey time period (1:8), the average relative flow $[mean(zFlow)]$ was computed, and added as a data column. IT IS ASSUMED that this flow data is representative of the RELATIVE flow pattern experienced throughout the study area during this time. Consider incorporating relative HHP simulated flow data again (?)
+Then, for each 2-week survey time period (1:8), the average relative flow $[mean(zFlow)]$ was computed, and added as a data column. IT IS ASSUMED that this flow data is representative of the RELATIVE flow pattern experienced throughout the study area during this time.
 
 ----
 
-Visualize Surface Water Area across Relative Flow and Topographic Openness
+Add relFlow data:
 
+```{r,include=FALSE, fig.width=10}
+WC_RelFlow <- WC %>% 
+  left_join(mean_flow_per_survey_period,
+            by = "surveyPeriod") %>% 
+  mutate(dam_m = Nhat/window_length)
+```
 
-```{r,echo=FALSE, fig.width=10}
-WC_RelFlow <- WC_RI %>% 
+```{r,include=FALSE, fig.width=10}
+LT_RelFlow <- LT %>% 
   left_join(mean_flow_per_survey_period,
             by = "surveyPeriod") %>% 
   mutate(dam_m = Nhat/window_length)
 
-
-WC_RelFlow %>% 
-  arrange(SWA) %>%
-  ggplot(
-       aes(x = zFlow_mean, 
-           y = TO, 
-           color = SWA,
-           shape = window_type)) +
-  geom_point(size = 3, alpha = 0.5) +
-  scale_color_viridis_c(option = "mako",begin = 0,end   = 1,direction = -1) +
-  labs(
-    x = "z-Standardized Flow",
-    y = "Topographic Openness (TO)",
-    color = expression("Surface Water Area" (m^2)),
-    title = "Surface Water Area Across RelativeFlow and TO space",
-    subtitle = "Willow Creek All Years"
-  ) +
-  theme_bw(base_size = 14)
 ```
 
-
-----
-
-----  
-
-----
-
-----
-
-
-
-Visualize covariate distributions b/t dammed and undammed windows:
-
-```{r,include=FALSE}
-ggplot(WC_RelFlow, 
-       aes(x = TO, fill = window_type)) +
-  geom_density(alpha = 0.5) +
-  scale_fill_manual(values = c("undammed" = "steelblue", "dammed" = "brown")) +
-  theme_bw(base_size = 14)
-
-
-ggplot(WC_RelFlow, 
-       aes(x = riparian_area_m2, fill = window_type)) +
-  geom_density(alpha = 0.5) +
-  scale_fill_manual(values = c("undammed" = "steelblue", "dammed" = "brown")) +
-  theme_bw(base_size = 14)
-
-ggplot(WC_RelFlow, 
-       aes(x = SWA, fill = window_type)) +
-  geom_density(alpha = 0.5) +
-  scale_fill_manual(values = c("undammed" = "steelblue", "dammed" = "brown")) +
-  theme_bw(base_size = 14)
-
-ggplot(WC_RelFlow, 
-       aes(x = RI, fill = window_type)) +
-  geom_density(alpha = 0.5) +
-  scale_fill_manual(values = c("undammed" = "steelblue", "dammed" = "brown")) +
-  theme_bw(base_size = 14)
-
-ggplot(WC_RelFlow, 
-       aes(x = catchment_km2, fill = window_type)) +
-  geom_density(alpha = 0.5) +
-  scale_fill_manual(values = c("undammed" = "steelblue", "dammed" = "brown")) +
-  theme_bw(base_size = 14)
+```{r,include=FALSE, fig.width=10}
+BRZ_RelFlow <- BRZ %>% 
+  left_join(mean_flow_per_survey_period,
+            by = "surveyPeriod") %>% 
+  mutate(dam_m = Nhat/window_length)
 ```
 
-
-
-----
-
-Visualize covariate correlations for Willow Creek :
-
-```{r,echo=FALSE, fig.width=10}
-#2019
-wc19_numCols <- WC_RelFlow %>% 
-  filter(year == "2019") %>% 
-  select(clusterID_seq,
-         riparian_area_m2,
-         window_length,
-         SWA,
-         RI,
-         TO,
-         Nhat,
-         dam_m,
-         catchment_km2) %>% 
-  filter(!is.na(SWA))
-# Correlation matrix
-wc19_corr_matrix <- cor(wc19_numCols)
-
-# Create the plot
-wc19_ggcorr_plot <- ggcorrplot(wc19_corr_matrix, lab = TRUE, type = "upper")+
-  ggtitle("Correlation matrix for Willow Creek 2019") +
-  theme(plot.title = element_text(hjust = 0.5))
-
-wc19_ggcorr_plot
-
-#2021
-wc21_numCols <- WC_RelFlow %>% 
-  filter(year == "2021") %>% 
-  select(clusterID_seq,
-         riparian_area_m2,
-         window_length,
-         SWA,
-         RI,
-         TO,
-         Nhat,
-         dam_m,
-         catchment_km2) %>% 
-  filter(!is.na(SWA))
-# Correlation matrix
-wc21_corr_matrix <- cor(wc21_numCols)
-
-# Create the plot
-wc21_ggcorr_plot <- ggcorrplot(wc21_corr_matrix, lab = TRUE, type = "upper")+
-  ggtitle("Correlation matrix for Willow Creek 2021") +
-  theme(plot.title = element_text(hjust = 0.5))
-
-wc21_ggcorr_plot
-
-
-#2023
-wc23_numCols <- WC_RelFlow %>% 
-  filter(year == "2023") %>% 
-  select(clusterID_seq,
-         riparian_area_m2,
-         window_length,
-         SWA,
-         RI,
-         TO,
-         Nhat,
-         dam_m,
-         catchment_km2) %>% 
-  filter(!is.na(SWA))
-# Correlation matrix
-wc23_corr_matrix <- cor(wc23_numCols)
-
-# Create the plot
-wc23_ggcorr_plot <- ggcorrplot(wc23_corr_matrix, lab = TRUE, type = "upper")+
-  ggtitle("Correlation matrix for Willow Creek 2023") +
-  theme(plot.title = element_text(hjust = 0.5))
-
-wc23_ggcorr_plot
-```
-
-----
-
-----
-
-----
-
-Compute Differences (Dammed[i] - Undammed):
-----
-
-Compute difference in RI $(\Delta RI)$ between dammed and undammed pairs. The hypothesis is that dammed reaches will inundate more of their respective available space (m^2) than their paired undammed reaches. (+)$(\Delta RI)$ means the dammed site in a pair inundated more of its available riparian space than its undammed counterpart; (-) is vice versa.
-
-The degree to which beaver dams influence $\Delta RI$ confounded by pairwise differences in reach characteristics (e.g., $TO$, $UDA$)
-
-----
-
-Proposed model:
-
-$$\Delta RI[i] = \alpha + \beta1 * \Delta UDA[i] + \beta2 * \Delta TO + \beta3 *  Nhat[i_{\text{dammed}}]$$
-
-
-Wherein, the difference in riparian inundation $(\Delta RI)$ for sample pair $[i]$ is a linear function of the pair's difference in stream network position $(\Delta UDA)$, the pair's difference in local channel confinement $(\Delta TO)$, and the pair's difference in number of dams $(\Delta Nhat)$ (NOTE: delta_Nhat is just Nhat of the dammed site in pair [i]).
-
-Consider, instead of Nhat, using $dam/m = Nhat/windowLength (m)$ to get at dam density within the window, rather than raw dam count.
-
-
-```{r,echo=FALSE}
-wc_sample_pairs <- WC_RelFlow %>%
-  select(clusterID_seq,
-         year,
-         t,
-         surveyPeriod,
-         window_type, 
-         RI, 
-         TO, 
-         riparian_area_m2, 
-         zFlow_mean,
-         catchment_km2,
-         Nhat,
-         dam_m) %>%
-  pivot_wider(
-    names_from = window_type,
-    values_from = c(RI, TO, riparian_area_m2, catchment_km2, Nhat,dam_m),
-    names_sep = "_"
-  ) %>% 
-  mutate(delta_RI = RI_dammed - RI_undammed)
-
-wc_sample_differences <- wc_sample_pairs %>%
-  mutate(
-    delta_TO   = TO_dammed - TO_undammed,
-    delta_RIPA = riparian_area_m2_dammed - riparian_area_m2_undammed,
-    delta_UDA  = catchment_km2_dammed - catchment_km2_undammed,
-    delta_Nhat = Nhat_dammed,
-    delta_dam_m = dam_m_dammed
-  ) %>% 
-  select(clusterID_seq,
-         year,
-         t,
-         surveyPeriod,
-         zFlow_mean,
-         delta_RI,
-         delta_TO,
-         delta_RIPA,
-         delta_UDA,
-         delta_Nhat,
-         delta_dam_m
-         )
-
-str(wc_sample_differences)
-```
-
-
-----
-
-Visualize $\Delta RI$ across $\Delta Nhat$
-
-```{r, echo=FALSE, fig.width=10}
-wc_sample_differences %>%
-  arrange(delta_RI) %>% 
-  filter(year=='2019') %>% 
-  ggplot(
-    aes(
-      x = factor(round(delta_Nhat)),   # <-- THIS is the key
-      y = delta_RI,
-      colour = zFlow_mean
-    )
-  ) +
-  scale_color_viridis_c(option = "viridis", direction = -1) +
-  geom_violin() +
-  geom_point(size = 3, alpha = 0.5, position = position_jitter(width = 0.1)) +
-  geom_hline(yintercept = 0,
-             color = "black",
-             linewidth = 1.2) +
-  labs(
-    x = expression("(" * Delta * " Dam Count)"),
-    y = expression("(" * Delta * " RI)"),
-    title = "Difference in Riparian Inundation by Difference in Dam Count",
-    subtitle = "Willow Creek 2019"
-  ) +
-  theme_bw(base_size = 14)
-
-
-#####
-
-wc_sample_differences %>%
-  arrange(delta_RI) %>% 
-  filter(year=='2021') %>% 
-  ggplot(
-    aes(
-      x = factor(round(delta_Nhat)),   # <-- THIS is the key
-      y = delta_RI,
-      colour = zFlow_mean
-    )
-  ) +
-  scale_color_viridis_c(option = "viridis", direction = -1) +
-  geom_violin() +
-  geom_point(size = 3, alpha = 0.5, position = position_jitter(width = 0.1)) +
-  geom_hline(yintercept = 0,
-             color = "black",
-             linewidth = 1.2) +
-  labs(
-    x = expression("(" * Delta * " Dam Count)"),
-    y = expression("(" * Delta * " RI)"),
-    title = "Difference in Riparian Inundation by Difference in Dam Count",
-    subtitle = "Willow Creek 2021"
-  ) +
-  theme_bw(base_size = 14)
-
-
-#####
-
-wc_sample_differences %>%
-  arrange(delta_RI) %>% 
-  filter(year=='2023') %>% 
-  ggplot(
-    aes(
-      x = factor(round(delta_Nhat)),   # <-- THIS is the key
-      y = delta_RI,
-      colour = zFlow_mean
-    )
-  ) +
-  scale_color_viridis_c(option = "viridis", direction = -1) +
-  geom_violin() +
-  geom_point(size = 3, alpha = 0.5, position = position_jitter(width = 0.1)) +
-  geom_hline(yintercept = 0,
-             color = "black",
-             linewidth = 1.2) +
-  labs(
-    x = expression("(" * Delta * " Dam Count)"),
-    y = expression("(" * Delta * " RI)"),
-    title = "Difference in Riparian Inundation by Difference in Dam Count",
-    subtitle = "Willow Creek 2023"
-  ) +
-  theme_bw(base_size = 14)
-
-```
-
-
-----
-
-
-----
-
-Visualize $\Delta RI$ across **damDensity** $(dam/m)$
-
-```{r, echo=FALSE, fig.width=10}
-wc_sample_differences %>% 
-  filter(year=='2019') %>% 
-  ggplot(
-    aes(
-      x = delta_dam_m,
-      y = delta_RI,
-      colour = zFlow_mean
-    )
-  ) +
-  scale_color_viridis_c(option = "viridis", direction = -1) +
-  geom_point(size = 3) +
-  geom_hline(yintercept = 0,
-             color = "black",
-             linewidth = 1.2) +
-  labs(
-    x = expression("Dam Density (" * DamCount[i]/StreamLength[i] * ")"),
-    y = expression("(" * Delta * " RI)"),
-    title = "Difference in Riparian Inundation by Dam Density (Dam/Stream_m)",
-    subtitle = "Willow Creek 2019"
-  ) +
-  theme_bw(base_size = 14)
-
-#####
-
-wc_sample_differences %>% 
-  filter(year=='2021') %>% 
-  ggplot(
-    aes(
-      x = delta_dam_m,
-      y = delta_RI,
-      colour = zFlow_mean
-    )
-  ) +
-  scale_color_viridis_c(option = "viridis", direction = -1) +
-  geom_point(size = 3) +
-  geom_hline(yintercept = 0,
-             color = "black",
-             linewidth = 1.2) +
-  labs(
-    x = expression("Dam Density (" * DamCount[i]/StreamLength[i] * ")"),
-    y = expression("(" * Delta * " RI)"),
-    title = "Difference in Riparian Inundation by Dam Density (Dam/Stream_m)",
-    subtitle = "Willow Creek 2021"
-  ) +
-  theme_bw(base_size = 14)
-
-#####
-
-wc_sample_differences %>% 
-  filter(year=='2023') %>% 
-  ggplot(
-    aes(
-      x = delta_dam_m,
-      y = delta_RI,
-      colour = zFlow_mean
-    )
-  ) +
-  scale_color_viridis_c(option = "viridis", direction = -1) +
-  geom_point(size = 3) +
-  geom_hline(yintercept = 0,
-             color = "black",
-             linewidth = 1.2) +
-  labs(
-    x = expression("Dam Density (" * DamCount[i]/StreamLength[i] * ")"),
-    y = expression("(" * Delta * " RI)"),
-    title = "Difference in Riparian Inundation by Dam Density (Dam/Stream_m)",
-    subtitle = "Willow Creek 2023"
-  ) +
-  theme_bw(base_size = 14)
-
-#####
-```
-
-
-----
-
-Dig into where $\Delta RI >0$; these illustrate contexts where dams may be positively influencing SWA.
-
-Look at TO and RIPA and UDA for delta_RI > 0 dam clusters
-
-```{r,echo=FALSE, fig.width=10}
-wc_posDamDiff <- wc_sample_pairs %>% 
-  filter(delta_RI > 0)
-
-wc_posDamDiff$year <- as.factor(wc_posDamDiff$year)
-
-wc_posDamDiff %>%
-  arrange(delta_RI) %>% 
-  ggplot(
-       aes(x = zFlow_mean, 
-           y = TO_dammed, 
-           color = delta_RI,
-           shape = year)) +
-  geom_point(size = 5, alpha = 0.5) +
-  scale_color_viridis_c(option = "inferno",begin = 0,end   = 0.875,direction = -1) +
-  labs(
-    x = "z-Standardized Flow",
-    y = "Topographic Openness (TO)",
-    color = expression("("*Delta*" RI) (RI_dammed - RI_undammed)"),
-    shape = "Year",
-    title = expression("Sites with Positive deltaRI Across Flow and TO"),
-    subtitle = "Willow Creek All Years"
-  ) +
-  theme_bw(base_size = 14)
-
-
-
-wc_sample_differences %>%
-  filter(delta_RI >0) %>% 
-  arrange(delta_RI) %>% 
-  ggplot(
-       aes(x = zFlow_mean, 
-           y = delta_TO, 
-           color = delta_RI,
-           shape = as.factor(year))) +
-  geom_point(size = 5, alpha = 0.5) +
-  scale_color_viridis_c(option = "inferno",begin = 0,end   = 0.875,direction = -1) +
-  labs(
-    x = "z-Standardized Flow",
-    y = expression("Difference in Topographic Openness (  "*Delta*" TO)"),
-    color = expression("("*Delta*" RI) (RI_dammed - RI_undammed)"),
-    shape = "Year",
-    title = expression("Sites with Positive deltaRI Across Flow and " *Delta* "TO"),
-    subtitle = "Willow Creek All Years"
-  ) +
-  theme_bw(base_size = 14)
-```
-
-```{r,echo=FALSE, fig.width=10}
-wc_posDamDiff %>%
-  arrange(delta_RI) %>% 
-  ggplot(
-       aes(x = zFlow_mean, 
-           y = riparian_area_m2_dammed, 
-           color = delta_RI,
-           shape = year)) +
-  geom_point(size = 3, alpha = 0.5) +
-  scale_color_viridis_c(option = "inferno",begin = 0,end   = 0.875,direction = -1) +
-  labs(
-    x = "z-Standardized Flow",
-    y = expression("Riparian Area ("*m^2*")"),
-    color = expression("("*Delta*" RI) (RI_dammed - RI_undammed)"),
-    title = expression("Sites with Positive deltaRI Across Flow and RIPA"),
-    subtitle = "Willow Creek All Years"
-  ) +
-  theme_bw(base_size = 14)
-```
-
-```{r,echo=FALSE, fig.width=10}
-wc_posDamDiff %>%
-  arrange(delta_RI) %>% 
-  ggplot(
-       aes(x = zFlow_mean, 
-           y = catchment_km2_dammed, 
-           color = delta_RI,
-           shape = year)) +
-  geom_point(size = 3, alpha = 0.5) +
-  scale_color_viridis_c(option = "inferno",begin = 0,end   = 0.875,direction = -1) +
-  labs(
-    x = "z-Standardized Flow",
-    y = expression("Upstream Drainage Area ("*km^2*")"),
-    color = expression("("*Delta*" RI) (RI_dammed - RI_undammed)"),
-    title = expression("Sites with Positive deltaRI Across Flow and UDA"),
-    subtitle = "Willow Creek All Years"
-  ) +
-  theme_bw(base_size = 14)
-```
-
-```{r,echo=FALSE, fig.width=10}
-wc_posDamDiff %>%
-  arrange(delta_RI) %>% 
-  ggplot(
-       aes(x = zFlow_mean, 
-           y = dam_m_dammed, 
-           color = delta_RI,
-           shape = year)) +
-  geom_point(size = 3, alpha = 0.5) +
-  scale_color_viridis_c(option = "inferno",begin = 0,end   = 0.875,direction = -1) +
-  labs(
-    x = "z-Standardized Flow",
-    y = expression("Dam Density (" *DamCount[i]/streamLength(m)[i]* ")"),
-    color = expression("("*Delta*" RI) (RI_dammed - RI_undammed)"),
-    title = expression("Sites with Positive deltaRI Across Flow and UDA"),
-    subtitle = "Willow Creek All Years"
-  ) +
-  theme_bw(base_size = 14)
-```
-
-
-
-```{r,echo=TRUE}
-wcRI_Flow <- wc_sample_pairs %>% 
-  select(clusterID_seq,
-         surveyPeriod,
-         zFlow_mean,
-         RI_dammed,
-         RI_undammed) %>% 
-  pivot_longer(
-    cols = c(RI_dammed, RI_undammed),
-    names_to = "window_type",
-    values_to = "RI"
-  )
-
-ggplot(wcRI_Flow,
-       aes(x = zFlow_mean,
-           y = RI,
-           color = as.factor(window_type))) +
-  scale_color_manual(values = c("RI_dammed" = "brown",
-                                "RI_undammed" = "steelblue")) +
-  geom_point(alpha = 0.4, size = 2) +
-  geom_smooth(method = "loess",
-                 se = TRUE,
-                 linewidth = 1.2) +
-  labs(
-    x = "z-Standardized Flow",
-    y = "Riparian Inundation (RI)",
-    color = "Window Type",
-    title = "Riparian Inundation Across Flow",
-    subtitle = "WC All Years"
-  ) +
-  theme_bw(base_size = 14)
-```
-
-----
-----
-----
-----
-
-
-
-
-----
-----
-----
-----
-
-LONE TREE   
-----
-----
-
-Compute **Riparian Inundation**
-
-For survey window[i] at time[t], the proportion of riparian area that is covered in surface water
-
-$SWA = Surface Water Area (m^2)$
-
-$RIPA = Riparian Area (m^2)$
-
-$$RI[i,t] = SWA[i,t] / RIPA[i] $$
-
-
-```{r, echo=FALSE}
-# COMPUTE RI HERE!!!
-LT_RI <- LT %>% 
-  mutate(RI = SWA/riparian_area_m2)
-```
-
-Visualize riparian inundation **(RI)** $SWA/RIPA$ between dammed and undammed across years.
-
-```{r, echo=FALSE, fig.width=10}
-LT_RI %>%
-  filter(!is.na(RI)) %>%   # optional but recommended
-  ggplot(aes(x = factor(year),
-             y = RI,
-             fill = window_type)) +
-  geom_boxplot(outlier.alpha = 0.4) +
-  scale_fill_manual(values = c("dammed" = "brown",
-                               "undammed" = "steelblue")) +
-  labs(
-    x = "Year",
-    y = "Riparian Inundation (RI)",
-    fill = "Window type",
-    title = "RI across dammed vs undammed windows",
-    subtitle = "Lone Tree Creek (2019, 2021, 2023)"
-  ) +
-  theme_bw(base_size = 14)
-
-```
-
-
-```{r,echo=FALSE}
-LT_RI %>%
-  filter(year == 2019) %>% 
-     ggplot(aes(x = t,
-                y = RI,
-                color = window_type)) +
-     geom_point(alpha = 0.4, size = 2) +
-     geom_smooth(method = "loess",
-                 se = TRUE,
-                 linewidth = 1.2) +
-     scale_color_manual(values = c("dammed" = "brown",
-                                   "undammed" = "steelblue")) +
-     scale_x_continuous(breaks = 1:8,
-                        labels = paste0("t", 1:8)) +
-     labs(x = "Time Period (t)",
-          y = "Riparian Inundation (SWA/RIPA)",
-          color = "Window Type",
-          title = "Riparian proportion inundated over time",
-          subtitle = "Lone Tree; Summer 2019") +
-     theme_bw(base_size = 15)
-
-```
-
-```{r,echo=FALSE}
-LT_RI %>%
-  filter(year == 2021) %>% 
-     ggplot(aes(x = t,
-                y = RI,
-                color = window_type)) +
-     geom_point(alpha = 0.4, size = 2) +
-     geom_smooth(method = "loess",
-                 se = TRUE,
-                 linewidth = 1.2) +
-     scale_color_manual(values = c("dammed" = "brown",
-                                   "undammed" = "steelblue")) +
-     scale_x_continuous(breaks = 1:8,
-                        labels = paste0("t", 1:8)) +
-     labs(x = "Time Period (t)",
-          y = "Riparian Inundation (SWA/RIPA)",
-          color = "Window Type",
-          title = "Riparian proportion inundated over time",
-          subtitle = "Lone Tree; Summer 2021") +
-     theme_bw(base_size = 15)
-
-```
-
-```{r,echo=FALSE}
-LT_RI %>%
-  filter(year == 2023) %>% 
-     ggplot(aes(x = t,
-                y = RI,
-                color = window_type)) +
-     geom_point(alpha = 0.4, size = 2) +
-     geom_smooth(method = "loess",
-                 se = TRUE,
-                 linewidth = 1.2) +
-     scale_color_manual(values = c("dammed" = "brown",
-                                   "undammed" = "steelblue")) +
-     scale_x_continuous(breaks = 1:8,
-                        labels = paste0("t", 1:8)) +
-     labs(x = "Time Period (t)",
-          y = "Riparian Inundation (SWA/RIPA)",
-          color = "Window Type",
-          title = "Riparian proportion inundated over time",
-          subtitle = "Lone Tree; Summer 2023") +
-     theme_bw(base_size = 15)
-
-```
-
-
-----
-
-Add **relative flow data**. 
-
-----
-
-Visualize Surface Water Area across Relative Flow and Topographic Openness
-
-
-```{r,echo=FALSE, fig.width=10}
-LT_RelFlow <- LT_RI %>% 
+```{r,include=FALSE, fig.width=10}
+LRB_RelFlow <- LRB %>% 
   left_join(mean_flow_per_survey_period,
             by = "surveyPeriod") %>% 
   mutate(dam_m = Nhat/window_length)
 
-
-LT_RelFlow %>% 
-  arrange(SWA) %>%
-  ggplot(
-       aes(x = zFlow_mean, 
-           y = TO, 
-           color = SWA,
-           shape = window_type)) +
-  geom_point(size = 3, alpha = 0.5) +
-  scale_color_viridis_c(option = "mako",begin = 0,end   = 1,direction = -1) +
-  labs(
-    x = "z-Standardized Flow",
-    y = "Topographic Openness (TO)",
-    color = expression("Surface Water Area" (m^2)),
-    title = "Surface Water Area Across RelativeFlow and TO space",
-    subtitle = "Lone Tree Creek All Years"
-  ) +
-  theme_bw(base_size = 14)
 ```
 
-
-----
-
-----  
-
-----
-
-----
-
-
-
-Visualize covariate distributions b/t dammed and undammed windows:
-
-```{r,include=FALSE}
-ggplot(LT_RelFlow, 
-       aes(x = TO, fill = window_type)) +
-  geom_density(alpha = 0.5) +
-  scale_fill_manual(values = c("undammed" = "steelblue", "dammed" = "brown")) +
-  theme_bw(base_size = 14)
-
-
-ggplot(LT_RelFlow, 
-       aes(x = riparian_area_m2, fill = window_type)) +
-  geom_density(alpha = 0.5) +
-  scale_fill_manual(values = c("undammed" = "steelblue", "dammed" = "brown")) +
-  theme_bw(base_size = 14)
-
-ggplot(LT_RelFlow, 
-       aes(x = SWA, fill = window_type)) +
-  geom_density(alpha = 0.5) +
-  scale_fill_manual(values = c("undammed" = "steelblue", "dammed" = "brown")) +
-  theme_bw(base_size = 14)
-
-ggplot(LT_RelFlow, 
-       aes(x = RI, fill = window_type)) +
-  geom_density(alpha = 0.5) +
-  scale_fill_manual(values = c("undammed" = "steelblue", "dammed" = "brown")) +
-  theme_bw(base_size = 14)
-
-ggplot(LT_RelFlow, 
-       aes(x = catchment_km2, fill = window_type)) +
-  geom_density(alpha = 0.5) +
-  scale_fill_manual(values = c("undammed" = "steelblue", "dammed" = "brown")) +
-  theme_bw(base_size = 14)
-```
-
-
-
-----
-
-Visualize covariate correlations for Willow Creek :
-
-```{r,echo=FALSE, fig.width=10}
-#2019
-lt19_numCols <- LT_RelFlow %>% 
-  filter(year == "2019") %>% 
-  select(clusterID_seq,
-         riparian_area_m2,
-         window_length,
-         SWA,
-         RI,
-         TO,
-         Nhat,
-         dam_m,
-         catchment_km2) %>% 
-  filter(!is.na(SWA))
-# Correlation matrix
-lt19_corr_matrix <- cor(lt19_numCols)
-
-# Create the plot
-lt19_ggcorr_plot <- ggcorrplot(lt19_corr_matrix, lab = TRUE, type = "upper")+
-  ggtitle("Correlation matrix for Willow Creek 2019") +
-  theme(plot.title = element_text(hjust = 0.5))
-
-lt19_ggcorr_plot
-
-#2021
-lt21_numCols <- LT_RelFlow %>% 
-  filter(year == "2021") %>% 
-  select(clusterID_seq,
-         riparian_area_m2,
-         window_length,
-         SWA,
-         RI,
-         TO,
-         Nhat,
-         dam_m,
-         catchment_km2) %>% 
-  filter(!is.na(SWA))
-# Correlation matrix
-lt21_corr_matrix <- cor(lt21_numCols)
-
-# Create the plot
-lt21_ggcorr_plot <- ggcorrplot(lt21_corr_matrix, lab = TRUE, type = "upper")+
-  ggtitle("Correlation matrix for Willow Creek 2021") +
-  theme(plot.title = element_text(hjust = 0.5))
-
-lt21_ggcorr_plot
-
-
-#2023
-lt23_numCols <- LT_RelFlow %>% 
-  filter(year == "2023") %>% 
-  select(clusterID_seq,
-         riparian_area_m2,
-         window_length,
-         SWA,
-         RI,
-         TO,
-         Nhat,
-         dam_m,
-         catchment_km2) %>% 
-  filter(!is.na(SWA))
-# Correlation matrix
-lt23_corr_matrix <- cor(lt23_numCols)
-
-# Create the plot
-lt23_ggcorr_plot <- ggcorrplot(lt23_corr_matrix, lab = TRUE, type = "upper")+
-  ggtitle("Correlation matrix for Willow Creek 2023") +
-  theme(plot.title = element_text(hjust = 0.5))
-
-lt23_ggcorr_plot
-```
-
-----
-
-----
-
-----
-
-Compute Differences (Dammed[i] - Undammed):
-----
-
-
-```{r,echo=FALSE}
-lt_sample_pairs <- LT_RelFlow %>%
-  select(clusterID_seq,
-         year,
-         t,
-         surveyPeriod,
-         window_type,
-         SWA,
-         RI, 
-         TO, 
-         riparian_area_m2, 
-         zFlow_mean,
-         catchment_km2,
-         Nhat,
-         dam_m) %>%
-  pivot_wider(
-    names_from = window_type,
-    values_from = c(SWA, RI, TO, riparian_area_m2, catchment_km2, Nhat,dam_m),
-    names_sep = "_"
-  ) %>% 
-  mutate(delta_RI = RI_dammed - RI_undammed,
-         delta_SWA = SWA_dammed - SWA_undammed)
-
-lt_sample_differences <- lt_sample_pairs %>%
-  mutate(
-    delta_TO   = TO_dammed - TO_undammed,
-    delta_RIPA = riparian_area_m2_dammed - riparian_area_m2_undammed,
-    delta_UDA  = catchment_km2_dammed - catchment_km2_undammed,
-    delta_Nhat = Nhat_dammed,
-    delta_dam_m = dam_m_dammed
-  ) %>% 
-  select(clusterID_seq,
-         year,
-         t,
-         surveyPeriod,
-         zFlow_mean,
-         delta_SWA,
-         delta_RI,
-         delta_TO,
-         delta_RIPA,
-         delta_UDA,
-         delta_Nhat,
-         delta_dam_m
-         )
-
-str(lt_sample_differences)
-```
-
-
-----
-
-Visualize $\Delta RI$ across $\Delta Nhat$
-
-```{r, echo=FALSE, fig.width=10}
-lt_sample_differences %>%
-  arrange(delta_RI) %>% 
-  filter(year=='2019') %>% 
-  ggplot(
-    aes(
-      x = factor(round(delta_Nhat)),   # <-- THIS is the key
-      y = delta_RI,
-      colour = zFlow_mean
-    )
-  ) +
-  scale_color_viridis_c(option = "viridis", direction = -1) +
-  geom_violin() +
-  geom_point(size = 3, alpha = 0.5, position = position_jitter(width = 0.1)) +
-  geom_hline(yintercept = 0,
-             color = "black",
-             linewidth = 1.2) +
-  labs(
-    x = expression("(" * Delta * " Dam Count)"),
-    y = expression("(" * Delta * " RI)"),
-    title = "Difference in Riparian Inundation by Difference in Dam Count",
-    subtitle = "Lone Tree Creek 2019"
-  ) +
-  theme_bw(base_size = 14)
-
-
-#####
-
-lt_sample_differences %>%
-  arrange(delta_RI) %>% 
-  filter(year=='2021') %>% 
-  ggplot(
-    aes(
-      x = factor(round(delta_Nhat)),   # <-- THIS is the key
-      y = delta_RI,
-      colour = zFlow_mean
-    )
-  ) +
-  scale_color_viridis_c(option = "viridis", direction = -1) +
-  geom_violin() +
-  geom_point(size = 3, alpha = 0.5, position = position_jitter(width = 0.1)) +
-  geom_hline(yintercept = 0,
-             color = "black",
-             linewidth = 1.2) +
-  labs(
-    x = expression("(" * Delta * " Dam Count)"),
-    y = expression("(" * Delta * " RI)"),
-    title = "Difference in Riparian Inundation by Difference in Dam Count",
-    subtitle = "Lone Tree Creek 2021"
-  ) +
-  theme_bw(base_size = 14)
-
-
-#####
-
-lt_sample_differences %>%
-  arrange(delta_RI) %>% 
-  filter(year=='2023') %>% 
-  ggplot(
-    aes(
-      x = factor(round(delta_Nhat)),   # <-- THIS is the key
-      y = delta_RI,
-      colour = zFlow_mean
-    )
-  ) +
-  scale_color_viridis_c(option = "viridis", direction = -1) +
-  geom_violin() +
-  geom_point(size = 3, alpha = 0.5, position = position_jitter(width = 0.1)) +
-  geom_hline(yintercept = 0,
-             color = "black",
-             linewidth = 1.2) +
-  labs(
-    x = expression("(" * Delta * " Dam Count)"),
-    y = expression("(" * Delta * " RI)"),
-    title = "Difference in Riparian Inundation by Difference in Dam Count",
-    subtitle = "Lone Tree Creek 2023"
-  ) +
-  theme_bw(base_size = 14)
-
-```
-
-
-----
-
-
-----
-
-Visualize $\Delta RI$ across **damDensity** $(dam/m)$
-
-```{r, echo=FALSE, fig.width=10}
-lt_sample_differences %>% 
-  filter(year=='2019') %>% 
-  ggplot(
-    aes(
-      x = delta_dam_m,
-      y = delta_RI,
-      colour = zFlow_mean
-    )
-  ) +
-  scale_color_viridis_c(option = "viridis", direction = -1) +
-  geom_point(size = 3) +
-  geom_hline(yintercept = 0,
-             color = "black",
-             linewidth = 1.2) +
-  labs(
-    x = expression("Dam Density (" * DamCount[i]/StreamLength[i] * ")"),
-    y = expression("(" * Delta * " RI)"),
-    title = "Difference in Riparian Inundation by Dam Density (Dam/Stream_m)",
-    subtitle = "Lone Tree Creek 2019"
-  ) +
-  theme_bw(base_size = 14)
-
-#####
-
-lt_sample_differences %>% 
-  filter(year=='2021') %>% 
-  ggplot(
-    aes(
-      x = delta_dam_m,
-      y = delta_RI,
-      colour = zFlow_mean
-    )
-  ) +
-  scale_color_viridis_c(option = "viridis", direction = -1) +
-  geom_point(size = 3) +
-  geom_hline(yintercept = 0,
-             color = "black",
-             linewidth = 1.2) +
-  labs(
-    x = expression("Dam Density (" * DamCount[i]/StreamLength[i] * ")"),
-    y = expression("(" * Delta * " RI)"),
-    title = "Difference in Riparian Inundation by Dam Density (Dam/Stream_m)",
-    subtitle = "Lone Tree Creek 2021"
-  ) +
-  theme_bw(base_size = 14)
-
-#####
-
-lt_sample_differences %>% 
-  filter(year=='2023') %>% 
-  ggplot(
-    aes(
-      x = delta_dam_m,
-      y = delta_RI,
-      colour = zFlow_mean
-    )
-  ) +
-  scale_color_viridis_c(option = "viridis", direction = -1) +
-  geom_point(size = 3) +
-  geom_hline(yintercept = 0,
-             color = "black",
-             linewidth = 1.2) +
-  labs(
-    x = expression("Dam Density (" * DamCount[i]/StreamLength[i] * ")"),
-    y = expression("(" * Delta * " RI)"),
-    title = "Difference in Riparian Inundation by Dam Density (Dam/Stream_m)",
-    subtitle = "Lone Tree Creek 2023"
-  ) +
-  theme_bw(base_size = 14)
-
-#####
-```
-
-
-----
-
-Dig into where $\Delta RI >0$; these illustrate contexts where dams may be positively influencing SWA.
-
-Look at TO and RIPA and UDA for delta_RI > 0 dam clusters
-
-```{r,echo=FALSE, fig.width=10}
-lt_posDamDiff <- lt_sample_pairs %>% 
-  filter(delta_SWA > 0)
-
-lt_posDamDiff$year <- as.factor(lt_posDamDiff$year)
-
-lt_posDamDiff %>%
-  arrange(delta_SWA) %>% 
-  ggplot(
-       aes(x = zFlow_mean, 
-           y = TO_dammed, 
-           color = delta_SWA,
-           shape = year)) +
-  geom_point(size = 5, alpha = 0.5) +
-  scale_color_viridis_c(option = "inferno",begin = 0,end   = 0.875,direction = -1) +
-  labs(
-    x = "z-Standardized Flow",
-    y = "Topographic Openness (TO)",
-    color = expression("("*Delta*" SWA) (SWA_dammed - SWA_undammed)"),
-    title = expression("Sites with Positive deltaSWA Across Flow and TO"),
-    subtitle = "Lone Tree Creek All Years"
-  ) +
-  theme_bw(base_size = 14)
-
-
-
-lt_sample_differences %>%
-  filter(delta_SWA >0) %>% 
-  arrange(delta_SWA) %>% 
-  ggplot(
-       aes(x = zFlow_mean, 
-           y = delta_TO, 
-           color = delta_SWA,
-           shape = as.factor(year))) +
-  geom_point(size = 5, alpha = 0.5) +
-  scale_color_viridis_c(option = "inferno",begin = 0,end   = 0.875,direction = -1) +
-  labs(
-    x = "z-Standardized Flow",
-    y = expression("Difference in Topographic Openness (  "*Delta*" TO)"),
-    color = expression("("*Delta*" SWA) (SWA_dammed - SWA_undammed)"),
-    shape = "Year",
-    title = expression("Sites with Positive deltaSWA Across Flow and " *Delta* "TO"),
-    subtitle = "Lone Tree Creek All Years"
-  ) +
-  theme_bw(base_size = 14)
-```
-
-```{r,echo=FALSE, fig.width=10}
-lt_posDamDiff %>%
-  arrange(delta_SWA) %>% 
-  ggplot(
-       aes(x = zFlow_mean, 
-           y = (riparian_area_m2_dammed-riparian_area_m2_undammed), 
-           color = delta_SWA,
-           shape = year)) +
-  geom_point(size = 3, alpha = 0.5) +
-  scale_color_viridis_c(option = "inferno",begin = 0,end   = 0.875,direction = -1) +
-  labs(
-    x = "z-Standardized Flow",
-    y = expression("Difference in Riparian Area ( " *m^2*")"),
-    color = expression("("*Delta*" SWA) (SWA_dammed - SWA_undammed)"),
-    title = expression("Sites with Positive deltaSWA Across Flow and RIPA"),
-    subtitle = "Lone Tree Creek All Years"
-  ) +
-  theme_bw(base_size = 14)
-```
-
-```{r,echo=FALSE, fig.width=10}
-lt_posDamDiff %>%
-  arrange(delta_SWA) %>% 
-  ggplot(
-       aes(x = zFlow_mean, 
-           y = (catchment_km2_dammed - catchment_km2_undammed), 
-           color = delta_SWA,
-           shape = year)) +
-  geom_point(size = 3, alpha = 0.5) +
-  scale_color_viridis_c(option = "inferno",begin = 0,end   = 0.875,direction = -1) +
-  labs(
-    x = "z-Standardized Flow",
-    y = expression("Upstream Drainage Area ("*km^2*")"),
-    color = expression("("*Delta*" SWA) (SWA_dammed - SWA_undammed)"),
-    title = expression("Sites with Positive deltaRI Across Flow and UDA"),
-    subtitle = "Lone Tree Creek All Years"
-  ) +
-  theme_bw(base_size = 14)
-```
-
-```{r,echo=FALSE, fig.width=10}
-
-lt_sample_pairs <- lt_sample_pairs %>%
-  mutate(
-    delta_bin = case_when(
-      as.numeric(scale(delta_SWA)) < 0        ~ "Negative",
-      as.numeric(scale(delta_SWA)) >= 0 & as.numeric(scale(delta_SWA)) <= 0.5   ~ "None",
-      as.numeric(scale(delta_SWA)) > 0.5 & as.numeric(scale(delta_SWA)) <  2.5    ~ "Positive_weak",
-      as.numeric(scale(delta_SWA)) >= 2.5         ~ "Positive_strong"
-    )
-  ) %>% 
-  filter(!is.na(delta_RI))
-
-lt_sample_pairs$delta_bin <- factor(
-  lt_sample_pairs$delta_bin,
-  levels = c("Negative", "None", "Positive_weak", "Positive_strong")
-)
-
-lt_sample_pairs$year <- as.factor(lt_sample_pairs$year)
-
-lt_sample_pairs <- lt_sample_pairs %>% 
-  rename("Year" = "year")
-
-bin_colors <- c(
-  Negative = "grey", 
-  None   = "grey", 
-  Positive_weak   = "lightblue2", 
-  Positive_strong = "navy"   
-)
-
-lt_sample_pairs %>%
-  arrange(delta_SWA) %>% 
-  ggplot(
-       aes(x = as.numeric(scale(riparian_area_m2_dammed - riparian_area_m2_undammed)), 
-           y = as.numeric(scale((TO_dammed - TO_undammed))), 
-           color = delta_bin,
-           shape = Year)) +
-  geom_hline(yintercept = 0, linewidth = 0.5, color = "black") +
-  geom_vline(xintercept = 0, linewidth = 0.5, color = "black") +
-  geom_point(
-  aes(
-    x = as.numeric(scale(riparian_area_m2_dammed - riparian_area_m2_undammed)) +
-        as.numeric(as.factor(surveyPeriod)) * 0.02
-  ),
-  size = 5, alpha = 1
-) +
-  scale_color_manual(values = bin_colors) +
-  labs(
-  x = expression(Delta*RIPA),
-  y = expression(Delta*TO),
-  title = expression(Delta * SWA * " Across " * Delta * TO * " and " * Delta * RIPA),
-  subtitle = "Lone Tree Creek All Years",
-  color = expression(Delta*SWA)
-) +
-  theme_bw(base_size = 14)
-
-```
-
-
-
-
-
-```{r,echo=FALSE, fig.width=10}
-lt_posDamDiff %>%
-  arrange(delta_RI) %>% 
-  ggplot(
-       aes(x = zFlow_mean, 
-           y = dam_m_dammed, 
-           color = delta_RI,
-           shape = year)) +
-  geom_point(size = 3, alpha = 0.5) +
-  scale_color_viridis_c(option = "inferno",begin = 0,end   = 0.875,direction = -1) +
-  labs(
-    x = "z-Standardized Flow",
-    y = expression("Dam Density (" *DamCount[i]/streamLength(m)[i]* ")"),
-    color = expression("("*Delta*" RI) (RI_dammed - RI_undammed)"),
-    title = expression("Sites with Positive deltaRI Across Flow and UDA"),
-    subtitle = "Lone Tree Creek All Years"
-  ) +
-  theme_bw(base_size = 14)
-```
-
-
-```{r,echo=TRUE}
-ltRI_Flow <- lt_sample_pairs %>% 
-  select(clusterID_seq,
-         surveyPeriod,
-         zFlow_mean,
-         RI_dammed,
-         RI_undammed) %>% 
-  pivot_longer(
-    cols = c(RI_dammed, RI_undammed),
-    names_to = "window_type",
-    values_to = "RI"
-  )
-
-ggplot(ltRI_Flow,
-       aes(x = zFlow_mean,
-           y = RI,
-           color = as.factor(window_type))) +
-  scale_color_manual(values = c("RI_dammed" = "brown",
-                                "RI_undammed" = "steelblue")) +
-  geom_point(alpha = 0.4, size = 2) +
-  geom_smooth(method = "loess",
-                 se = TRUE,
-                 linewidth = 1.2) +
-  labs(
-    x = "z-Standardized Flow",
-    y = "Riparian Inundation (RI)",
-    color = "Window Type",
-    title = "Riparian Inundation Across Flow",
-    subtitle = "LT All Years"
-  ) +
-  theme_bw(base_size = 14)
-```
-
-
-
-----
-----
-----
-----
-
-
-----
-----
-----
-----
-
-
-BRAZIL
-----
-----
-
-Compute **Riparian Inundation**
-
-For survey window[i] at time[t], the proportion of riparian area that is covered in surface water
-
-$SWA = Surface Water Area (m^2)$
-
-$RIPA = Riparian Area (m^2)$
-
-$$RI[i,t] = SWA[i,t] / RIPA[i] $$
-
-
-```{r, echo=FALSE}
-# COMPUTE RI HERE!!!
-BRZ_RI <- BRZ %>% 
-  mutate(RI = SWA/riparian_area_m2)
-```
-
-Visualize riparian inundation **(RI)** $SWA/RIPA$ between dammed and undammed across years.
-
-```{r, echo=FALSE, fig.width=10}
-BRZ_RI %>%
-  filter(!is.na(RI)) %>%   # optional but recommended
-  ggplot(aes(x = factor(year),
-             y = RI,
-             fill = window_type)) +
-  geom_boxplot(outlier.alpha = 0.4) +
-  scale_fill_manual(values = c("dammed" = "brown",
-                               "undammed" = "steelblue")) +
-  labs(
-    x = "Year",
-    y = "Riparian Inundation (RI)",
-    fill = "Window type",
-    title = "RI across dammed vs undammed windows",
-    subtitle = "Brazil Creek (2019, 2021, 2023)"
-  ) +
-  theme_bw(base_size = 14)
-
-```
-
-```{r,echo=FALSE}
-BRZ_RI %>%
-  filter(year == 2019) %>% 
-     ggplot(aes(x = t,
-                y = RI,
-                color = window_type)) +
-     geom_point(alpha = 0.4, size = 2) +
-     geom_smooth(method = "loess",
-                 se = TRUE,
-                 linewidth = 1.2) +
-     scale_color_manual(values = c("dammed" = "brown",
-                                   "undammed" = "steelblue")) +
-     scale_x_continuous(breaks = 1:8,
-                        labels = paste0("t", 1:8)) +
-     labs(x = "Time Period (t)",
-          y = "Riparian Inundation (SWA/RIPA)",
-          color = "Window Type",
-          title = "Riparian proportion inundated over time",
-          subtitle = "Brazil Ck; Summer 2019") +
-     theme_bw(base_size = 15)
-
-```
-
-```{r,echo=FALSE}
-BRZ_RI %>%
-  filter(year == 2021) %>% 
-     ggplot(aes(x = t,
-                y = RI,
-                color = window_type)) +
-     geom_point(alpha = 0.4, size = 2) +
-     geom_smooth(method = "loess",
-                 se = TRUE,
-                 linewidth = 1.2) +
-     scale_color_manual(values = c("dammed" = "brown",
-                                   "undammed" = "steelblue")) +
-     scale_x_continuous(breaks = 1:8,
-                        labels = paste0("t", 1:8)) +
-     labs(x = "Time Period (t)",
-          y = "Riparian Inundation (SWA/RIPA)",
-          color = "Window Type",
-          title = "Riparian proportion inundated over time",
-          subtitle = "Brazil Ck; Summer 2021") +
-     theme_bw(base_size = 15)
-
-```
-
-```{r,echo=FALSE}
-BRZ_RI %>%
-  filter(year == 2023) %>% 
-     ggplot(aes(x = t,
-                y = RI,
-                color = window_type)) +
-     geom_point(alpha = 0.4, size = 2) +
-     geom_smooth(method = "loess",
-                 se = TRUE,
-                 linewidth = 1.2) +
-     scale_color_manual(values = c("dammed" = "brown",
-                                   "undammed" = "steelblue")) +
-     scale_x_continuous(breaks = 1:8,
-                        labels = paste0("t", 1:8)) +
-     labs(x = "Time Period (t)",
-          y = "Riparian Inundation (SWA/RIPA)",
-          color = "Window Type",
-          title = "Riparian proportion inundated over time",
-          subtitle = "Brazil Ck; Summer 2023") +
-     theme_bw(base_size = 15)
-
-```
-
-
-----
-
-Add **relative flow data**. 
-
-NOTE: currently this represents data from the USGS Guston Coulee gage that has been z-standardized over the current data acquisition range (June-Sept; 2019, 2021, 2023). 
-
-Then, for each 2-week survey time period (1:8), the average relative flow $[mean(zFlow)]$ was computed, and added as a data column. IT IS ASSUMED that this flow data is representative of the RELATIVE flow pattern experienced throughout the study area during this time. Consider incorporating relative HHP simulated flow data again (?)
-
-----
-
-Visualize Surface Water Area across Relative Flow and Topographic Openness
-
-
-```{r,echo=FALSE, fig.width=10}
-BRZ_RelFlow <- BRZ_RI %>% 
+```{r,include=FALSE, fig.width=10}
+LBV_RelFlow <- LBV %>% 
   left_join(mean_flow_per_survey_period,
             by = "surveyPeriod") %>% 
   mutate(dam_m = Nhat/window_length)
-
-
-BRZ_RelFlow %>% 
-  arrange(SWA) %>%
-  ggplot(
-       aes(x = zFlow_mean, 
-           y = TO, 
-           color = SWA,
-           shape = window_type)) +
-  geom_point(size = 3, alpha = 0.5) +
-  scale_color_viridis_c(option = "mako",begin = 0,end   = 1,direction = -1) +
-  labs(
-    x = "z-Standardized Flow",
-    y = "Topographic Openness (TO)",
-    color = expression("Surface Water Area" (m^2)),
-    title = "Surface Water Area Across RelativeFlow and TO space",
-    subtitle = "Brazil Creek All Years"
-  ) +
-  theme_bw(base_size = 14)
 ```
 
-
-----
-
-----  
-
-----
-
-----
-
-
-
-Visualize covariate distributions b/t dammed and undammed windows:
-
-```{r,include=FALSE}
-ggplot(BRZ_RelFlow, 
-       aes(x = TO, fill = window_type)) +
-  geom_density(alpha = 0.5) +
-  scale_fill_manual(values = c("undammed" = "steelblue", "dammed" = "brown")) +
-  theme_bw(base_size = 14)
-
-
-ggplot(BRZ_RelFlow, 
-       aes(x = riparian_area_m2, fill = window_type)) +
-  geom_density(alpha = 0.5) +
-  scale_fill_manual(values = c("undammed" = "steelblue", "dammed" = "brown")) +
-  theme_bw(base_size = 14)
-
-ggplot(BRZ_RelFlow, 
-       aes(x = SWA, fill = window_type)) +
-  geom_density(alpha = 0.5) +
-  scale_fill_manual(values = c("undammed" = "steelblue", "dammed" = "brown")) +
-  theme_bw(base_size = 14)
-
-ggplot(BRZ_RelFlow, 
-       aes(x = RI, fill = window_type)) +
-  geom_density(alpha = 0.5) +
-  scale_fill_manual(values = c("undammed" = "steelblue", "dammed" = "brown")) +
-  theme_bw(base_size = 14)
-
-ggplot(BRZ_RelFlow, 
-       aes(x = catchment_km2, fill = window_type)) +
-  geom_density(alpha = 0.5) +
-  scale_fill_manual(values = c("undammed" = "steelblue", "dammed" = "brown")) +
-  theme_bw(base_size = 14)
-```
-
-
-----
-
-Visualize covariate correlations for Willow Creek :
-
-```{r,echo=FALSE, fig.width=10}
-#2019
-brz19_numCols <- BRZ_RelFlow %>% 
-  filter(year == "2019") %>% 
-  select(clusterID_seq,
-         riparian_area_m2,
-         window_length,
-         SWA,
-         RI,
-         TO,
-         Nhat,
-         dam_m,
-         catchment_km2) %>% 
-  filter(!is.na(SWA))
-# Correlation matrix
-brz19_corr_matrix <- cor(brz19_numCols)
-
-# Create the plot
-brz19_ggcorr_plot <- ggcorrplot(brz19_corr_matrix, lab = TRUE, type = "upper")+
-  ggtitle("Correlation matrix for Brazil Creek 2019") +
-  theme(plot.title = element_text(hjust = 0.5))
-
-brz19_ggcorr_plot
-
-#2021
-brz21_numCols <- BRZ_RelFlow %>% 
-  filter(year == "2021") %>% 
-  select(clusterID_seq,
-         riparian_area_m2,
-         window_length,
-         SWA,
-         RI,
-         TO,
-         Nhat,
-         dam_m,
-         catchment_km2) %>% 
-  filter(!is.na(SWA))
-# Correlation matrix
-brz21_corr_matrix <- cor(brz21_numCols)
-
-# Create the plot
-brz21_ggcorr_plot <- ggcorrplot(brz21_corr_matrix, lab = TRUE, type = "upper")+
-  ggtitle("Correlation matrix for Brazil Creek 2021") +
-  theme(plot.title = element_text(hjust = 0.5))
-
-brz21_ggcorr_plot
-
-
-#2023
-brz23_numCols <- BRZ_RelFlow %>% 
-  filter(year == "2023") %>% 
-  select(clusterID_seq,
-         riparian_area_m2,
-         window_length,
-         SWA,
-         RI,
-         TO,
-         Nhat,
-         dam_m,
-         catchment_km2) %>% 
-  filter(!is.na(SWA))
-# Correlation matrix
-brz23_corr_matrix <- cor(brz23_numCols)
-
-# Create the plot
-brz23_ggcorr_plot <- ggcorrplot(brz23_corr_matrix, lab = TRUE, type = "upper")+
-  ggtitle("Correlation matrix for Brazil Creek 2023") +
-  theme(plot.title = element_text(hjust = 0.5))
-
-brz23_ggcorr_plot
-```
-
-----
-
-----
-
-----
-
-Compute Differences (Dammed[i] - Undammed):
-----
-
-Compute difference in RI $(\Delta RI)$ between dammed and undammed pairs. The hypothesis is that dammed reaches will inundate more of their respective available space (m^2) than their paired undammed reaches. (+)$(\Delta RI)$ means the dammed site in a pair inundated more of its available riparian space than its undammed counterpart; (-) is vice versa.
-
-The degree to which beaver dams influence $\Delta RI$ confounded by pairwise differences in reach characteristics (e.g., $TO$, $UDA$)
-
-----
-
-Proposed model:
-
-$$\Delta RI[i] = \alpha + \beta1 * \Delta UDA[i] + \beta2 * \Delta TO + \beta3 *  Nhat[i_{\text{dammed}}]$$
-
-
-Wherein, the difference in riparian inundation $(\Delta RI)$ for sample pair $[i]$ is a linear function of the pair's difference in stream network position $(\Delta UDA)$, the pair's difference in local channel confinement $(\Delta TO)$, and the pair's difference in number of dams $(\Delta Nhat)$ (NOTE: delta_Nhat is just Nhat of the dammed site in pair [i]).
-
-Consider, instead of Nhat, using $dam/m = Nhat/windowLength (m)$ to get at dam density within the window, rather than raw dam count.
-
-
-```{r,echo=FALSE}
-brz_sample_pairs <- BRZ_RelFlow %>%
-  select(clusterID_seq,
-         year,
-         t,
-         surveyPeriod,
-         window_type, 
-         RI, 
-         TO, 
-         riparian_area_m2, 
-         zFlow_mean,
-         catchment_km2,
-         Nhat,
-         dam_m) %>%
-  pivot_wider(
-    names_from = window_type,
-    values_from = c(RI, TO, riparian_area_m2, catchment_km2, Nhat,dam_m),
-    names_sep = "_"
-  ) %>% 
-  mutate(delta_RI = RI_dammed - RI_undammed)
-
-brz_sample_differences <- brz_sample_pairs %>%
-  mutate(
-    delta_TO   = TO_dammed - TO_undammed,
-    delta_RIPA = riparian_area_m2_dammed - riparian_area_m2_undammed,
-    delta_UDA  = catchment_km2_dammed - catchment_km2_undammed,
-    delta_Nhat = Nhat_dammed,
-    delta_dam_m = dam_m_dammed
-  ) %>% 
-  select(clusterID_seq,
-         year,
-         t,
-         surveyPeriod,
-         zFlow_mean,
-         delta_RI,
-         delta_TO,
-         delta_RIPA,
-         delta_UDA,
-         delta_Nhat,
-         delta_dam_m
-         )
-
-str(brz_sample_differences)
-```
-
-
-----
-
-Visualize $\Delta RI$ across $\Delta Nhat$
-
-```{r, echo=FALSE, fig.width=10}
-brz_sample_differences %>%
-  arrange(delta_RI) %>% 
-  filter(year=='2019') %>% 
-  ggplot(
-    aes(
-      x = factor(round(delta_Nhat)),   # <-- THIS is the key
-      y = delta_RI,
-      colour = zFlow_mean
-    )
-  ) +
-  scale_color_viridis_c(option = "viridis", direction = -1) +
-  geom_violin() +
-  geom_point(size = 3, alpha = 0.5, position = position_jitter(width = 0.1)) +
-  geom_hline(yintercept = 0,
-             color = "black",
-             linewidth = 1.2) +
-  labs(
-    x = expression("(" * Delta * " Dam Count)"),
-    y = expression("(" * Delta * " RI)"),
-    title = "Difference in Riparian Inundation by Difference in Dam Count",
-    subtitle = "Brazil Creek 2019"
-  ) +
-  theme_bw(base_size = 14)
-
-
-#####
-
-brz_sample_differences %>%
-  arrange(delta_RI) %>% 
-  filter(year=='2021') %>% 
-  ggplot(
-    aes(
-      x = factor(round(delta_Nhat)),   # <-- THIS is the key
-      y = delta_RI,
-      colour = zFlow_mean
-    )
-  ) +
-  scale_color_viridis_c(option = "viridis", direction = -1) +
-  geom_violin() +
-  geom_point(size = 3, alpha = 0.5, position = position_jitter(width = 0.1)) +
-  geom_hline(yintercept = 0,
-             color = "black",
-             linewidth = 1.2) +
-  labs(
-    x = expression("(" * Delta * " Dam Count)"),
-    y = expression("(" * Delta * " RI)"),
-    title = "Difference in Riparian Inundation by Difference in Dam Count",
-    subtitle = "Brazil Creek 2021"
-  ) +
-  theme_bw(base_size = 14)
-
-
-#####
-
-brz_sample_differences %>%
-  arrange(delta_RI) %>% 
-  filter(year=='2023') %>% 
-  ggplot(
-    aes(
-      x = factor(round(delta_Nhat)),   # <-- THIS is the key
-      y = delta_RI,
-      colour = zFlow_mean
-    )
-  ) +
-  scale_color_viridis_c(option = "viridis", direction = -1) +
-  geom_violin() +
-  geom_point(size = 3, alpha = 0.5, position = position_jitter(width = 0.1)) +
-  geom_hline(yintercept = 0,
-             color = "black",
-             linewidth = 1.2) +
-  labs(
-    x = expression("(" * Delta * " Dam Count)"),
-    y = expression("(" * Delta * " RI)"),
-    title = "Difference in Riparian Inundation by Difference in Dam Count",
-    subtitle = "Brazil Creek 2023"
-  ) +
-  theme_bw(base_size = 14)
-
-```
-
-
-----
-
-
-----
-
-Visualize $\Delta RI$ across **damDensity** $(dam/m)$
-
-```{r, echo=FALSE, fig.width=10}
-brz_sample_differences %>% 
-  filter(year=='2019') %>% 
-  ggplot(
-    aes(
-      x = delta_dam_m,
-      y = delta_RI,
-      colour = zFlow_mean
-    )
-  ) +
-  scale_color_viridis_c(option = "viridis", direction = -1) +
-  geom_point(size = 3) +
-  geom_hline(yintercept = 0,
-             color = "black",
-             linewidth = 1.2) +
-  labs(
-    x = expression("Dam Density (" * DamCount[i]/StreamLength[i] * ")"),
-    y = expression("(" * Delta * " RI)"),
-    title = "Difference in Riparian Inundation by Dam Density (Dam/Stream_m)",
-    subtitle = "Brazil Creek 2019"
-  ) +
-  theme_bw(base_size = 14)
-
-#####
-
-brz_sample_differences %>% 
-  filter(year=='2021') %>% 
-  ggplot(
-    aes(
-      x = delta_dam_m,
-      y = delta_RI,
-      colour = zFlow_mean
-    )
-  ) +
-  scale_color_viridis_c(option = "viridis", direction = -1) +
-  geom_point(size = 3) +
-  geom_hline(yintercept = 0,
-             color = "black",
-             linewidth = 1.2) +
-  labs(
-    x = expression("Dam Density (" * DamCount[i]/StreamLength[i] * ")"),
-    y = expression("(" * Delta * " RI)"),
-    title = "Difference in Riparian Inundation by Dam Density (Dam/Stream_m)",
-    subtitle = "Brazil Creek 2021"
-  ) +
-  theme_bw(base_size = 14)
-
-#####
-
-brz_sample_differences %>% 
-  filter(year=='2023') %>% 
-  ggplot(
-    aes(
-      x = delta_dam_m,
-      y = delta_RI,
-      colour = zFlow_mean
-    )
-  ) +
-  scale_color_viridis_c(option = "viridis", direction = -1) +
-  geom_point(size = 3) +
-  geom_hline(yintercept = 0,
-             color = "black",
-             linewidth = 1.2) +
-  labs(
-    x = expression("Dam Density (" * DamCount[i]/StreamLength[i] * ")"),
-    y = expression("(" * Delta * " RI)"),
-    title = "Difference in Riparian Inundation by Dam Density (Dam/Stream_m)",
-    subtitle = "Brazil Creek 2023"
-  ) +
-  theme_bw(base_size = 14)
-
-#####
-```
-
-
-----
-
-Dig into where $\Delta RI >0$; these illustrate contexts where dams may be positively influencing SWA.
-
-Look at TO and RIPA and UDA for delta_RI > 0 dam clusters
-
-```{r,echo=FALSE, fig.width=10}
-brz_posDamDiff <- brz_sample_pairs %>% 
-  filter(delta_RI > 0)
-
-brz_posDamDiff$year <- as.factor(brz_posDamDiff$year)
-
-brz_posDamDiff %>%
-  arrange(delta_RI) %>% 
-  ggplot(
-       aes(x = zFlow_mean, 
-           y = TO_dammed, 
-           color = delta_RI,
-           shape = year)) +
-  geom_point(size = 5, alpha = 0.5) +
-  scale_color_viridis_c(option = "inferno",begin = 0,end   = 0.875,direction = -1) +
-  labs(
-    x = "z-Standardized Flow",
-    y = "Topographic Openness (TO)",
-    color = expression("("*Delta*" RI) (RI_dammed - RI_undammed)"),
-    title = expression("Sites with Positive deltaRI Across Flow and TO"),
-    subtitle = "Brazil Creek All Years"
-  ) +
-  theme_bw(base_size = 14)
-
-
-
-brz_sample_differences %>%
-  filter(delta_RI >0) %>% 
-  arrange(delta_RI) %>% 
-  ggplot(
-       aes(x = zFlow_mean, 
-           y = delta_TO, 
-           color = delta_RI,
-           shape = as.factor(year))) +
-  geom_point(size = 5, alpha = 0.5) +
-  scale_color_viridis_c(option = "inferno",begin = 0,end   = 0.875,direction = -1) +
-  labs(
-    x = "z-Standardized Flow",
-    y = expression("Difference in Topographic Openness (  "*Delta*" TO)"),
-    color = expression("("*Delta*" RI) (RI_dammed - RI_undammed)"),
-    shape = "Year",
-    title = expression("Sites with Positive deltaRI Across Flow and " *Delta* "TO"),
-    subtitle = "Brazil Creek All Years"
-  ) +
-  theme_bw(base_size = 14)
-```
-
-```{r,echo=FALSE, fig.width=10}
-brz_posDamDiff %>%
-  arrange(delta_RI) %>% 
-  ggplot(
-       aes(x = zFlow_mean, 
-           y = riparian_area_m2_dammed, 
-           color = delta_RI,
-           shape = year)) +
-  geom_point(size = 3, alpha = 0.5) +
-  scale_color_viridis_c(option = "inferno",begin = 0,end   = 0.875,direction = -1) +
-  labs(
-    x = "z-Standardized Flow",
-    y = expression("Riparian Area ("*m^2*")"),
-    color = expression("("*Delta*" RI) (RI_dammed - RI_undammed)"),
-    title = expression("Sites with Positive deltaRI Across Flow and RIPA"),
-    subtitle = "Brazil Creek All Years"
-  ) +
-  theme_bw(base_size = 14)
-```
-
-```{r,echo=FALSE, fig.width=10}
-brz_posDamDiff %>%
-  arrange(delta_RI) %>% 
-  ggplot(
-       aes(x = zFlow_mean, 
-           y = catchment_km2_dammed, 
-           color = delta_RI,
-           shape = year)) +
-  geom_point(size = 3, alpha = 0.5) +
-  scale_color_viridis_c(option = "inferno",begin = 0,end   = 0.875,direction = -1) +
-  labs(
-    x = "z-Standardized Flow",
-    y = expression("Upstream Drainage Area ("*km^2*")"),
-    color = expression("("*Delta*" RI) (RI_dammed - RI_undammed)"),
-    title = expression("Sites with Positive deltaRI Across Flow and UDA"),
-    subtitle = "Brazil Creek All Years"
-  ) +
-  theme_bw(base_size = 14)
-```
-
-```{r,echo=FALSE, fig.width=10}
-brz_posDamDiff %>%
-  arrange(delta_RI) %>% 
-  ggplot(
-       aes(x = zFlow_mean, 
-           y = dam_m_dammed, 
-           color = delta_RI,
-           shape = year)) +
-  geom_point(size = 3, alpha = 0.5) +
-  scale_color_viridis_c(option = "inferno",begin = 0,end   = 0.875,direction = -1) +
-  labs(
-    x = "z-Standardized Flow",
-    y = expression("Dam Density (" *DamCount[i]/streamLength(m)[i]* ")"),
-    color = expression("("*Delta*" RI) (RI_dammed - RI_undammed)"),
-    title = expression("Sites with Positive deltaRI Across Flow and UDA"),
-    subtitle = "Brazil Creek All Years"
-  ) +
-  theme_bw(base_size = 14)
-```
-
-
-```{r,echo=TRUE}
-brzRI_Flow <- brz_sample_pairs %>% 
-  select(clusterID_seq,
-         surveyPeriod,
-         zFlow_mean,
-         RI_dammed,
-         RI_undammed) %>% 
-  pivot_longer(
-    cols = c(RI_dammed, RI_undammed),
-    names_to = "window_type",
-    values_to = "RI"
-  )
-
-ggplot(brzRI_Flow,
-       aes(x = zFlow_mean,
-           y = RI,
-           color = as.factor(window_type))) +
-  scale_color_manual(values = c("RI_dammed" = "brown",
-                                "RI_undammed" = "steelblue")) +
-  geom_point(alpha = 0.4, size = 2) +
-  geom_smooth(method = "loess",
-                 se = TRUE,
-                 linewidth = 1.2) +
-  labs(
-    x = "z-Standardized Flow",
-    y = "Riparian Inundation (RI)",
-    color = "Window Type",
-    title = "Riparian Inundation Across Flow",
-    subtitle = "BRZ All Years"
-  ) +
-  theme_bw(base_size = 14)
-```
-
-
-----
-----
-----
-----
-
-
-
-
-----
-----
-----
-----
-
-
-LARB
-----
-----
-
-Compute **Riparian Inundation**
-
-For survey window[i] at time[t], the proportion of riparian area that is covered in surface water
-
-$SWA = Surface Water Area (m^2)$
-
-$RIPA = Riparian Area (m^2)$
-
-$$RI[i,t] = SWA[i,t] / RIPA[i] $$
-
-
-```{r, echo=FALSE}
-# COMPUTE RI HERE!!!
-LRB_RI <- LRB %>% 
-  mutate(RI = SWA/riparian_area_m2)
-```
-
-Visualize riparian inundation **(RI)** $SWA/RIPA$ between dammed and undammed across years.
-
-```{r, echo=FALSE, fig.width=10}
-LRB_RI %>%
-  filter(!is.na(RI)) %>%   # optional but recommended
-  ggplot(aes(x = factor(year),
-             y = RI,
-             fill = window_type)) +
-  geom_boxplot(outlier.alpha = 0.4) +
-  scale_fill_manual(values = c("dammed" = "brown",
-                               "undammed" = "steelblue")) +
-  labs(
-    x = "Year",
-    y = "Riparian Inundation (RI)",
-    fill = "Window type",
-    title = "RI across dammed vs undammed windows",
-    subtitle = "Larb Creek (2019, 2021, 2023)"
-  ) +
-  theme_bw(base_size = 14)
-
-```
-
-```{r,echo=FALSE}
-LRB_RI %>%
-  filter(year == 2019) %>% 
-     ggplot(aes(x = t,
-                y = RI,
-                color = window_type)) +
-     geom_point(alpha = 0.4, size = 2) +
-     geom_smooth(method = "loess",
-                 se = TRUE,
-                 linewidth = 1.2) +
-     scale_color_manual(values = c("dammed" = "brown",
-                                   "undammed" = "steelblue")) +
-     scale_x_continuous(breaks = 1:8,
-                        labels = paste0("t", 1:8)) +
-     labs(x = "Time Period (t)",
-          y = "Riparian Inundation (SWA/RIPA)",
-          color = "Window Type",
-          title = "Riparian proportion inundated over time",
-          subtitle = "Larb Ck; Summer 2019") +
-     theme_bw(base_size = 15)
-
-```
-
-```{r,echo=FALSE}
-LRB_RI %>%
-  filter(year == 2021) %>% 
-     ggplot(aes(x = t,
-                y = RI,
-                color = window_type)) +
-     geom_point(alpha = 0.4, size = 2) +
-     geom_smooth(method = "loess",
-                 se = TRUE,
-                 linewidth = 1.2) +
-     scale_color_manual(values = c("dammed" = "brown",
-                                   "undammed" = "steelblue")) +
-     scale_x_continuous(breaks = 1:8,
-                        labels = paste0("t", 1:8)) +
-     labs(x = "Time Period (t)",
-          y = "Riparian Inundation (SWA/RIPA)",
-          color = "Window Type",
-          title = "Riparian proportion inundated over time",
-          subtitle = "Larb Ck; Summer 2021") +
-     theme_bw(base_size = 15)
-
-```
-
-```{r,echo=FALSE}
-LRB_RI %>%
-  filter(year == 2023) %>% 
-     ggplot(aes(x = t,
-                y = RI,
-                color = window_type)) +
-     geom_point(alpha = 0.4, size = 2) +
-     geom_smooth(method = "loess",
-                 se = TRUE,
-                 linewidth = 1.2) +
-     scale_color_manual(values = c("dammed" = "brown",
-                                   "undammed" = "steelblue")) +
-     scale_x_continuous(breaks = 1:8,
-                        labels = paste0("t", 1:8)) +
-     labs(x = "Time Period (t)",
-          y = "Riparian Inundation (SWA/RIPA)",
-          color = "Window Type",
-          title = "Riparian proportion inundated over time",
-          subtitle = "Larb Ck; Summer 2023") +
-     theme_bw(base_size = 15)
-
-```
-
-
-----
-
-Add **relative flow data**. 
-
-NOTE: currently this represents data from the USGS Guston Coulee gage that has been z-standardized over the current data acquisition range (June-Sept; 2019, 2021, 2023). 
-
-Then, for each 2-week survey time period (1:8), the average relative flow $[mean(zFlow)]$ was computed, and added as a data column. IT IS ASSUMED that this flow data is representative of the RELATIVE flow pattern experienced throughout the study area during this time. Consider incorporating relative HHP simulated flow data again (?)
-
-----
-
-Visualize Surface Water Area across Relative Flow and Topographic Openness
-
-
-```{r,echo=FALSE, fig.width=10}
-LRB_RelFlow <- LRB_RI %>% 
+```{r,include=FALSE, fig.width=10}
+UBV_RelFlow <- UBV %>% 
   left_join(mean_flow_per_survey_period,
             by = "surveyPeriod") %>% 
   mutate(dam_m = Nhat/window_length)
-
-
-LRB_RelFlow %>% 
-  arrange(SWA) %>%
-  ggplot(
-       aes(x = zFlow_mean, 
-           y = TO, 
-           color = SWA,
-           shape = window_type)) +
-  geom_point(size = 3, alpha = 0.5) +
-  scale_color_viridis_c(option = "mako",begin = 0,end   = 1,direction = -1) +
-  labs(
-    x = "z-Standardized Flow",
-    y = "Topographic Openness (TO)",
-    color = expression("Surface Water Area" (m^2)),
-    title = "Surface Water Area Across RelativeFlow and TO space",
-    subtitle = "Larb Creek All Years"
-  ) +
-  theme_bw(base_size = 14)
 ```
-
-
-----
-
-----  
-
-----
-
-----
-
-
-Visualize covariate distributions b/t dammed and undammed windows:
-
-```{r,include=FALSE}
-ggplot(LRB_RelFlow, 
-       aes(x = TO, fill = window_type)) +
-  geom_density(alpha = 0.5) +
-  scale_fill_manual(values = c("undammed" = "steelblue", "dammed" = "brown")) +
-  theme_bw(base_size = 14)
-
-
-ggplot(LRB_RelFlow, 
-       aes(x = riparian_area_m2, fill = window_type)) +
-  geom_density(alpha = 0.5) +
-  scale_fill_manual(values = c("undammed" = "steelblue", "dammed" = "brown")) +
-  theme_bw(base_size = 14)
-
-ggplot(LRB_RelFlow, 
-       aes(x = SWA, fill = window_type)) +
-  geom_density(alpha = 0.5) +
-  scale_fill_manual(values = c("undammed" = "steelblue", "dammed" = "brown")) +
-  theme_bw(base_size = 14)
-
-ggplot(LRB_RelFlow, 
-       aes(x = RI, fill = window_type)) +
-  geom_density(alpha = 0.5) +
-  scale_fill_manual(values = c("undammed" = "steelblue", "dammed" = "brown")) +
-  theme_bw(base_size = 14)
-
-ggplot(LRB_RelFlow, 
-       aes(x = catchment_km2, fill = window_type)) +
-  geom_density(alpha = 0.5) +
-  scale_fill_manual(values = c("undammed" = "steelblue", "dammed" = "brown")) +
-  theme_bw(base_size = 14)
-```
-
-
-----
-
-Visualize covariate correlations for Willow Creek :
-
-```{r,echo=FALSE, fig.width=10}
-#2019
-lrb19_numCols <- LRB_RelFlow %>% 
-  filter(year == "2019") %>% 
-  select(clusterID_seq,
-         riparian_area_m2,
-         window_length,
-         SWA,
-         RI,
-         TO,
-         Nhat,
-         dam_m,
-         catchment_km2) %>% 
-  filter(!is.na(SWA))
-# Correlation matrix
-lrb19_corr_matrix <- cor(lrb19_numCols)
-
-# Create the plot
-lrb19_ggcorr_plot <- ggcorrplot(lrb19_corr_matrix, lab = TRUE, type = "upper")+
-  ggtitle("Correlation matrix for Larb Creek 2019") +
-  theme(plot.title = element_text(hjust = 0.5))
-
-lrb19_ggcorr_plot
-
-#2021
-lrb21_numCols <- LRB_RelFlow %>% 
-  filter(year == "2021") %>% 
-  select(clusterID_seq,
-         riparian_area_m2,
-         window_length,
-         SWA,
-         RI,
-         TO,
-         Nhat,
-         dam_m,
-         catchment_km2) %>% 
-  filter(!is.na(SWA))
-# Correlation matrix
-lrb21_corr_matrix <- cor(lrb21_numCols)
-
-# Create the plot
-lrb21_ggcorr_plot <- ggcorrplot(lrb21_corr_matrix, lab = TRUE, type = "upper")+
-  ggtitle("Correlation matrix for Larb Creek 2021") +
-  theme(plot.title = element_text(hjust = 0.5))
-
-lrb21_ggcorr_plot
-
-
-#2023
-lrb23_numCols <- LRB_RelFlow %>% 
-  filter(year == "2023") %>% 
-  select(clusterID_seq,
-         riparian_area_m2,
-         window_length,
-         SWA,
-         RI,
-         TO,
-         Nhat,
-         dam_m,
-         catchment_km2) %>% 
-  filter(!is.na(SWA))
-# Correlation matrix
-lrb23_corr_matrix <- cor(lrb23_numCols)
-
-# Create the plot
-lrb23_ggcorr_plot <- ggcorrplot(lrb23_corr_matrix, lab = TRUE, type = "upper")+
-  ggtitle("Correlation matrix for Larb Creek 2023") +
-  theme(plot.title = element_text(hjust = 0.5))
-
-lrb23_ggcorr_plot
-```
-
-----
-
-----
-
-----
-
-Compute Differences (Dammed[i] - Undammed):
-----
-
-Compute difference in RI $(\Delta RI)$ between dammed and undammed pairs. The hypothesis is that dammed reaches will inundate more of their respective available space (m^2) than their paired undammed reaches. (+)$(\Delta RI)$ means the dammed site in a pair inundated more of its available riparian space than its undammed counterpart; (-) is vice versa.
-
-The degree to which beaver dams influence $\Delta RI$ confounded by pairwise differences in reach characteristics (e.g., $TO$, $UDA$)
-
-----
-
-Proposed model:
-
-$$\Delta RI[i] = \alpha + \beta1 * \Delta UDA[i] + \beta2 * \Delta TO + \beta3 *  Nhat[i_{\text{dammed}}]$$
-
-
-Wherein, the difference in riparian inundation $(\Delta RI)$ for sample pair $[i]$ is a linear function of the pair's difference in stream network position $(\Delta UDA)$, the pair's difference in local channel confinement $(\Delta TO)$, and the pair's difference in number of dams $(\Delta Nhat)$ (NOTE: delta_Nhat is just Nhat of the dammed site in pair [i]).
-
-Consider, instead of Nhat, using $dam/m = Nhat/windowLength (m)$ to get at dam density within the window, rather than raw dam count.
-
-
-```{r,echo=FALSE}
-lrb_sample_pairs <- LRB_RelFlow %>%
-  select(clusterID_seq,
-         year,
-         t,
-         surveyPeriod,
-         window_type, 
-         RI, 
-         TO, 
-         riparian_area_m2, 
-         zFlow_mean,
-         catchment_km2,
-         Nhat,
-         dam_m) %>%
-  pivot_wider(
-    names_from = window_type,
-    values_from = c(RI, TO, riparian_area_m2, catchment_km2, Nhat,dam_m),
-    names_sep = "_"
-  ) %>% 
-  mutate(delta_RI = RI_dammed - RI_undammed)
-
-lrb_sample_differences <- lrb_sample_pairs %>%
-  mutate(
-    delta_TO   = TO_dammed - TO_undammed,
-    delta_RIPA = riparian_area_m2_dammed - riparian_area_m2_undammed,
-    delta_UDA  = catchment_km2_dammed - catchment_km2_undammed,
-    delta_Nhat = Nhat_dammed,
-    delta_dam_m = dam_m_dammed
-  ) %>% 
-  select(clusterID_seq,
-         year,
-         t,
-         surveyPeriod,
-         zFlow_mean,
-         delta_RI,
-         delta_TO,
-         delta_RIPA,
-         delta_UDA,
-         delta_Nhat,
-         delta_dam_m
-         )
-
-str(lrb_sample_differences)
-```
-
-
-----
-
-Visualize $\Delta RI$ across $\Delta Nhat$
-
-```{r, echo=FALSE, fig.width=10}
-lrb_sample_differences %>%
-  arrange(delta_RI) %>% 
-  filter(year=='2019') %>% 
-  ggplot(
-    aes(
-      x = factor(round(delta_Nhat)),   # <-- THIS is the key
-      y = delta_RI,
-      colour = zFlow_mean
-    )
-  ) +
-  scale_color_viridis_c(option = "viridis", direction = -1) +
-  geom_violin() +
-  geom_point(size = 3, alpha = 0.5, position = position_jitter(width = 0.1)) +
-  geom_hline(yintercept = 0,
-             color = "black",
-             linewidth = 1.2) +
-  labs(
-    x = expression("(" * Delta * " Dam Count)"),
-    y = expression("(" * Delta * " RI)"),
-    title = "Difference in Riparian Inundation by Difference in Dam Count",
-    subtitle = "Larb Creek 2019"
-  ) +
-  theme_bw(base_size = 14)
-
-
-#####
-
-lrb_sample_differences %>%
-  arrange(delta_RI) %>% 
-  filter(year=='2021') %>% 
-  ggplot(
-    aes(
-      x = factor(round(delta_Nhat)),   # <-- THIS is the key
-      y = delta_RI,
-      colour = zFlow_mean
-    )
-  ) +
-  scale_color_viridis_c(option = "viridis", direction = -1) +
-  geom_violin() +
-  geom_point(size = 3, alpha = 0.5, position = position_jitter(width = 0.1)) +
-  geom_hline(yintercept = 0,
-             color = "black",
-             linewidth = 1.2) +
-  labs(
-    x = expression("(" * Delta * " Dam Count)"),
-    y = expression("(" * Delta * " RI)"),
-    title = "Difference in Riparian Inundation by Difference in Dam Count",
-    subtitle = "Larb Creek 2021"
-  ) +
-  theme_bw(base_size = 14)
-
-
-#####
-
-lrb_sample_differences %>%
-  arrange(delta_RI) %>% 
-  filter(year=='2023') %>% 
-  ggplot(
-    aes(
-      x = factor(round(delta_Nhat)),   # <-- THIS is the key
-      y = delta_RI,
-      colour = zFlow_mean
-    )
-  ) +
-  scale_color_viridis_c(option = "viridis", direction = -1) +
-  geom_violin() +
-  geom_point(size = 3, alpha = 0.5, position = position_jitter(width = 0.1)) +
-  geom_hline(yintercept = 0,
-             color = "black",
-             linewidth = 1.2) +
-  labs(
-    x = expression("(" * Delta * " Dam Count)"),
-    y = expression("(" * Delta * " RI)"),
-    title = "Difference in Riparian Inundation by Difference in Dam Count",
-    subtitle = "Larb Creek 2023"
-  ) +
-  theme_bw(base_size = 14)
-
-```
-
-
-----
-
-
-----
-
-Visualize $\Delta RI$ across **damDensity** $(dam/m)$
-
-```{r, echo=FALSE, fig.width=10}
-lrb_sample_differences %>% 
-  filter(year=='2019') %>% 
-  ggplot(
-    aes(
-      x = delta_dam_m,
-      y = delta_RI,
-      colour = zFlow_mean
-    )
-  ) +
-  scale_color_viridis_c(option = "viridis", direction = -1) +
-  geom_point(size = 3) +
-  geom_hline(yintercept = 0,
-             color = "black",
-             linewidth = 1.2) +
-  labs(
-    x = expression("Dam Density (" * DamCount[i]/StreamLength[i] * ")"),
-    y = expression("(" * Delta * " RI)"),
-    title = "Difference in Riparian Inundation by Dam Density (Dam/Stream_m)",
-    subtitle = "Larb Creek 2019"
-  ) +
-  theme_bw(base_size = 14)
-
-#####
-
-lrb_sample_differences %>% 
-  filter(year=='2021') %>% 
-  ggplot(
-    aes(
-      x = delta_dam_m,
-      y = delta_RI,
-      colour = zFlow_mean
-    )
-  ) +
-  scale_color_viridis_c(option = "viridis", direction = -1) +
-  geom_point(size = 3) +
-  geom_hline(yintercept = 0,
-             color = "black",
-             linewidth = 1.2) +
-  labs(
-    x = expression("Dam Density (" * DamCount[i]/StreamLength[i] * ")"),
-    y = expression("(" * Delta * " RI)"),
-    title = "Difference in Riparian Inundation by Dam Density (Dam/Stream_m)",
-    subtitle = "Larb Creek 2021"
-  ) +
-  theme_bw(base_size = 14)
-
-#####
-
-lrb_sample_differences %>% 
-  filter(year=='2023') %>% 
-  ggplot(
-    aes(
-      x = delta_dam_m,
-      y = delta_RI,
-      colour = zFlow_mean
-    )
-  ) +
-  scale_color_viridis_c(option = "viridis", direction = -1) +
-  geom_point(size = 3) +
-  geom_hline(yintercept = 0,
-             color = "black",
-             linewidth = 1.2) +
-  labs(
-    x = expression("Dam Density (" * DamCount[i]/StreamLength[i] * ")"),
-    y = expression("(" * Delta * " RI)"),
-    title = "Difference in Riparian Inundation by Dam Density (Dam/Stream_m)",
-    subtitle = "Larb Creek 2023"
-  ) +
-  theme_bw(base_size = 14)
-
-#####
-```
-
-
-----
-
-Dig into where $\Delta RI >0$; these illustrate contexts where dams may be positively influencing SWA.
-
-Look at TO and RIPA and UDA for delta_RI > 0 dam clusters
-
-```{r,echo=FALSE, fig.width=10}
-lrb_posDamDiff <- lrb_sample_pairs %>% 
-  filter(delta_RI > 0)
-
-lrb_posDamDiff$year <- as.factor(lrb_posDamDiff$year)
-
-lrb_posDamDiff %>%
-  arrange(delta_RI) %>% 
-  ggplot(
-       aes(x = zFlow_mean, 
-           y = TO_dammed, 
-           color = delta_RI,
-           shape = year)) +
-  geom_point(size = 3, alpha = 0.5) +
-  scale_color_viridis_c(option = "inferno",begin = 0,end   = 0.875,direction = -1) +
-  labs(
-    x = "z-Standardized Flow",
-    y = "Topographic Openness (TO)",
-    color = expression("("*Delta*" RI) (RI_dammed - RI_undammed)"),
-    title = expression("Sites with Positive deltaRI Across Flow and TO"),
-    subtitle = "Larb Creek All Years"
-  ) +
-  theme_bw(base_size = 14)
-
-
-lrb_sample_differences %>%
-  filter(delta_RI >0) %>% 
-  arrange(delta_RI) %>% 
-  ggplot(
-       aes(x = zFlow_mean, 
-           y = delta_TO, 
-           color = delta_RI,
-           shape = as.factor(year))) +
-  geom_point(size = 5, alpha = 0.5) +
-  scale_color_viridis_c(option = "inferno",begin = 0,end   = 0.875,direction = -1) +
-  labs(
-    x = "z-Standardized Flow",
-    y = expression("Difference in Topographic Openness (  "*Delta*" TO)"),
-    color = expression("("*Delta*" RI) (RI_dammed - RI_undammed)"),
-    shape = "Year",
-    title = expression("Sites with Positive deltaRI Across Flow and " *Delta* "TO"),
-    subtitle = "Larb Creek All Years"
-  ) +
-  theme_bw(base_size = 14)
-```
-
-```{r,echo=FALSE, fig.width=10}
-lrb_posDamDiff %>%
-  arrange(delta_RI) %>% 
-  ggplot(
-       aes(x = zFlow_mean, 
-           y = riparian_area_m2_dammed, 
-           color = delta_RI,
-           shape = year)) +
-  geom_point(size = 3, alpha = 0.5) +
-  scale_color_viridis_c(option = "inferno",begin = 0,end   = 0.875,direction = -1) +
-  labs(
-    x = "z-Standardized Flow",
-    y = expression("Riparian Area ("*m^2*")"),
-    color = expression("("*Delta*" RI) (RI_dammed - RI_undammed)"),
-    title = expression("Sites with Positive deltaRI Across Flow and RIPA"),
-    subtitle = "Larb Creek All Years"
-  ) +
-  theme_bw(base_size = 14)
-```
-
-```{r,echo=FALSE, fig.width=10}
-lrb_posDamDiff %>%
-  arrange(delta_RI) %>% 
-  ggplot(
-       aes(x = zFlow_mean, 
-           y = catchment_km2_dammed, 
-           color = delta_RI,
-           shape = year)) +
-  geom_point(size = 3, alpha = 0.5) +
-  scale_color_viridis_c(option = "inferno",begin = 0,end   = 0.875,direction = -1) +
-  labs(
-    x = "z-Standardized Flow",
-    y = expression("Upstream Drainage Area ("*km^2*")"),
-    color = expression("("*Delta*" RI) (RI_dammed - RI_undammed)"),
-    title = expression("Sites with Positive deltaRI Across Flow and UDA"),
-    subtitle = "Larb Creek All Years"
-  ) +
-  theme_bw(base_size = 14)
-```
-
-```{r,echo=FALSE, fig.width=10}
-lrb_posDamDiff %>%
-  arrange(delta_RI) %>% 
-  ggplot(
-       aes(x = zFlow_mean, 
-           y = dam_m_dammed, 
-           color = delta_RI,
-           shape = year)) +
-  geom_point(size = 3, alpha = 0.5) +
-  scale_color_viridis_c(option = "inferno",begin = 0,end   = 0.875,direction = -1) +
-  labs(
-    x = "z-Standardized Flow",
-    y = expression("Dam Density (" *DamCount[i]/streamLength(m)[i]* ")"),
-    color = expression("("*Delta*" RI) (RI_dammed - RI_undammed)"),
-    title = expression("Sites with Positive deltaRI Across Flow and UDA"),
-    subtitle = "Larb Creek All Years"
-  ) +
-  theme_bw(base_size = 14)
-```
-
-
-```{r,echo=TRUE}
-lrbRI_Flow <- lrb_sample_pairs %>% 
-  select(clusterID_seq,
-         surveyPeriod,
-         zFlow_mean,
-         RI_dammed,
-         RI_undammed) %>% 
-  pivot_longer(
-    cols = c(RI_dammed, RI_undammed),
-    names_to = "window_type",
-    values_to = "RI"
-  )
-
-ggplot(lrbRI_Flow,
-       aes(x = zFlow_mean,
-           y = RI,
-           color = as.factor(window_type))) +
-  scale_color_manual(values = c("RI_dammed" = "brown",
-                                "RI_undammed" = "steelblue")) +
-  geom_point(alpha = 0.4, size = 2) +
-  geom_smooth(method = "loess",
-                 se = TRUE,
-                 linewidth = 1.2) +
-  labs(
-    x = "z-Standardized Flow",
-    y = "Riparian Inundation (RI)",
-    color = "Window Type",
-    title = "Riparian Inundation Across Flow",
-    subtitle = "LRB All Years"
-  ) +
-  theme_bw(base_size = 14)
-```
-
-----
-----
-----
-----
-
-
-
-
-----
-----
-----
-----
-
-
-LOWER BEAVER
-----
-----
-
-Compute **Riparian Inundation**
-
-For survey window[i] at time[t], the proportion of riparian area that is covered in surface water
-
-$SWA = Surface Water Area (m^2)$
-
-$RIPA = Riparian Area (m^2)$
-
-$$RI[i,t] = SWA[i,t] / RIPA[i] $$
-
-
-```{r, echo=FALSE}
-# COMPUTE RI HERE!!!
-LBV_RI <- LBV %>% 
-  mutate(RI = SWA/riparian_area_m2)
-```
-
-Visualize riparian inundation **(RI)** $SWA/RIPA$ between dammed and undammed across years.
-
-```{r, echo=FALSE, fig.width=10}
-LBV_RI %>%
-  filter(!is.na(RI)) %>%   # optional but recommended
-  ggplot(aes(x = factor(year),
-             y = RI,
-             fill = window_type)) +
-  geom_boxplot(outlier.alpha = 0.4) +
-  scale_fill_manual(values = c("dammed" = "brown",
-                               "undammed" = "steelblue")) +
-  labs(
-    x = "Year",
-    y = "Riparian Inundation (RI)",
-    fill = "Window type",
-    title = "RI across dammed vs undammed windows",
-    subtitle = "Lower Beaver Creek (2019, 2021, 2023)"
-  ) +
-  theme_bw(base_size = 14)
-
-```
-
-```{r,echo=FALSE}
-LBV_RI %>%
-  filter(year == 2019) %>% 
-     ggplot(aes(x = t,
-                y = RI,
-                color = window_type)) +
-     geom_point(alpha = 0.4, size = 2) +
-     geom_smooth(method = "loess",
-                 se = TRUE,
-                 linewidth = 1.2) +
-     scale_color_manual(values = c("dammed" = "brown",
-                                   "undammed" = "steelblue")) +
-     scale_x_continuous(breaks = 1:8,
-                        labels = paste0("t", 1:8)) +
-     labs(x = "Time Period (t)",
-          y = "Riparian Inundation (SWA/RIPA)",
-          color = "Window Type",
-          title = "Riparian proportion inundated over time",
-          subtitle = "Lower Beaver Ck; Summer 2019") +
-     theme_bw(base_size = 15)
-
-```
-
-```{r,echo=FALSE}
-LBV_RI %>%
-  filter(year == 2021) %>% 
-     ggplot(aes(x = t,
-                y = RI,
-                color = window_type)) +
-     geom_point(alpha = 0.4, size = 2) +
-     geom_smooth(method = "loess",
-                 se = TRUE,
-                 linewidth = 1.2) +
-     scale_color_manual(values = c("dammed" = "brown",
-                                   "undammed" = "steelblue")) +
-     scale_x_continuous(breaks = 1:8,
-                        labels = paste0("t", 1:8)) +
-     labs(x = "Time Period (t)",
-          y = "Riparian Inundation (SWA/RIPA)",
-          color = "Window Type",
-          title = "Riparian proportion inundated over time",
-          subtitle = "Lower Beaver Ck; Summer 2021") +
-     theme_bw(base_size = 15)
-
-```
-
-```{r,echo=FALSE}
-LBV_RI %>%
-  filter(year == 2023) %>% 
-     ggplot(aes(x = t,
-                y = RI,
-                color = window_type)) +
-     geom_point(alpha = 0.4, size = 2) +
-     geom_smooth(method = "loess",
-                 se = TRUE,
-                 linewidth = 1.2) +
-     scale_color_manual(values = c("dammed" = "brown",
-                                   "undammed" = "steelblue")) +
-     scale_x_continuous(breaks = 1:8,
-                        labels = paste0("t", 1:8)) +
-     labs(x = "Time Period (t)",
-          y = "Riparian Inundation (SWA/RIPA)",
-          color = "Window Type",
-          title = "Riparian proportion inundated over time",
-          subtitle = "Lower Beaver Ck; Summer 2023") +
-     theme_bw(base_size = 15)
-
-```
-
-
-----
-
-Add **relative flow data**. 
-
-NOTE: currently this represents data from the USGS Guston Coulee gage that has been z-standardized over the current data acquisition range (June-Sept; 2019, 2021, 2023). 
-
-Then, for each 2-week survey time period (1:8), the average relative flow $[mean(zFlow)]$ was computed, and added as a data column. IT IS ASSUMED that this flow data is representative of the RELATIVE flow pattern experienced throughout the study area during this time. Consider incorporating relative HHP simulated flow data again (?)
-
-----
-
-Visualize Surface Water Area across Relative Flow and Topographic Openness
-
-
-```{r,echo=FALSE, fig.width=10}
-LBV_RelFlow <- LBV_RI %>% 
-  left_join(mean_flow_per_survey_period,
-            by = "surveyPeriod") %>% 
-  mutate(dam_m = Nhat/window_length)
-
-
-LBV_RelFlow %>% 
-  arrange(SWA) %>%
-  ggplot(
-       aes(x = zFlow_mean, 
-           y = TO, 
-           color = SWA,
-           shape = window_type)) +
-  geom_point(size = 3, alpha = 0.5) +
-  scale_color_viridis_c(option = "mako",begin = 0,end   = 1,direction = -1) +
-  labs(
-    x = "z-Standardized Flow",
-    y = "Topographic Openness (TO)",
-    color = expression("Surface Water Area" (m^2)),
-    title = "Surface Water Area Across RelativeFlow and TO space",
-    subtitle = "Lower Beaver Creek All Years"
-  ) +
-  theme_bw(base_size = 14)
-```
-
-
-----
-
-----  
-
-----
-
-----
-
-
-
-Visualize covariate distributions b/t dammed and undammed windows:
-
-```{r,include=FALSE}
-ggplot(LBV_RelFlow, 
-       aes(x = TO, fill = window_type)) +
-  geom_density(alpha = 0.5) +
-  scale_fill_manual(values = c("undammed" = "steelblue", "dammed" = "brown")) +
-  theme_bw(base_size = 14)
-
-
-ggplot(LBV_RelFlow, 
-       aes(x = riparian_area_m2, fill = window_type)) +
-  geom_density(alpha = 0.5) +
-  scale_fill_manual(values = c("undammed" = "steelblue", "dammed" = "brown")) +
-  theme_bw(base_size = 14)
-
-ggplot(LBV_RelFlow, 
-       aes(x = SWA, fill = window_type)) +
-  geom_density(alpha = 0.5) +
-  scale_fill_manual(values = c("undammed" = "steelblue", "dammed" = "brown")) +
-  theme_bw(base_size = 14)
-
-ggplot(LBV_RelFlow, 
-       aes(x = RI, fill = window_type)) +
-  geom_density(alpha = 0.5) +
-  scale_fill_manual(values = c("undammed" = "steelblue", "dammed" = "brown")) +
-  theme_bw(base_size = 14)
-
-ggplot(LBV_RelFlow, 
-       aes(x = catchment_km2, fill = window_type)) +
-  geom_density(alpha = 0.5) +
-  scale_fill_manual(values = c("undammed" = "steelblue", "dammed" = "brown")) +
-  theme_bw(base_size = 14)
-```
-
-
-
-----
-
-Visualize covariate correlations for Willow Creek :
-
-```{r,echo=FALSE, fig.width=10}
-#2019
-lbv19_numCols <- LBV_RelFlow %>% 
-  filter(year == "2019") %>% 
-  select(clusterID_seq,
-         riparian_area_m2,
-         window_length,
-         SWA,
-         RI,
-         TO,
-         Nhat,
-         dam_m,
-         catchment_km2) %>% 
-  filter(!is.na(SWA))
-# Correlation matrix
-lbv19_corr_matrix <- cor(lbv19_numCols)
-
-# Create the plot
-lbv19_ggcorr_plot <- ggcorrplot(lbv19_corr_matrix, lab = TRUE, type = "upper")+
-  ggtitle("Correlation matrix for Lower Beaver Creek 2019") +
-  theme(plot.title = element_text(hjust = 0.5))
-
-lbv19_ggcorr_plot
-
-#2021
-lbv21_numCols <- LBV_RelFlow %>% 
-  filter(year == "2021") %>% 
-  select(clusterID_seq,
-         riparian_area_m2,
-         window_length,
-         SWA,
-         RI,
-         TO,
-         Nhat,
-         dam_m,
-         catchment_km2) %>% 
-  filter(!is.na(SWA))
-# Correlation matrix
-lbv21_corr_matrix <- cor(lbv21_numCols)
-
-# Create the plot
-lbv21_ggcorr_plot <- ggcorrplot(lbv21_corr_matrix, lab = TRUE, type = "upper")+
-  ggtitle("Correlation matrix for Lower Beaver Creek 2021") +
-  theme(plot.title = element_text(hjust = 0.5))
-
-lbv21_ggcorr_plot
-
-
-#2023
-lbv23_numCols <- LBV_RelFlow %>% 
-  filter(year == "2023") %>% 
-  select(clusterID_seq,
-         riparian_area_m2,
-         window_length,
-         SWA,
-         RI,
-         TO,
-         Nhat,
-         dam_m,
-         catchment_km2) %>% 
-  filter(!is.na(SWA))
-# Correlation matrix
-lbv23_corr_matrix <- cor(lbv23_numCols)
-
-# Create the plot
-lbv23_ggcorr_plot <- ggcorrplot(lbv23_corr_matrix, lab = TRUE, type = "upper")+
-  ggtitle("Correlation matrix for Lower Beaver Creek 2023") +
-  theme(plot.title = element_text(hjust = 0.5))
-
-lbv23_ggcorr_plot
-```
-
-----
-
-----
-
-----
-
-Compute Differences (Dammed[i] - Undammed):
-----
-
-Compute difference in RI $(\Delta RI)$ between dammed and undammed pairs. The hypothesis is that dammed reaches will inundate more of their respective available space (m^2) than their paired undammed reaches. (+)$(\Delta RI)$ means the dammed site in a pair inundated more of its available riparian space than its undammed counterpart; (-) is vice versa.
-
-The degree to which beaver dams influence $\Delta RI$ confounded by pairwise differences in reach characteristics (e.g., $TO$, $UDA$)
-
-----
-
-Proposed model:
-
-$$\Delta RI[i] = \alpha + \beta1 * \Delta UDA[i] + \beta2 * \Delta TO + \beta3 *  Nhat[i_{\text{dammed}}]$$
-
-
-Wherein, the difference in riparian inundation $(\Delta RI)$ for sample pair $[i]$ is a linear function of the pair's difference in stream network position $(\Delta UDA)$, the pair's difference in local channel confinement $(\Delta TO)$, and the pair's difference in number of dams $(\Delta Nhat)$ (NOTE: delta_Nhat is just Nhat of the dammed site in pair [i]).
-
-Consider, instead of Nhat, using $dam/m = Nhat/windowLength (m)$ to get at dam density within the window, rather than raw dam count.
-
-
-```{r,echo=FALSE}
-lbv_sample_pairs <- LBV_RelFlow %>%
-  select(clusterID_seq,
-         year,
-         t,
-         surveyPeriod,
-         window_type, 
-         RI, 
-         TO, 
-         riparian_area_m2, 
-         zFlow_mean,
-         catchment_km2,
-         Nhat,
-         dam_m) %>%
-  pivot_wider(
-    names_from = window_type,
-    values_from = c(RI, TO, riparian_area_m2, catchment_km2, Nhat,dam_m),
-    names_sep = "_"
-  ) %>% 
-  mutate(delta_RI = RI_dammed - RI_undammed)
-
-lbv_sample_differences <- lbv_sample_pairs %>%
-  mutate(
-    delta_TO   = TO_dammed - TO_undammed,
-    delta_RIPA = riparian_area_m2_dammed - riparian_area_m2_undammed,
-    delta_UDA  = catchment_km2_dammed - catchment_km2_undammed,
-    delta_Nhat = Nhat_dammed,
-    delta_dam_m = dam_m_dammed
-  ) %>% 
-  select(clusterID_seq,
-         year,
-         t,
-         surveyPeriod,
-         zFlow_mean,
-         delta_RI,
-         delta_TO,
-         delta_RIPA,
-         delta_UDA,
-         delta_Nhat,
-         delta_dam_m
-         )
-
-str(lbv_sample_differences)
-```
-
-
-----
-
-Visualize $\Delta RI$ across $\Delta Nhat$
-
-```{r, echo=FALSE, fig.width=10}
-lbv_sample_differences %>%
-  arrange(delta_RI) %>% 
-  filter(year=='2019') %>% 
-  ggplot(
-    aes(
-      x = factor(round(delta_Nhat)),   # <-- THIS is the key
-      y = delta_RI,
-      colour = zFlow_mean
-    )
-  ) +
-  scale_color_viridis_c(option = "viridis", direction = -1) +
-  geom_violin() +
-  geom_point(size = 3, alpha = 0.5, position = position_jitter(width = 0.1)) +
-  geom_hline(yintercept = 0,
-             color = "black",
-             linewidth = 1.2) +
-  labs(
-    x = expression("(" * Delta * " Dam Count)"),
-    y = expression("(" * Delta * " RI)"),
-    title = "Difference in Riparian Inundation by Difference in Dam Count",
-    subtitle = "Lower Beaver Creek 2019"
-  ) +
-  theme_bw(base_size = 14)
-
-
-#####
-
-lbv_sample_differences %>%
-  arrange(delta_RI) %>% 
-  filter(year=='2021') %>% 
-  ggplot(
-    aes(
-      x = factor(round(delta_Nhat)),   # <-- THIS is the key
-      y = delta_RI,
-      colour = zFlow_mean
-    )
-  ) +
-  scale_color_viridis_c(option = "viridis", direction = -1) +
-  geom_violin() +
-  geom_point(size = 3, alpha = 0.5, position = position_jitter(width = 0.1)) +
-  geom_hline(yintercept = 0,
-             color = "black",
-             linewidth = 1.2) +
-  labs(
-    x = expression("(" * Delta * " Dam Count)"),
-    y = expression("(" * Delta * " RI)"),
-    title = "Difference in Riparian Inundation by Difference in Dam Count",
-    subtitle = "Lower Beaver Creek 2021"
-  ) +
-  theme_bw(base_size = 14)
-
-
-#####
-
-lbv_sample_differences %>%
-  arrange(delta_RI) %>% 
-  filter(year=='2023') %>% 
-  ggplot(
-    aes(
-      x = factor(round(delta_Nhat)),   # <-- THIS is the key
-      y = delta_RI,
-      colour = zFlow_mean
-    )
-  ) +
-  scale_color_viridis_c(option = "viridis", direction = -1) +
-  geom_violin() +
-  geom_point(size = 3, alpha = 0.5, position = position_jitter(width = 0.1)) +
-  geom_hline(yintercept = 0,
-             color = "black",
-             linewidth = 1.2) +
-  labs(
-    x = expression("(" * Delta * " Dam Count)"),
-    y = expression("(" * Delta * " RI)"),
-    title = "Difference in Riparian Inundation by Difference in Dam Count",
-    subtitle = "Lower Beaver Creek 2023"
-  ) +
-  theme_bw(base_size = 14)
-
-```
-
-
-----
-
-
-----
-
-Visualize $\Delta RI$ across **damDensity** $(dam/m)$
-
-```{r, echo=FALSE, fig.width=10}
-lbv_sample_differences %>% 
-  filter(year=='2019') %>% 
-  ggplot(
-    aes(
-      x = delta_dam_m,
-      y = delta_RI,
-      colour = zFlow_mean
-    )
-  ) +
-  scale_color_viridis_c(option = "viridis", direction = -1) +
-  geom_point(size = 3) +
-  geom_hline(yintercept = 0,
-             color = "black",
-             linewidth = 1.2) +
-  labs(
-    x = expression("Dam Density (" * DamCount[i]/StreamLength[i] * ")"),
-    y = expression("(" * Delta * " RI)"),
-    title = "Difference in Riparian Inundation by Dam Density (Dam/Stream_m)",
-    subtitle = "Lower Beaver Creek 2019"
-  ) +
-  theme_bw(base_size = 14)
-
-#####
-
-lbv_sample_differences %>% 
-  filter(year=='2021') %>% 
-  ggplot(
-    aes(
-      x = delta_dam_m,
-      y = delta_RI,
-      colour = zFlow_mean
-    )
-  ) +
-  scale_color_viridis_c(option = "viridis", direction = -1) +
-  geom_point(size = 3) +
-  geom_hline(yintercept = 0,
-             color = "black",
-             linewidth = 1.2) +
-  labs(
-    x = expression("Dam Density (" * DamCount[i]/StreamLength[i] * ")"),
-    y = expression("(" * Delta * " RI)"),
-    title = "Difference in Riparian Inundation by Dam Density (Dam/Stream_m)",
-    subtitle = "Lower Beaver Creek 2021"
-  ) +
-  theme_bw(base_size = 14)
-
-#####
-
-lbv_sample_differences %>% 
-  filter(year=='2023') %>% 
-  ggplot(
-    aes(
-      x = delta_dam_m,
-      y = delta_RI,
-      colour = zFlow_mean
-    )
-  ) +
-  scale_color_viridis_c(option = "viridis", direction = -1) +
-  geom_point(size = 3) +
-  geom_hline(yintercept = 0,
-             color = "black",
-             linewidth = 1.2) +
-  labs(
-    x = expression("Dam Density (" * DamCount[i]/StreamLength[i] * ")"),
-    y = expression("(" * Delta * " RI)"),
-    title = "Difference in Riparian Inundation by Dam Density (Dam/Stream_m)",
-    subtitle = "Lower Beaver Creek 2023"
-  ) +
-  theme_bw(base_size = 14)
-
-#####
-```
-
-
-----
-
-Dig into where $\Delta RI >0$; these illustrate contexts where dams may be positively influencing SWA.
-
-Look at TO and RIPA and UDA for delta_RI > 0 dam clusters
-
-```{r,echo=FALSE, fig.width=10}
-lbv_posDamDiff <- lbv_sample_pairs %>% 
-  filter(delta_RI > 0)
-
-lbv_posDamDiff$year <- as.factor(lbv_posDamDiff$year)
-
-lbv_posDamDiff %>%
-  arrange(delta_RI) %>% 
-  ggplot(
-       aes(x = zFlow_mean, 
-           y = TO_dammed, 
-           color = delta_RI,
-           shape = year)) +
-  geom_point(size = 3, alpha = 0.5) +
-  scale_color_viridis_c(option = "inferno",begin = 0,end   = 0.875,direction = -1) +
-  labs(
-    x = "z-Standardized Flow",
-    y = "Topographic Openness (TO)",
-    color = expression("("*Delta*" RI) (RI_dammed - RI_undammed)"),
-    title = expression("Sites with Positive deltaRI Across Flow and TO"),
-    subtitle = "Lower Beaver Creek All Years"
-  ) +
-  theme_bw(base_size = 14)
-
-
-lbv_sample_differences %>%
-  filter(delta_RI >0) %>% 
-  arrange(delta_RI) %>% 
-  ggplot(
-       aes(x = zFlow_mean, 
-           y = delta_TO, 
-           color = delta_RI,
-           shape = as.factor(year))) +
-  geom_point(size = 5, alpha = 0.5) +
-  scale_color_viridis_c(option = "inferno",begin = 0,end   = 0.875,direction = -1) +
-  labs(
-    x = "z-Standardized Flow",
-    y = expression("Difference in Topographic Openness (  "*Delta*" TO)"),
-    color = expression("("*Delta*" RI) (RI_dammed - RI_undammed)"),
-    shape = "Year",
-    title = expression("Sites with Positive deltaRI Across Flow and " *Delta* "TO"),
-    subtitle = "Lower Beaver Creek All Years"
-  ) +
-  theme_bw(base_size = 14)
-```
-
-```{r,echo=FALSE, fig.width=10}
-lbv_posDamDiff %>%
-  arrange(delta_RI) %>% 
-  ggplot(
-       aes(x = zFlow_mean, 
-           y = riparian_area_m2_dammed, 
-           color = delta_RI,
-           shape = year)) +
-  geom_point(size = 3, alpha = 0.5) +
-  scale_color_viridis_c(option = "inferno",begin = 0,end   = 0.875,direction = -1) +
-  labs(
-    x = "z-Standardized Flow",
-    y = expression("Riparian Area ("*m^2*")"),
-    color = expression("("*Delta*" RI) (RI_dammed - RI_undammed)"),
-    title = expression("Sites with Positive deltaRI Across Flow and RIPA"),
-    subtitle = "Lower Beaver Creek All Years"
-  ) +
-  theme_bw(base_size = 14)
-```
-
-```{r,echo=FALSE, fig.width=10}
-lbv_posDamDiff %>%
-  arrange(delta_RI) %>% 
-  ggplot(
-       aes(x = zFlow_mean, 
-           y = catchment_km2_dammed, 
-           color = delta_RI,
-           shape = year)) +
-  geom_point(size = 3, alpha = 0.5) +
-  scale_color_viridis_c(option = "inferno",begin = 0,end   = 0.875,direction = -1) +
-  labs(
-    x = "z-Standardized Flow",
-    y = expression("Upstream Drainage Area ("*km^2*")"),
-    color = expression("("*Delta*" RI) (RI_dammed - RI_undammed)"),
-    title = expression("Sites with Positive deltaRI Across Flow and UDA"),
-    subtitle = "Lower Beaver Creek All Years"
-  ) +
-  theme_bw(base_size = 14)
-```
-
-```{r,echo=FALSE, fig.width=10}
-lbv_posDamDiff %>%
-  arrange(delta_RI) %>% 
-  ggplot(
-       aes(x = zFlow_mean, 
-           y = dam_m_dammed, 
-           color = delta_RI,
-           shape = year)) +
-  geom_point(size = 3, alpha = 0.5) +
-  scale_color_viridis_c(option = "inferno",begin = 0,end   = 0.875,direction = -1) +
-  labs(
-    x = "z-Standardized Flow",
-    y = expression("Dam Density (" *DamCount[i]/streamLength(m)[i]* ")"),
-    color = expression("("*Delta*" RI) (RI_dammed - RI_undammed)"),
-    title = expression("Sites with Positive deltaRI Across Flow and UDA"),
-    subtitle = "Lower Beaver Creek All Years"
-  ) +
-  theme_bw(base_size = 14)
-```
-
-
-```{r,echo=TRUE}
-lbvRI_Flow <- lbv_sample_pairs %>% 
-  select(clusterID_seq,
-         surveyPeriod,
-         zFlow_mean,
-         RI_dammed,
-         RI_undammed) %>% 
-  pivot_longer(
-    cols = c(RI_dammed, RI_undammed),
-    names_to = "window_type",
-    values_to = "RI"
-  )
-
-ggplot(lbvRI_Flow,
-       aes(x = zFlow_mean,
-           y = RI,
-           color = as.factor(window_type))) +
-  scale_color_manual(values = c("RI_dammed" = "brown",
-                                "RI_undammed" = "steelblue")) +
-  geom_point(alpha = 0.4, size = 2) +
-  geom_smooth(method = "loess",
-                 se = TRUE,
-                 linewidth = 1.2) +
-  labs(
-    x = "z-Standardized Flow",
-    y = "Riparian Inundation (RI)",
-    color = "Window Type",
-    title = "Riparian Inundation Across Flow",
-    subtitle = "LBV All Years"
-  ) +
-  theme_bw(base_size = 14)
-```
-
-
-
-----
-----
-----
-----
-
-
-
-
-----
-----
-----
-----
-
-
-UPPER BEAVER
-----
-----
-
-Compute **Riparian Inundation**
-
-For survey window[i] at time[t], the proportion of riparian area that is covered in surface water
-
-$SWA = Surface Water Area (m^2)$
-
-$RIPA = Riparian Area (m^2)$
-
-$$RI[i,t] = SWA[i,t] / RIPA[i] $$
-
-
-```{r, echo=FALSE}
-# COMPUTE RI HERE!!!
-UBV_RI <- UBV %>% 
-  mutate(RI = SWA/riparian_area_m2)
-```
-
-Visualize riparian inundation **(RI)** $SWA/RIPA$ between dammed and undammed across years.
-
-```{r, echo=FALSE, fig.width=10}
-UBV_RI %>%
-  filter(!is.na(RI)) %>%   # optional but recommended
-  ggplot(aes(x = factor(year),
-             y = RI,
-             fill = window_type)) +
-  geom_boxplot(outlier.alpha = 0.4) +
-  scale_fill_manual(values = c("dammed" = "brown",
-                               "undammed" = "steelblue")) +
-  labs(
-    x = "Year",
-    y = "Riparian Inundation (RI)",
-    fill = "Window type",
-    title = "RI across dammed vs undammed windows",
-    subtitle = "Upper Beaver Creek (2019, 2021, 2023)"
-  ) +
-  theme_bw(base_size = 14)
-
-```
-
-
-```{r,echo=FALSE}
-UBV_RI %>%
-  filter(year == 2019) %>% 
-     ggplot(aes(x = t,
-                y = RI,
-                color = window_type)) +
-     geom_point(alpha = 0.4, size = 2) +
-     geom_smooth(method = "loess",
-                 se = TRUE,
-                 linewidth = 1.2) +
-     scale_color_manual(values = c("dammed" = "brown",
-                                   "undammed" = "steelblue")) +
-     scale_x_continuous(breaks = 1:8,
-                        labels = paste0("t", 1:8)) +
-     labs(x = "Time Period (t)",
-          y = "Riparian Inundation (SWA/RIPA)",
-          color = "Window Type",
-          title = "Riparian proportion inundated over time",
-          subtitle = "Upper Beaver Ck; Summer 2019") +
-     theme_bw(base_size = 15)
-
-```
-
-```{r,echo=FALSE}
-UBV_RI %>%
-  filter(year == 2021) %>% 
-     ggplot(aes(x = t,
-                y = RI,
-                color = window_type)) +
-     geom_point(alpha = 0.4, size = 2) +
-     geom_smooth(method = "loess",
-                 se = TRUE,
-                 linewidth = 1.2) +
-     scale_color_manual(values = c("dammed" = "brown",
-                                   "undammed" = "steelblue")) +
-     scale_x_continuous(breaks = 1:8,
-                        labels = paste0("t", 1:8)) +
-     labs(x = "Time Period (t)",
-          y = "Riparian Inundation (SWA/RIPA)",
-          color = "Window Type",
-          title = "Riparian proportion inundated over time",
-          subtitle = "Upper Beaver Ck; Summer 2021") +
-     theme_bw(base_size = 15)
-
-```
-
-```{r,echo=FALSE}
-UBV_RI %>%
-  filter(year == 2023) %>% 
-     ggplot(aes(x = t,
-                y = RI,
-                color = window_type)) +
-     geom_point(alpha = 0.4, size = 2) +
-     geom_smooth(method = "loess",
-                 se = TRUE,
-                 linewidth = 1.2) +
-     scale_color_manual(values = c("dammed" = "brown",
-                                   "undammed" = "steelblue")) +
-     scale_x_continuous(breaks = 1:8,
-                        labels = paste0("t", 1:8)) +
-     labs(x = "Time Period (t)",
-          y = "Riparian Inundation (SWA/RIPA)",
-          color = "Window Type",
-          title = "Riparian proportion inundated over time",
-          subtitle = "Upper Beaver Ck; Summer 2023") +
-     theme_bw(base_size = 15)
-
-```
-
-
-----
-
-Add **relative flow data**. 
-
-NOTE: currently this represents data from the USGS Guston Coulee gage that has been z-standardized over the current data acquisition range (June-Sept; 2019, 2021, 2023). 
-
-Then, for each 2-week survey time period (1:8), the average relative flow $[mean(zFlow)]$ was computed, and added as a data column. IT IS ASSUMED that this flow data is representative of the RELATIVE flow pattern experienced throughout the study area during this time. Consider incorporating relative HHP simulated flow data again (?)
-
-----
-
-Visualize Surface Water Area across Relative Flow and Topographic Openness
-
-
-```{r,echo=FALSE, fig.width=10}
-UBV_RelFlow <- UBV_RI %>% 
-  left_join(mean_flow_per_survey_period,
-            by = "surveyPeriod") %>% 
-  mutate(dam_m = Nhat/window_length)
-
-
-UBV_RelFlow %>% 
-  arrange(SWA) %>%
-  ggplot(
-       aes(x = zFlow_mean, 
-           y = TO, 
-           color = SWA,
-           shape = window_type)) +
-  geom_point(size = 3, alpha = 0.5) +
-  scale_color_viridis_c(option = "mako",begin = 0,end   = 1,direction = -1) +
-  labs(
-    x = "z-Standardized Flow",
-    y = "Topographic Openness (TO)",
-    color = expression("Surface Water Area" (m^2)),
-    title = "Surface Water Area Across RelativeFlow and TO space",
-    subtitle = "Upper Beaver Creek All Years"
-  ) +
-  theme_bw(base_size = 14)
-```
-
-
-----
-
-----  
-
-----
-
-----
-
-
-
-Visualize covariate distributions b/t dammed and undammed windows:
-
-```{r,include=FALSE}
-ggplot(UBV_RelFlow, 
-       aes(x = TO, fill = window_type)) +
-  geom_density(alpha = 0.5) +
-  scale_fill_manual(values = c("undammed" = "steelblue", "dammed" = "brown")) +
-  theme_bw(base_size = 14)
-
-
-ggplot(UBV_RelFlow, 
-       aes(x = riparian_area_m2, fill = window_type)) +
-  geom_density(alpha = 0.5) +
-  scale_fill_manual(values = c("undammed" = "steelblue", "dammed" = "brown")) +
-  theme_bw(base_size = 14)
-
-ggplot(UBV_RelFlow, 
-       aes(x = SWA, fill = window_type)) +
-  geom_density(alpha = 0.5) +
-  scale_fill_manual(values = c("undammed" = "steelblue", "dammed" = "brown")) +
-  theme_bw(base_size = 14)
-
-ggplot(UBV_RelFlow, 
-       aes(x = RI, fill = window_type)) +
-  geom_density(alpha = 0.5) +
-  scale_fill_manual(values = c("undammed" = "steelblue", "dammed" = "brown")) +
-  theme_bw(base_size = 14)
-
-ggplot(UBV_RelFlow, 
-       aes(x = catchment_km2, fill = window_type)) +
-  geom_density(alpha = 0.5) +
-  scale_fill_manual(values = c("undammed" = "steelblue", "dammed" = "brown")) +
-  theme_bw(base_size = 14)
-```
-
-
-
-----
-
-Visualize covariate correlations for Willow Creek :
-
-```{r,echo=FALSE, fig.width=10}
-#2019
-ubv19_numCols <- UBV_RelFlow %>% 
-  filter(year == "2019") %>% 
-  select(clusterID_seq,
-         riparian_area_m2,
-         window_length,
-         SWA,
-         RI,
-         TO,
-         Nhat,
-         dam_m,
-         catchment_km2) %>% 
-  filter(!is.na(SWA))
-# Correlation matrix
-ubv19_corr_matrix <- cor(ubv19_numCols)
-
-# Create the plot
-ubv19_ggcorr_plot <- ggcorrplot(ubv19_corr_matrix, lab = TRUE, type = "upper")+
-  ggtitle("Correlation matrix for Upper Beaver Creek 2019") +
-  theme(plot.title = element_text(hjust = 0.5))
-
-ubv19_ggcorr_plot
-
-#2021
-ubv21_numCols <- UBV_RelFlow %>% 
-  filter(year == "2021") %>% 
-  select(clusterID_seq,
-         riparian_area_m2,
-         window_length,
-         SWA,
-         RI,
-         TO,
-         Nhat,
-         dam_m,
-         catchment_km2) %>% 
-  filter(!is.na(SWA))
-# Correlation matrix
-ubv21_corr_matrix <- cor(ubv21_numCols)
-
-# Create the plot
-ubv21_ggcorr_plot <- ggcorrplot(ubv21_corr_matrix, lab = TRUE, type = "upper")+
-  ggtitle("Correlation matrix for Upper Beaver Creek 2021") +
-  theme(plot.title = element_text(hjust = 0.5))
-
-ubv21_ggcorr_plot
-
-
-#2023
-ubv23_numCols <- UBV_RelFlow %>% 
-  filter(year == "2023") %>% 
-  select(clusterID_seq,
-         riparian_area_m2,
-         window_length,
-         SWA,
-         RI,
-         TO,
-         Nhat,
-         dam_m,
-         catchment_km2) %>% 
-  filter(!is.na(SWA))
-# Correlation matrix
-ubv23_corr_matrix <- cor(ubv23_numCols)
-
-# Create the plot
-ubv23_ggcorr_plot <- ggcorrplot(ubv23_corr_matrix, lab = TRUE, type = "upper")+
-  ggtitle("Correlation matrix for Upper Beaver Creek 2023") +
-  theme(plot.title = element_text(hjust = 0.5))
-
-ubv23_ggcorr_plot
-```
-
-----
-
-----
-
-----
-
-Compute Differences (Dammed[i] - Undammed):
-----
-
-Compute difference in RI $(\Delta RI)$ between dammed and undammed pairs. The hypothesis is that dammed reaches will inundate more of their respective available space (m^2) than their paired undammed reaches. (+)$(\Delta RI)$ means the dammed site in a pair inundated more of its available riparian space than its undammed counterpart; (-) is vice versa.
-
-The degree to which beaver dams influence $\Delta RI$ confounded by pairwise differences in reach characteristics (e.g., $TO$, $UDA$)
-
-----
-
-Proposed model:
-
-$$\Delta RI[i] = \alpha + \beta1 * \Delta UDA[i] + \beta2 * \Delta TO + \beta3 *  Nhat[i_{\text{dammed}}]$$
-
-
-Wherein, the difference in riparian inundation $(\Delta RI)$ for sample pair $[i]$ is a linear function of the pair's difference in stream network position $(\Delta UDA)$, the pair's difference in local channel confinement $(\Delta TO)$, and the pair's difference in number of dams $(\Delta Nhat)$ (NOTE: delta_Nhat is just Nhat of the dammed site in pair [i]).
-
-Consider, instead of Nhat, using $dam/m = Nhat/windowLength (m)$ to get at dam density within the window, rather than raw dam count.
-
-
-```{r,echo=FALSE}
-ubv_sample_pairs <- UBV_RelFlow %>%
-  select(clusterID_seq,
-         year,
-         t,
-         surveyPeriod,
-         window_type, 
-         RI, 
-         TO, 
-         riparian_area_m2, 
-         zFlow_mean,
-         catchment_km2,
-         Nhat,
-         dam_m) %>%
-  pivot_wider(
-    names_from = window_type,
-    values_from = c(RI, TO, riparian_area_m2, catchment_km2, Nhat,dam_m),
-    names_sep = "_"
-  ) %>% 
-  mutate(delta_RI = RI_dammed - RI_undammed)
-
-ubv_sample_differences <- ubv_sample_pairs %>%
-  mutate(
-    delta_TO   = TO_dammed - TO_undammed,
-    delta_RIPA = riparian_area_m2_dammed - riparian_area_m2_undammed,
-    delta_UDA  = catchment_km2_dammed - catchment_km2_undammed,
-    delta_Nhat = Nhat_dammed,
-    delta_dam_m = dam_m_dammed
-  ) %>% 
-  select(clusterID_seq,
-         year,
-         t,
-         surveyPeriod,
-         zFlow_mean,
-         delta_RI,
-         delta_TO,
-         delta_RIPA,
-         delta_UDA,
-         delta_Nhat,
-         delta_dam_m
-         )
-
-str(ubv_sample_differences)
-```
-
-
-----
-
-Visualize $\Delta RI$ across $\Delta Nhat$
-
-```{r, echo=FALSE, fig.width=10}
-ubv_sample_differences %>%
-  arrange(delta_RI) %>% 
-  filter(year=='2019') %>% 
-  ggplot(
-    aes(
-      x = factor(round(delta_Nhat)),   # <-- THIS is the key
-      y = delta_RI,
-      colour = zFlow_mean
-    )
-  ) +
-  scale_color_viridis_c(option = "viridis", direction = -1) +
-  geom_violin() +
-  geom_point(size = 3, alpha = 0.5, position = position_jitter(width = 0.1)) +
-  geom_hline(yintercept = 0,
-             color = "black",
-             linewidth = 1.2) +
-  labs(
-    x = expression("(" * Delta * " Dam Count)"),
-    y = expression("(" * Delta * " RI)"),
-    title = "Difference in Riparian Inundation by Difference in Dam Count",
-    subtitle = "Upper Beaver Creek 2019"
-  ) +
-  theme_bw(base_size = 14)
-
-
-#####
-
-ubv_sample_differences %>%
-  arrange(delta_RI) %>% 
-  filter(year=='2021') %>% 
-  ggplot(
-    aes(
-      x = factor(round(delta_Nhat)),   # <-- THIS is the key
-      y = delta_RI,
-      colour = zFlow_mean
-    )
-  ) +
-  scale_color_viridis_c(option = "viridis", direction = -1) +
-  geom_violin() +
-  geom_point(size = 3, alpha = 0.5, position = position_jitter(width = 0.1)) +
-  geom_hline(yintercept = 0,
-             color = "black",
-             linewidth = 1.2) +
-  labs(
-    x = expression("(" * Delta * " Dam Count)"),
-    y = expression("(" * Delta * " RI)"),
-    title = "Difference in Riparian Inundation by Difference in Dam Count",
-    subtitle = "Upper Beaver Creek 2021"
-  ) +
-  theme_bw(base_size = 14)
-
-
-#####
-
-ubv_sample_differences %>%
-  arrange(delta_RI) %>% 
-  filter(year=='2023') %>% 
-  ggplot(
-    aes(
-      x = factor(round(delta_Nhat)),   # <-- THIS is the key
-      y = delta_RI,
-      colour = zFlow_mean
-    )
-  ) +
-  scale_color_viridis_c(option = "viridis", direction = -1) +
-  geom_violin() +
-  geom_point(size = 3, alpha = 0.5, position = position_jitter(width = 0.1)) +
-  geom_hline(yintercept = 0,
-             color = "black",
-             linewidth = 1.2) +
-  labs(
-    x = expression("(" * Delta * " Dam Count)"),
-    y = expression("(" * Delta * " RI)"),
-    title = "Difference in Riparian Inundation by Difference in Dam Count",
-    subtitle = "Upper Beaver Creek 2023"
-  ) +
-  theme_bw(base_size = 14)
-
-```
-
-
-----
-
-
-----
-
-Visualize $\Delta RI$ across **damDensity** $(dam/m)$
-
-```{r, echo=FALSE, fig.width=10}
-ubv_sample_differences %>% 
-  filter(year=='2019') %>% 
-  ggplot(
-    aes(
-      x = delta_dam_m,
-      y = delta_RI,
-      colour = zFlow_mean
-    )
-  ) +
-  scale_color_viridis_c(option = "viridis", direction = -1) +
-  geom_point(size = 3) +
-  geom_hline(yintercept = 0,
-             color = "black",
-             linewidth = 1.2) +
-  labs(
-    x = expression("Dam Density (" * DamCount[i]/StreamLength[i] * ")"),
-    y = expression("(" * Delta * " RI)"),
-    title = "Difference in Riparian Inundation by Dam Density (Dam/Stream_m)",
-    subtitle = "Upper Beaver Creek 2019"
-  ) +
-  theme_bw(base_size = 14)
-
-#####
-
-ubv_sample_differences %>% 
-  filter(year=='2021') %>% 
-  ggplot(
-    aes(
-      x = delta_dam_m,
-      y = delta_RI,
-      colour = zFlow_mean
-    )
-  ) +
-  scale_color_viridis_c(option = "viridis", direction = -1) +
-  geom_point(size = 3) +
-  geom_hline(yintercept = 0,
-             color = "black",
-             linewidth = 1.2) +
-  labs(
-    x = expression("Dam Density (" * DamCount[i]/StreamLength[i] * ")"),
-    y = expression("(" * Delta * " RI)"),
-    title = "Difference in Riparian Inundation by Dam Density (Dam/Stream_m)",
-    subtitle = "Upper Beaver Creek 2021"
-  ) +
-  theme_bw(base_size = 14)
-
-#####
-
-ubv_sample_differences %>% 
-  filter(year=='2023') %>% 
-  ggplot(
-    aes(
-      x = delta_dam_m,
-      y = delta_RI,
-      colour = zFlow_mean
-    )
-  ) +
-  scale_color_viridis_c(option = "viridis", direction = -1) +
-  geom_point(size = 3) +
-  geom_hline(yintercept = 0,
-             color = "black",
-             linewidth = 1.2) +
-  labs(
-    x = expression("Dam Density (" * DamCount[i]/StreamLength[i] * ")"),
-    y = expression("(" * Delta * " RI)"),
-    title = "Difference in Riparian Inundation by Dam Density (Dam/Stream_m)",
-    subtitle = "Upper Beaver Creek 2023"
-  ) +
-  theme_bw(base_size = 14)
-
-#####
-```
-
-
-----
-
-Dig into where $\Delta RI >0$; these illustrate contexts where dams may be positively influencing SWA.
-
-Look at TO and RIPA and UDA for delta_RI > 0 dam clusters
-
-```{r,echo=FALSE, fig.width=10}
-ubv_posDamDiff <- ubv_sample_pairs %>% 
-  filter(delta_RI > 0)
-
-ubv_posDamDiff$year <- as.factor(ubv_posDamDiff$year)
-
-ubv_posDamDiff %>%
-  arrange(delta_RI) %>% 
-  ggplot(
-       aes(x = zFlow_mean, 
-           y = TO_dammed, 
-           color = delta_RI,
-           shape = year)) +
-  geom_point(size = 3, alpha = 0.5) +
-  scale_color_viridis_c(option = "inferno",begin = 0,end   = 0.875,direction = -1) +
-  labs(
-    x = "z-Standardized Flow",
-    y = "Topographic Openness (TO)",
-    color = expression("("*Delta*" RI) (RI_dammed - RI_undammed)"),
-    title = expression("Sites with Positive deltaRI Across Flow and TO"),
-    subtitle = "Upper Beaver Creek All Years"
-  ) +
-  theme_bw(base_size = 14)
-
-
-
-ubv_sample_differences %>%
-  filter(delta_RI >0) %>% 
-  arrange(delta_RI) %>% 
-  ggplot(
-       aes(x = zFlow_mean, 
-           y = delta_TO, 
-           color = delta_RI,
-           shape = as.factor(year))) +
-  geom_point(size = 5, alpha = 0.5) +
-  scale_color_viridis_c(option = "inferno",begin = 0,end   = 0.875,direction = -1) +
-  labs(
-    x = "z-Standardized Flow",
-    y = expression("Difference in Topographic Openness (  "*Delta*" TO)"),
-    color = expression("("*Delta*" RI) (RI_dammed - RI_undammed)"),
-    shape = "Year",
-    title = expression("Sites with Positive deltaRI Across Flow and " *Delta* "TO"),
-    subtitle = "Upper Beaver Creek All Years"
-  ) +
-  theme_bw(base_size = 14)
-```
-
-```{r,echo=FALSE, fig.width=10}
-ubv_posDamDiff %>%
-  arrange(delta_RI) %>% 
-  ggplot(
-       aes(x = zFlow_mean, 
-           y = riparian_area_m2_dammed, 
-           color = delta_RI,
-           shape = year)) +
-  geom_point(size = 3, alpha = 0.5) +
-  scale_color_viridis_c(option = "inferno",begin = 0,end   = 0.875,direction = -1) +
-  labs(
-    x = "z-Standardized Flow",
-    y = expression("Riparian Area ("*m^2*")"),
-    color = expression("("*Delta*" RI) (RI_dammed - RI_undammed)"),
-    title = expression("Sites with Positive deltaRI Across Flow and RIPA"),
-    subtitle = "Upper Beaver Creek All Years"
-  ) +
-  theme_bw(base_size = 14)
-```
-
-```{r,echo=FALSE, fig.width=10}
-ubv_posDamDiff %>%
-  arrange(delta_RI) %>% 
-  ggplot(
-       aes(x = zFlow_mean, 
-           y = catchment_km2_dammed, 
-           color = delta_RI,
-           shape = year)) +
-  geom_point(size = 3, alpha = 0.5) +
-  scale_color_viridis_c(option = "inferno",begin = 0,end   = 0.875,direction = -1) +
-  labs(
-    x = "z-Standardized Flow",
-    y = expression("Upstream Drainage Area ("*km^2*")"),
-    color = expression("("*Delta*" RI) (RI_dammed - RI_undammed)"),
-    title = expression("Sites with Positive deltaRI Across Flow and UDA"),
-    subtitle = "Upper Beaver Creek All Years"
-  ) +
-  theme_bw(base_size = 14)
-```
-
-```{r,echo=FALSE, fig.width=10}
-ubv_posDamDiff %>%
-  arrange(delta_RI) %>% 
-  ggplot(
-       aes(x = zFlow_mean, 
-           y = dam_m_dammed, 
-           color = delta_RI,
-           shape = year)) +
-  geom_point(size = 3, alpha = 0.5) +
-  scale_color_viridis_c(option = "inferno",begin = 0,end   = 0.875,direction = -1) +
-  labs(
-    x = "z-Standardized Flow",
-    y = expression("Dam Density (" *DamCount[i]/streamLength(m)[i]* ")"),
-    color = expression("("*Delta*" RI) (RI_dammed - RI_undammed)"),
-    title = expression("Sites with Positive deltaRI Across Flow and UDA"),
-    subtitle = "Upper Beaver Creek All Years"
-  ) +
-  theme_bw(base_size = 14)
-```
-
-
-```{r,echo=FALSE}
-ubvRI_Flow <- ubv_sample_pairs %>% 
-  select(clusterID_seq,
-         surveyPeriod,
-         zFlow_mean,
-         RI_dammed,
-         RI_undammed) %>% 
-  pivot_longer(
-    cols = c(RI_dammed, RI_undammed),
-    names_to = "window_type",
-    values_to = "RI"
-  )
-
-ggplot(ubvRI_Flow,
-       aes(x = zFlow_mean,
-           y = RI,
-           color = as.factor(window_type))) +
-  scale_color_manual(values = c("RI_dammed" = "brown",
-                                "RI_undammed" = "steelblue")) +
-  geom_point(alpha = 0.4, size = 2) +
-  geom_smooth(method = "loess",
-                 se = TRUE,
-                 linewidth = 1.2) +
-  labs(
-    x = "z-Standardized Flow",
-    y = "Riparian Inundation (RI)",
-    color = "Window Type",
-    title = "Riparian Inundation Across Flow",
-    subtitle = "UBV All Years"
-  ) +
-  theme_bw(base_size = 14)
-```
-
-
-
-----
-----
-----
-----
-
-----
-----
-----
-----
-----
-----
-----
-----
-
-
-$\Delta RI > 0$ means that the dammed sample in sample pair[i] ponded a greater proportion of its riparian zone than the un-dammed sample in sample pair[i].
-
-----
-
-    Contexts in which $\Delta RI > 0$: 
-        
-      - Brazil Creek
-        - High dam density within the watershed
-          - 0.04 dam/km for the whole study area
-          - Brazil:
-            - 2019:
-            - 2021:
-          
-            
-      - Upper Beaver Creek:
-        - Relatively high dam density coupled with high channel openness/Low 
-          channel confinemnet
-        - avg(TO) = 60
-        - Most positive effects seen at TO >= 50 (ish)
-        
-        
-      - Lone Tree 2019;
-        - Lone Tree is one of the more intermittent streams in our study area. 
-          This data suggests that when water is plentiful on the landscape (2019),
-          beaver dams on Lone Tree may increase the proportion of riparian inundation,
-          and maintain that inundation longer than un-dammed stream reaches. In 
-          more intermittent streams like Lone Tree, dam influence may have a 
-          "hydrologic floor" - a threshold of relative flow, above which influence
-          tends to be positive; below which, influence tends to be negligible 
-        - IN LT_2019; Where RI_dammed > RI_undammed; typically TO_dammed > TO_undammed; 
-          and TO_dammed > 50
-        
-        
-The following are meant to further explore these relationships^
-
-
-NOTE: I checked persistence, colonization, and occupancy and they were all about the same for each watershed. 
-
-
-
-Contexts in which beaver dams seem to have a positive influence on surface water/riparian inundation.
-
-
-----
-
-----
-
-
-BRAZIL CREEK:
-----
-
-
-    - High dam density maintains riparian inundation even in low water (2021)
-    
-    - Positive effect seen across TO, AND despite relatively low TO watershed-wide
-      - Though typically postive delta_RI is associated with postive delta_TO
-    
-
-```{r,echo=FALSE}
-# Import dam density estimates for target watersheds:
-# From Piper et al., 202_
-
-cp_watershed_damDensity <- read.csv("ObservedDamDensity_dams_per_km_byStream_byYear.csv") %>% 
-  mutate(zDamDensity = scale(dams_per_km))
-
-cp_watershed_col_ext <- read.csv("site_year_phi_gamma_means.csv") %>% 
-  mutate(Stream = case_when(str_detect(unique_id, "BRZ") ~ "BRZ",
-                            str_detect(unique_id, "WC") ~ "WC",
-                            str_detect(unique_id, "LT") ~ "LT",
-                            str_detect(unique_id, "LRB") ~ "LRB",
-                            str_detect(unique_id, "LBV") ~ "LBV",
-                            str_detect(unique_id, "UBV") ~ "UBV",
-                            TRUE ~ NA)
-         ) %>% 
-  group_by(Stream, year) %>% 
-  summarise (phi_mean = mean(phi_mean),
-             gamma_mean = mean(gamma_mean))
-  
-  
-  
-cp_watershed_psi <- read.csv("site_year_psi_probs.csv") %>% 
-  mutate(Stream = case_when(str_detect(site_id, "BRZ") ~ "BRZ",
-                            str_detect(site_id, "WC") ~ "WC",
-                            str_detect(site_id, "LT") ~ "LT",
-                            str_detect(site_id, "LRB") ~ "LRB",
-                            str_detect(site_id, "LBV") ~ "LBV",
-                            str_detect(site_id, "UBV") ~ "UBV",
-                            TRUE ~ NA) 
-         ) %>% 
-  group_by(Stream, year) %>% 
-  summarise (psi = mean(psi))
-```
-
-
-
-```{r,echo=FALSE}
-brz_damDens <- tribble(
-  ~Stream, ~Year,
-  "BRZ", 2019,
-  "BRZ", 2021
-)
-
-brz_damDens_plot <- cp_watershed_damDensity %>%
-  mutate(
-    StreamYear = paste(Stream, Year),
-    highlight = if_else(
-      paste(Stream, Year) %in% paste(brz_damDens$Stream, brz_damDens$Year),
-      "highlight", "other"
-    )
-  )
-
-ggplot(brz_damDens_plot, aes(x = zDamDensity, y = fct_reorder(StreamYear, zDamDensity))) +
-  geom_segment(aes(xend = 0, yend = StreamYear),
-               color = "grey80", linewidth = 1) +
-  geom_point(aes(color = highlight), size = 4) +
-  scale_color_manual(values = c("highlight" = "violetred4", "other" = "grey70")) +
-  labs(
-    x = "Watershed-level Dam Density (z-scored)",
-    y = "Watershed-Year",
-    color = "",
-    title = "Contexts Where Beaver Dams Increase Riparian Inundation",
-    subtitle = "Brazil 2019 & Brazil 2021"
-  ) +
-  theme_bw(base_size = 14) +
-  theme(legend.position = "none")
-
-```
-
-```{r,echo=FALSE}
-brz_posDamDiff %>%
-  arrange(delta_RI) %>% 
-  ggplot(
-       aes(x = zFlow_mean, 
-           y = TO_dammed, 
-           color = delta_RI,
-           shape = year)) +
-  geom_point(size = 5, alpha = 0.5) +
-  scale_color_viridis_c(option = "inferno",begin = 0,end   = 0.875,direction = -1) +
-  labs(
-    x = "z-Standardized Flow",
-    y = "Topographic Openness (TO)",
-    color = expression("("*Delta*" RI) (RI_dammed - RI_undammed)"),
-    title = expression("Sites with Positive deltaRI Across Flow and TO"),
-    subtitle = "Brazil Creek All Years"
-  ) +
-  theme_bw(base_size = 14)
-
-
-
-brz_sample_differences %>%
-  filter(delta_RI >0) %>% 
-  arrange(delta_RI) %>% 
-  ggplot(
-       aes(x = zFlow_mean, 
-           y = delta_TO, 
-           color = delta_RI,
-           shape = as.factor(year))) +
-  geom_point(size = 5, alpha = 0.5) +
-  scale_color_viridis_c(option = "inferno",begin = 0,end   = 0.875,direction = -1) +
-  labs(
-    x = "z-Standardized Flow",
-    y = expression("Difference in Topographic Openness (  "*Delta*" TO)"),
-    color = expression("("*Delta*" RI) (RI_dammed - RI_undammed)"),
-    shape = "Year",
-    title = expression("Sites with Positive deltaRI Across Flow and " *Delta* "TO"),
-    subtitle = "Brazil Creek All Years"
-  ) +
-  theme_bw(base_size = 14)
-```
-
-
-----
-
-
-UPPER BEAVER CREEK:
-----
-
-    - potential difference is minimal, though tends to be positive
-      - mostly in 2019; though maybe a bit in 2021
-    
-    - Average to above average dam density for study area, though not crazy high
-    
-    - High topographic openness for the study area; low channel confinement
-    
-
-```{r,echo=FALSE}
-
-ubv_damDens <- tribble(
-  ~Stream, ~Year,
-  "UBV", 2019,
-  "UBV", 2021
-)
-
-ubv_damDens_plot <- cp_watershed_damDensity %>%
-  mutate(
-    StreamYear = paste(Stream, Year),
-    highlight = if_else(
-      paste(Stream, Year) %in% paste(ubv_damDens$Stream, ubv_damDens$Year),
-      "highlight", "other"
-    )
-  )
-
-ggplot(ubv_damDens_plot, aes(x = zDamDensity, y = fct_reorder(StreamYear, zDamDensity))) +
-  geom_segment(aes(xend = 0, yend = StreamYear),
-               color = "grey80", linewidth = 1) +
-  geom_point(aes(color = highlight), size = 4) +
-  scale_color_manual(values = c("highlight" = "violetred4", "other" = "grey70")) +
-  labs(
-    x = "Watershed-level Dam Density (z-scored)",
-    y = "Watershed-Year",
-    color = "",
-    title = "Contexts Where Beaver Dams Increase Riparian Inundation",
-    subtitle = "Upper Beaver 2019 & Upper Beaver 2021"
-  ) +
-  theme_bw(base_size = 14) +
-  theme(legend.position = "none")
-
-```
-
-```{r,echo=FALSE}
-ubv_posDamDiff %>%
-  arrange(delta_RI) %>% 
-  ggplot(
-       aes(x = zFlow_mean, 
-           y = TO_dammed, 
-           color = delta_RI,
-           shape = year)) +
-  geom_point(size = 3, alpha = 0.5) +
-  scale_color_viridis_c(option = "inferno",begin = 0,end   = 0.875,direction = -1) +
-  labs(
-    x = "z-Standardized Flow",
-    y = "Topographic Openness (TO)",
-    color = expression("("*Delta*" RI) (RI_dammed - RI_undammed)"),
-    title = expression("Sites with Positive deltaRI Across Flow and TO"),
-    subtitle = "Upper Beaver Creek All Years"
-  ) +
-  theme_bw(base_size = 14)
-
-
-
-ubv_sample_differences %>%
-  filter(delta_RI >0) %>% 
-  arrange(delta_RI) %>% 
-  ggplot(
-       aes(x = zFlow_mean, 
-           y = delta_TO, 
-           color = delta_RI,
-           shape = as.factor(year))) +
-  geom_point(size = 5, alpha = 0.5) +
-  scale_color_viridis_c(option = "inferno",begin = 0,end   = 0.875,direction = -1) +
-  labs(
-    x = "z-Standardized Flow",
-    y = expression("Difference in Topographic Openness (  "*Delta*" TO)"),
-    color = expression("("*Delta*" RI) (RI_dammed - RI_undammed)"),
-    shape = "Year",
-    title = expression("Sites with Positive deltaRI Across Flow and " *Delta* "TO"),
-    subtitle = "Upper Beaver Creek All Years"
-  ) +
-  theme_bw(base_size = 14)
-
-```
-
-
-
-----
-
-
-LONE TREE CREEK:
-----
-
-    - Potentially notable positive effect of dams when water availability is "high enough"
-    
-    - Note above average dam density (all years)
-    
-    - Note that even when dam density was highest (2021), lack of water did not support dam capacity to fill riparian space (e.g., little effect in 2021). However, with more water in the system (2019) dams are able to hold water and fill available riparian space moreso than un-dammed counterparts. 
-    
-    - Also, note that positive dam effect was seen where TO was relatively high, and difference in TO of sample pair was relatively high.
-    
-    - Consider implications for reservoir management; BEAVER DAMS NEED WATER TO WORK
-    
-    
-```{r,echo=FALSE}
-lt_damDens <- tribble(
-  ~Stream, ~Year,
-  "LT", 2019,
-  "LT", 2021
-)
-
-lt_damDens_plot <- cp_watershed_damDensity %>%
-  mutate(
-    StreamYear = paste(Stream, Year),
-    highlight = if_else(
-      paste(Stream, Year) %in% paste(lt_damDens$Stream, lt_damDens$Year),
-      "highlight", "other"
-    )
-  )
-
-ggplot(lt_damDens_plot, aes(x = zDamDensity, y = fct_reorder(StreamYear, zDamDensity))) +
-  geom_segment(aes(xend = 0, yend = StreamYear),
-               color = "grey80", linewidth = 1) +
-  geom_point(aes(color = highlight), size = 4) +
-  scale_color_manual(values = c("highlight" = "violetred4", "other" = "grey70")) +
-  labs(
-    x = "Watershed-level Dam Density (z-scored)",
-    y = "Watershed-Year",
-    color = "",
-    title = "Contexts Where Beaver Dams Increase Riparian Inundation",
-    subtitle = "Lone Tree 2019, 2021"
-  ) +
-  theme_bw(base_size = 14) +
-  theme(legend.position = "none")
-
-```
-
-```{r,echo=FALSE}
-lt_posDamDiff %>%
-  arrange(delta_RI) %>% 
-  ggplot(
-       aes(x = zFlow_mean, 
-           y = TO_dammed, 
-           color = delta_RI,
-           shape = year)) +
-  geom_point(size = 5, alpha = 0.5) +
-  scale_color_viridis_c(option = "inferno",begin = 0,end   = 0.875,direction = -1) +
-  labs(
-    x = "z-Standardized Flow",
-    y = "Topographic Openness (TO)",
-    color = expression("("*Delta*" RI) (RI_dammed - RI_undammed)"),
-    title = expression("Sites with Positive deltaRI Across Flow and TO"),
-    subtitle = "Lone Tree Creek All Years"
-  ) +
-  theme_bw(base_size = 14)
-
-
-
-lt_sample_differences %>%
-  filter(delta_RI >0) %>% 
-  arrange(delta_RI) %>% 
-  ggplot(
-       aes(x = zFlow_mean, 
-           y = delta_TO, 
-           color = delta_RI,
-           shape = as.factor(year))) +
-  geom_point(size = 5, alpha = 0.5) +
-  scale_color_viridis_c(option = "inferno",begin = 0,end   = 0.875,direction = -1) +
-  labs(
-    x = "z-Standardized Flow",
-    y = expression("Difference in Topographic Openness (  "*Delta*" TO)"),
-    color = expression("("*Delta*" RI) (RI_dammed - RI_undammed)"),
-    shape = "Year",
-    title = expression("Sites with Positive deltaRI Across Flow and " *Delta* "TO"),
-    subtitle = "Lone Tree Creek All Years"
-  ) +
-  theme_bw(base_size = 14)
-
-```
-
-```{r,echo=FALSE}
-LT_RI %>%
-  filter(year == 2019) %>% 
-     ggplot(aes(x = t,
-                y = RI,
-                color = window_type)) +
-     geom_point(alpha = 0.4, size = 2) +
-     geom_smooth(method = "loess",
-                 se = TRUE,
-                 linewidth = 1.2) +
-     scale_color_manual(values = c("dammed" = "brown",
-                                   "undammed" = "steelblue")) +
-     scale_x_continuous(breaks = 1:8,
-                        labels = paste0("t", 1:8)) +
-     labs(x = "Time Period (t)",
-          y = "Riparian Inundation (SWA/RIPA)",
-          color = "Window Type",
-          title = "Riparian proportion inundated over time",
-          subtitle = "Lone Tree; Summer 2019") +
-     theme_bw(base_size = 15)
-
-```
-
-```{r,echo=FALSE}
-LT_RI %>%
-  filter(year == 2021) %>% 
-     ggplot(aes(x = t,
-                y = RI,
-                color = window_type)) +
-     geom_point(alpha = 0.4, size = 2) +
-     geom_smooth(method = "loess",
-                 se = TRUE,
-                 linewidth = 1.2) +
-     scale_color_manual(values = c("dammed" = "brown",
-                                   "undammed" = "steelblue")) +
-     scale_x_continuous(breaks = 1:8,
-                        labels = paste0("t", 1:8)) +
-     labs(x = "Time Period (t)",
-          y = "Riparian Inundation (SWA/RIPA)",
-          color = "Window Type",
-          title = "Riparian proportion inundated over time",
-          subtitle = "Lone Tree; Summer 2021") +
-     theme_bw(base_size = 15)
-
-```
-
-
-
-Next week you will show us...
-Major questions for SFS talk
-
-Q1: How well can we map surface water in prairie streams?
-
-Q2a: To what extent do beaver dams influence riparian inundation?
-  - Bayesian GLM
-  
-Q2b: Under what conditions do beaver dams increase the extent of riparian inundation?
-  - Geomorphic (TO; confinement)
-  - Hydrologic (relative flow from Guston Coulee gage)
-  - Riparian area (m^2)
-  - Watershed-scale dam density
-  
-
-Final results to present at SFS 
-Take homes 
-Please work on slides for the SFS talk (which will be the theme for writing chapter 1)... 
-
-
 
 
 ----
@@ -5082,7 +602,7 @@ $$  SWA \sim N(\mu, \sigma);$$
 
 M1:
 
-$$\mu = alpha + \eta_{stream} + \eta_{survey} + (\beta_1 + \beta_{stream} + \beta_{year}) * DamPresence$$
+$$\mu = alpha + \eta_{stream} + \eta_{survey} + (\beta_1 + \beta_{s) * DamPresence$$
 
 
     This models the effect of dam presence on surface water area ("B1"), with:          
@@ -5120,25 +640,8 @@ $$\mu = alpha + \eta_{stream} + \eta_{survey} + (\beta_1 + \beta_{stream} + \bet
 Example of Input Data Structure:
 ---- 
 
-```{r,echo=FALSE}
-# Organize data for the proposed HGLM
-
-# Add dam Density per watershed
-ws_damDensity <- rename(cp_watershed_damDensity,
-                        watershed = Stream) %>% 
-  select(watershed,
-         Year,
-         dams_per_km,
-         zDamDensity) %>% 
-  group_by(watershed,
-           Year)
-
-colnames(ws_damDensity) <- c("watershed",
-                             "year",
-                             "ws_damDensity",
-                             "z_ws_damDensity")
-
-# Create GLM data frame:
+```{r,include=FALSE}
+# Create GLMM data frame:
 
 aoi_GLM_Data <- WC_RelFlow %>% 
   select(clusterID_seq,
@@ -5152,7 +655,6 @@ aoi_GLM_Data <- WC_RelFlow %>%
          surveyPeriod,
          SWA,
          riparian_area_m2,
-         RI,
          dam_m) %>% 
   bind_rows(LT_RelFlow %>% 
   select(clusterID_seq,
@@ -5166,7 +668,6 @@ aoi_GLM_Data <- WC_RelFlow %>%
          surveyPeriod,
          SWA,
          riparian_area_m2,
-         RI,
          dam_m)) %>% 
   bind_rows(BRZ_RelFlow %>% 
   select(clusterID_seq,
@@ -5180,7 +681,6 @@ aoi_GLM_Data <- WC_RelFlow %>%
          surveyPeriod,
          SWA,
          riparian_area_m2,
-         RI,
          dam_m)) %>% 
   bind_rows(LRB_RelFlow %>% 
   select(clusterID_seq,
@@ -5194,7 +694,6 @@ aoi_GLM_Data <- WC_RelFlow %>%
          surveyPeriod,
          SWA,
          riparian_area_m2,
-         RI,
          dam_m)) %>% 
   bind_rows(LBV_RelFlow %>% 
   select(clusterID_seq,
@@ -5208,7 +707,6 @@ aoi_GLM_Data <- WC_RelFlow %>%
          surveyPeriod,
          SWA,
          riparian_area_m2,
-         RI,
          dam_m)) %>% 
   bind_rows(UBV_RelFlow %>% 
   select(clusterID_seq,
@@ -5222,7 +720,6 @@ aoi_GLM_Data <- WC_RelFlow %>%
          surveyPeriod,
          SWA,
          riparian_area_m2,
-         RI,
          dam_m))
 
 
@@ -5259,10 +756,6 @@ str(aoi_GLM_Data)
 
 aoi_GLM_Data_mod <- aoi_GLM_Data %>%
   filter(!is.na(SWA))   # or !is.na(RI) if that’s the response
-
-
-
-
 
 
 # Build explicit lookups from the data actually used in the model
@@ -5307,818 +800,11 @@ event_year_3_4 <- as.numeric(event_year_3_4)
 
 ```
 
-----
 
-Implement HGLMMs:
-----
 
+This next section explores late season SWA in relation to beaver dam presence.
 
-M1: Dam Presence Only
-----
-
-
-```{r, echo=FALSE}
-library(jagsUI)
-
-Sys.time()
-
-sink("m1_HGLM_SWA.jags")
-
-cat("
-model {
-
-  for (i in 1:N) {
-    SWA[i] ~ dnorm(mu[i], tau)
-
-  mu[i] <- alpha
-             + (beta1 + b_stream[stream[i]] + b_year[year_id[i]]) * damPresence[i]
-             + eta_stream[stream[i]]
-             + eta_event[sampleEvent[i]]
-             + eta_cluster[clusterID[i]]
-  }
-
-  # Fixed effects
-  alpha ~ dnorm(0, 0.001)
-  beta1 ~ dnorm(0, 0.001)
-
-  # Random Effects
-  # Stream/Watershed
-  for (j in 1:n_stream) {
-    eta_stream[j] ~ dnorm(0, tau_stream)     # random intercept for stream
-    b_stream[j]   ~ dnorm(0, tau_b_stream)   # random slope for stream
-  }
-  
-  # Year
-  for(yr in 1:n_year) {
-    b_year[yr] ~ dnorm(0, tau_b_year)        # random slope for year
-  }
-  
-  # Sampling Event
-  for (k in 1:n_event) {
-    eta_event[k] ~ dnorm(0, tau_event)       # random intercept for year/survey 'sampling event'
-  }
-  
-  # Cluster ID
-  for (c in 1:n_cluster) {
-    eta_cluster[c] ~ dnorm(0, tau_cluster)
-  }
-
-  # Hyperpriors
-  sigma ~ dnorm(0, 1 / pow(sd_SWA, 2)) T(0,)   # half-normal with sd ≈ sd_SWA
-  tau <- pow(sigma, -2)
-
-  sigma_stream ~ dunif(0, 10)
-  tau_stream <- pow(sigma_stream, -2)
-
-  sigma_b_stream ~ dunif(0, 10)
-  tau_b_stream <- pow(sigma_b_stream, -2)
-  
-  sigma_b_year ~ dunif(0,10)
-  tau_b_year <- pow(sigma_b_year, -2)
-
-  sigma_event ~ dunif(0, 10)
-  tau_event <- pow(sigma_event, -2)
-  
-  sigma_cluster ~ dunif(0,10)
-  tau_cluster <- pow(sigma_cluster, -2)
-}
-", fill = TRUE)
-
-sink()
-
-
-m1_data_list <- list(
-  N = nrow(aoi_GLM_Data_mod),
-  SWA = aoi_GLM_Data_mod$SWA,
-  damPresence = aoi_GLM_Data_mod$damPresence,
-  stream = aoi_GLM_Data_mod$stream,
-  year_id = aoi_GLM_Data_mod$year_id,
-  sampleEvent = aoi_GLM_Data_mod$sampleEvent,
-  clusterID = aoi_GLM_Data_mod$clusterID_num,
-  n_stream = length(unique(aoi_GLM_Data_mod$stream)),
-  n_event = length(unique(aoi_GLM_Data_mod$sampleEvent)),
-  n_year = length(unique(aoi_GLM_Data_mod$year_id)),
-  n_cluster = length(unique(aoi_GLM_Data_mod$clusterID_num)),
-  sd_SWA = sd(aoi_GLM_Data_mod$SWA, na.rm = T)
-)
-
-inits <- function(){list(
-    alpha = rnorm(1, 0, 1),
-    beta1 = rnorm(1, 0, 1)
-    )}
-
-parameters_m1 <- c(
-  "alpha",
-  "beta1",
-  "b_stream",
-  "b_year",
-  "sigma",
-  "eta_stream",
-  "eta_event",
-  "eta_cluster",
-  "sigma_stream",
-  "sigma_b_stream",
-  "sigma_b_year",
-  "sigma_event",
-  "sigma_cluster"
-)
-
-nchains <- 3
-nthin <- 10
-niter <- 20000
-nburn <- 5000
-
-m1_HGLM_SWA <- jags(data = m1_data_list,
-                   inits = inits,
-                   parameters.to.save = parameters_m1,
-                   model.file = "m1_HGLM_SWA.jags",
-                   parallel = T,
-                   n.chains = nchains,
-                   n.thin = nthin,
-                   n.iter = niter,
-                   n.burnin = nburn)
-
-
-Sys.time()
-
-print(m1_HGLM_SWA) # model with local and watershed dam density as fixed effects
-
-```
-difference in sys.time = elapsed time for model to run
-
-```{r, echo=FALSE}
-# Extract posteriors for parameters of interest
-
-#library(dplyr)
-#library(tidyr)
-#library(ggplot2)
-#library(purrr)
-
-# Extract posterior draws
-M1post <- m1_HGLM_SWA$sims.list
-
-# Select only scalar parameters (convert random effects matrices)
-# Scalars
-M1df_scalar <- tibble(
-  parameter = c("alpha", "beta1"),
-  mean = c(mean(M1post$alpha), 
-           mean(M1post$beta1)),
-  lower = c(quantile(M1post$alpha, 0.025), 
-            quantile(M1post$beta1, 0.025)),
-  upper = c(quantile(M1post$alpha, 0.975), 
-            quantile(M1post$beta1, 0.975))
-)
-
-# Stream-level slopes
-M1df_stream <- map_df(1:ncol(M1post$b_stream), function(j){
-  tibble(
-    parameter = paste0("b_stream[", j, "]"),
-    mean = mean(M1post$b_stream[, j]),
-    lower = quantile(M1post$b_stream[, j], 0.025),
-    upper = quantile(M1post$b_stream[, j], 0.975)
-  )
-})
-
-# Year-level slopes
-M1df_year <- map_df(1:ncol(M1post$b_year), function(y){
-  tibble(
-    parameter = paste0("b_year[", y, "]"),
-    mean = mean(M1post$b_year[, y]),
-    lower = quantile(M1post$b_year[, y], 0.025),
-    upper = quantile(M1post$b_year[, y], 0.975)
-  )
-})
-
-M1summary_df <- bind_rows(M1df_scalar, M1df_stream, M1df_year)
-
-# Give parameters meaningful names
-pretty_names <- c(
-  alpha           = "Intercept",
-  beta1           = "Dam Presence",
-  "b_stream[1]"   = "Brazil Ck",
-  "b_stream[2]"   = "Lower Beaver Ck",
-  "b_stream[3]"   = "Larb Ck",
-  "b_stream[4]"   = "Lone Tree Ck",
-  "b_stream[5]"   = "Upper Beaver Ck",
-  "b_stream[6]"   = "Willow Ck",
-  "b_year[1]"     = "2019",
-  "b_year[2]"     = "2021",
-  "b_year[3]"     = "2023"
-)
-
-
-# Plot
-ggplot(M1summary_df %>% filter(parameter == "beta1"), 
-       aes(x = parameter, 
-           y = mean)) +
-  geom_point(size = 3) +
-  geom_errorbar(aes(ymin = lower, 
-                    ymax = upper), width = 0.1) +
-  geom_hline(yintercept = 0, color = "black", linewidth = 1) +
-  coord_flip() +
-  scale_x_discrete(labels = pretty_names) +
-  scale_y_continuous(limits = c(-100, 800)) +
-  theme_minimal(base_size = 14) +
-  labs(
-    title = expression("Model 1: " * SWA ~ Dam_Presence ),
-    subtitle = "Posterior Means and 95% Credible Intervals",
-    x = "Parameter",
-    y = "Posterior Mean"
-  ) +
-  theme(axis.text.y = element_text(size = 12))
-
-print(mean(m1_HGLM_SWA$sims.list$beta1))
-```
-
-
-^^^ Average dam effect across the study area is 283.9. This translates to:
-
-"On average, dammed reaches pond about 284 m^2 more surface water than undammed 
-reaches."
-
-
-----
-
-
-```{r,echo=FALSE}
-# HEAT MAP IT
-
-M1n_sims   <- length(M1post$beta1)
-M1n_stream <- ncol(M1post$b_stream)
-M1n_year   <- ncol(M1post$b_year)
-
-#range(M1post$b_stream[,3] + M1post$b_year[,2] + M1post$beta1)
-
-
-M1DamEffect <- array(NA, dim = c(M1n_sims, 
-                                 M1n_stream, 
-                                 M1n_year))
-
-for(j in 1:M1n_stream){
-  for(y in 1:M1n_year){
-    M1DamEffect[, j, y] <- M1post$beta1 +
-                           M1post$b_stream[, j] +
-                           M1post$b_year[, y]
-  }
-}
-
-```
-
-
-```{r,echo=FALSE}
-#Summarize posteriors for each 
-
-M1summary_list <- list()
-
-for(j in 1:M1n_stream){
-  for(y in 1:M1n_year){
-    
-    eff <- as.vector(M1DamEffect[, j, y, drop = FALSE])
-    
-    M1summary_list[[paste(j, y, sep = "_")]] <- tibble(
-      stream = j,
-      year = y,
-      mean = mean(eff),
-      lower = quantile(eff, 0.025),
-      upper = quantile(eff, 0.975),
-      positive = quantile(eff, 0.025) > 0
-    )
-  }
-}
-
-# Build explicit lookups from the data actually used in the model
-stream_lookup <- aoi_GLM_Data_mod %>%
-  distinct(stream, watershed) %>%
-  arrange(stream)
-
-year_lookup <- aoi_GLM_Data_mod %>%
-  distinct(year_id, year) %>%
-  arrange(year_id)
-
-M1effect_df <- bind_rows(M1summary_list) %>%
-  left_join(stream_lookup, by = c("stream")) %>%
-  left_join(year_lookup,  by = c("year" = "year_id")) %>%
-  rename(year_id = year)
-
-# order watersheds by factor levels of ascending max CDA
-M1effect_df <- M1effect_df %>%
-  mutate(watershed = factor(watershed, levels = uda_lookup$watershed))
-
-
-
-# Plot the heatmap
-
-ggplot(M1effect_df, aes(x = as.factor(year.y), 
-                        y = watershed, 
-                        fill = mean)) +
-  geom_tile(color = "black") +
-  scale_fill_gradient2(
-    low = "goldenrod",
-    mid = "white",
-    high = "navy",
-    midpoint = 0,
-    name = "Dam Effect"
-  ) +
-  labs(
-    x = "Year",
-    y = "Watershed",
-    title = "M1: Magnitude of Beaver Dam Effect on Surface Water Area"
-  ) +
-  theme_minimal(base_size = 14)
-```
-
-
-^^^^ With SUBSTANTIAL variation among watersheds and years
-
-----
-
-----
-
-----
-
-M2: Dam Presence + Context
-----
-
-
-```{r, echo=FALSE}
-library(jagsUI)
-
-Sys.time()
-
-sink("m2_HGLM_SWA.jags")
-
-cat("
-model {
-
-  for (i in 1:N) {
-    SWA[i] ~ dnorm(mu[i], tau)
-
-    mu[i] <- alpha
-             + (beta1 + b_stream[stream[i]] + b_year[year_id[i]]) * damPresence[i]
-             + beta2 * TO[i] 
-             + beta3 * RIPA[i]
-             + beta4 * UDA[i]
-             + eta_stream[stream[i]]
-             + eta_event[sampleEvent[i]]
-             + eta_cluster[clusterID[i]]
-  }
-
-  # Fixed effects
-  alpha ~ dnorm(0, 0.001)
-  beta1 ~ dnorm(0, 0.001)
-  beta2 ~ dnorm(0, 0.001)
-  beta3 ~ dnorm(0, 0.001)
-  beta4 ~ dnorm(0, 0.001)
-
-  # Random Effects
-  # Stream/Watershed
-  for (j in 1:n_stream) {
-    eta_stream[j] ~ dnorm(0, tau_stream)     # random intercept for stream
-    b_stream[j]   ~ dnorm(0, tau_b_stream)   # random slope for stream
-  }
-  
-  # Year
-  for(yr in 1:n_year) {
-    b_year[yr] ~ dnorm(0, tau_b_year)        # random slope for year
-  }
-  
-  # Sampling Event
-  for (k in 1:n_event) {
-    eta_event[k] ~ dnorm(0, tau_event)       # random intercept for year/survey 'sampling event'
-  }
-  
-  # Cluster ID
-  for (c in 1:n_cluster) {
-    eta_cluster[c] ~ dnorm(0, tau_cluster)
-  }
-
-  # Hyperpriors
-  sigma ~ dnorm(0, 1 / pow(sd_SWA, 2)) T(0,)   # half-normal with sd ≈ sd_SWA
-  tau <- pow(sigma, -2)
-
-  sigma_stream ~ dunif(0, 10)
-  tau_stream <- pow(sigma_stream, -2)
-
-  sigma_b_stream ~ dunif(0, 10)
-  tau_b_stream <- pow(sigma_b_stream, -2)
-  
-  sigma_b_year ~ dunif(0,10)
-  tau_b_year <- pow(sigma_b_year, -2)
-
-  sigma_event ~ dunif(0, 10)
-  tau_event <- pow(sigma_event, -2)
-  
-  sigma_cluster ~ dunif(0,10)
-  tau_cluster <- pow(sigma_cluster, -2)
-}
-", fill = TRUE)
-
-sink()
-
-
-m2_data_list <- list(
-  N = nrow(aoi_GLM_Data_mod),
-  SWA = aoi_GLM_Data_mod$SWA,
-  damPresence = aoi_GLM_Data_mod$damPresence,
-  TO = as.numeric(scale(1-(aoi_GLM_Data_mod$TO/90))),
-  RIPA = as.numeric(scale(aoi_GLM_Data_mod$riparian_area_m2)),
-  UDA = as.numeric(scale(aoi_GLM_Data_mod$catchment_km2)),
-  stream = aoi_GLM_Data_mod$stream,
-  year_id = aoi_GLM_Data_mod$year_id,
-  sampleEvent = aoi_GLM_Data_mod$sampleEvent,
-  clusterID = aoi_GLM_Data_mod$clusterID_num,
-  n_stream = length(unique(aoi_GLM_Data_mod$stream)),
-  n_event = length(unique(aoi_GLM_Data_mod$sampleEvent)),
-  n_year = length(unique(aoi_GLM_Data_mod$year_id)),
-  n_cluster = length(unique(aoi_GLM_Data_mod$clusterID_num)),
-  sd_SWA = sd(aoi_GLM_Data_mod$SWA, na.rm = T)
-)
-
-parameters_m2 <- c(
-  "alpha",
-  "beta1",
-  "b_stream",
-  "b_year",
-  "beta2",
-  "beta3",
-  "beta4",
-  "sigma",
-  "eta_stream",
-  "eta_event",
-  "eta_cluster",
-  "sigma_stream",
-  "sigma_b_stream",
-  "sigma_b_year",
-  "sigma_event",
-  "sigma_cluster"
-)
-
-m2_HGLM_SWA <- jags(data = m2_data_list,
-                   inits = inits,
-                   parameters.to.save = parameters_m2,
-                   model.file = "m2_HGLM_SWA.jags",
-                   parallel = T,
-                   n.chains = nchains,
-                   n.thin = nthin,
-                   n.iter = niter,
-                   n.burnin = nburn)
-
-
-Sys.time()
-
-print(m2_HGLM_SWA)
-
-```
-difference in sys.time = elapsed time for model to run
-
-
-**NOTE:**
-----
-
-In M2, TO was transformed to "channel incision" by taking the inverse of proportion openness:
-
-$$ChannelIncision = 1 - (TO/90) $$
-
-Where $(TO/90)$ is the proportion of max openness (90 degrees = "flat"/"fully open")
-
-
-
-
-```{r, echo=FALSE}
-# Extract posteriors for parameters of interest
-
-#library(dplyr)
-#library(tidyr)
-#library(ggplot2)
-#library(purrr)
-
-# Extract posterior draws
-M2post <- m2_HGLM_SWA$sims.list
-
-# Select only scalar parameters (convert random effects matrices)
-# Scalars
-M2df_scalar <- tibble(
-  parameter = c("alpha", "beta1", "beta2", "beta3", "beta4"),
-  mean = c(mean(M2post$alpha), 
-           mean(M2post$beta1), 
-           mean(M2post$beta2), 
-           mean(M2post$beta3),
-           mean(M2post$beta4)),
-  lower = c(quantile(M2post$alpha, 0.025), 
-            quantile(M2post$beta1, 0.025),
-            quantile(M2post$beta2, 0.025),
-            quantile(M2post$beta3, 0.025),
-            quantile(M2post$beta4, 0.025)),
-  upper = c(quantile(M2post$alpha, 0.975), 
-            quantile(M2post$beta1, 0.975),
-            quantile(M2post$beta2, 0.975),
-            quantile(M2post$beta3, 0.975),
-            quantile(M2post$beta4, 0.975))
-)
-
-# Stream-level slopes
-M2df_stream <- map_df(1:ncol(M2post$b_stream), function(j){
-  tibble(
-    parameter = paste0("b_stream[", j, "]"),
-    mean = mean(M2post$b_stream[, j]),
-    lower = quantile(M2post$b_stream[, j], 0.025),
-    upper = quantile(M2post$b_stream[, j], 0.975)
-  )
-})
-
-# Year-level slopes
-M2df_year <- map_df(1:ncol(M2post$b_year), function(y){
-  tibble(
-    parameter = paste0("b_year[", y, "]"),
-    mean = mean(M2post$b_year[, y]),
-    lower = quantile(M2post$b_year[, y], 0.025),
-    upper = quantile(M2post$b_year[, y], 0.975)
-  )
-})
-
-M2summary_df <- bind_rows(M2df_scalar, M2df_stream, M2df_year)
-
-# Give parameters meaningful names
-pretty_names <- c(
-  alpha           = "Intercept",
-  beta1           = "Dam Presence",
-  beta2           = "Topographic Openness",
-  beta3           = "Riparian Area (m^2)",
-  beta4           = "Contributing Drainage Area",
-  "b_stream[1]"   = "Brazil Ck",
-  "b_stream[2]"   = "Lower Beaver Ck",
-  "b_stream[3]"   = "Larb Ck",
-  "b_stream[4]"   = "Lone Tree Ck",
-  "b_stream[5]"   = "Upper Beaver Ck",
-  "b_stream[6]"   = "Willow Ck",
-  "b_year[1]"     = "2019",
-  "b_year[2]"     = "2021",
-  "b_year[3]"     = "2023"
-)
-
-
-# Plot
-ggplot(M2summary_df %>% filter(parameter == "beta1" |
-                               parameter == "beta2" |
-                               parameter == "beta3" |
-                               parameter == "beta4"), 
-       aes(x = parameter, 
-           y = mean)) +
-  geom_point(size = 3) +
-  geom_errorbar(aes(ymin = lower, 
-                    ymax = upper), width = 0.1) +
-  geom_hline(yintercept = 0, color = "black", linewidth = 1) +
-  coord_flip() +
-  scale_x_discrete(labels = pretty_names) +
-  scale_y_continuous(limits = c(-100, 800)) +
-  theme_minimal(base_size = 14) +
-  labs(
-    title = expression("Model 2: (" * SWA * " ~ " * Dam_Presence * ") Considering Geomorphic Context" ),
-    subtitle = "Posterior Means and 95% Credible Intervals",
-    x = "Parameter",
-    y = "Posterior Mean"
-  ) +
-  theme(axis.text.y = element_text(size = 12))
-
-```
-
-M2 Mean Dam Effect:
-
-Same interpretation as M1
-
-```{r,echo=FALSE}
-print(mean(m2_HGLM_SWA$sims.list$beta1))
-```
-
-M2 Mean TO Effect
-
-Interpretation: SWA(m^2) change per 1 standard deviation increase in TO
-
-```{r,echo=FALSE}
-print(mean(m2_HGLM_SWA$sims.list$beta2))
-```
-
-M2 Mean RIPA Effect:
-
-Interpretation: SWA(m^2) change per 1 standard deviation increase in RIPA
-
-
-```{r,echo=FALSE}
-print(mean(m2_HGLM_SWA$sims.list$beta3))
-```
-
-M2 Mean CDA Effect
-
-Interpretation: SWA(m^2) change per 1 standard deviation increase in CDA
-
-
-```{r,echo=FALSE}
-print(mean(m2_HGLM_SWA$sims.list$beta4))
-```
-
-
-
-```{r,echo=FALSE}
-# HEAT MAP IT
-
-M2n_sims   <- length(M2post$beta1)
-M2n_stream <- ncol(M2post$b_stream)
-M2n_year   <- ncol(M2post$b_year)
-
-#range(M2post$b_stream[,3] + M2post$b_year[,2] + M2post$beta1)
-
-
-M2DamEffect <- array(NA, dim = c(M2n_sims, 
-                                 M2n_stream, 
-                                 M2n_year))
-
-for(j in 1:M2n_stream){
-  for(y in 1:M2n_year){
-    M2DamEffect[, j, y] <- M2post$beta1 +
-                           M2post$b_stream[, j] +
-                           M2post$b_year[, y]
-  }
-}
-
-```
-
-
-```{r,echo=FALSE}
-#Summarize posteriors for each 
-
-M2summary_list <- list()
-
-for(j in 1:M2n_stream){
-  for(y in 1:M2n_year){
-    
-    eff <- as.vector(M2DamEffect[, j, y, drop = FALSE])
-    
-    M2summary_list[[paste(j, y, sep = "_")]] <- tibble(
-      stream = j,
-      year = y,
-      mean = mean(eff),
-      lower = quantile(eff, 0.025),
-      upper = quantile(eff, 0.975),
-      positive = quantile(eff, 0.025) > 0
-    )
-  }
-}
-
-
-M2effect_df <- bind_rows(M2summary_list) %>%
-  left_join(stream_lookup, by = c("stream")) %>%
-  left_join(year_lookup,  by = c("year" = "year_id")) %>%
-  rename(year_id = year) %>% 
-  left_join(uda_lookup, by = "watershed")
-
-# order watersheds by factor levels of ascending max UDA
-M2effect_df <- M2effect_df %>%
-  mutate(watershed = factor(
-    watershed,
-    levels = c("WC", "LT", "BRZ", "LRB", "LBV", "UBV")
-  ))
-
-
-# Plot the heatmap
-
-ggplot(M2effect_df, aes(x = as.factor(year.y), 
-                        y = watershed, 
-                        fill = mean)) +
-  geom_tile(color = "black") +
-  scale_fill_gradient2(
-    low = "grey90",
-    mid = "grey100",
-    high = "dodgerblue4",
-    midpoint = 0,
-    name = "Model 2 
-Dam Effect"
-  ) +
-  labs(
-    x = "Year",
-    y = "Watershed 
-Arranged By Drainage Area",
-    title = "Magnitude of Dam Effect by Watershed and Year"
-  ) +
-  theme_minimal(base_size = 14)
-```
-
-^^^ Less dam effect overall, still lots of variation among watersheds and years
-
-Also, streams are ordered here ^^ by contributing drainage area. Higher on the y axis = greater drainage area
-
-
-
-
-
-Visualize proportional effect of beaver dams on riparian inundation
-----
-
-'average dam inundated ~2% of available riparian space'
-
-```{r, echo=FALSE}
-# Posterior draws of dam effect (population-level)
-dam_post <- M2post$beta1   # vector of length ~4500
-
-# Median riparian area (real units)
-RIPA_med <- median(aoi_GLM_Data_mod$riparian_area_m2)
-
-# Posterior distribution of proportional inundation
-prop_post <- dam_post / RIPA_med
-
-# Summaries
-quantile(prop_post, c(0.025, 0.5, 0.975))
-
-
-prop_df1 <- tibble(prop = prop_post)
-
-ggplot(prop_df1, aes(x = prop)) +
-  geom_density(fill = "skyblue", alpha = 0.4, linewidth = 1.2) +
-  geom_vline(xintercept = median(prop_post), color = "blue", linewidth = 1) +
-  geom_vline(xintercept = quantile(prop_post, 0.025), linetype = "dashed") +
-  geom_vline(xintercept = quantile(prop_post, 0.975), linetype = "dashed") +
-  scale_x_continuous(labels = scales::percent_format(accuracy = 0.1)) +
-  labs(
-    x = "Proportion of Riparian Area Inundated by Dams",
-    y = "Posterior Density",
-    title = "Posterior Distribution of Proportional Riparian Inundation",
-    subtitle = expression("Based on population-level dam effect ( " * beta * 1 * " ) and median riparian area")
-  ) +
-  theme_minimal(base_size = 14)
-
-
-
-```
-
-Check proportional change from undammed to dammed
-----
-
-```{r, echo=TRUE}
-# Compute predicted baseline for 'typical' reach for each stream/year
-
-TO_z_med <- median(as.numeric(scale(aoi_GLM_Data_mod$TO)))
-
-RIPA_z_med <- median(as.numeric(scale(aoi_GLM_Data_mod$riparian_area_m2)))
-
-UDA_z_med <- median(as.numeric(scale(aoi_GLM_Data_mod$catchment_km2)))
-
-post <- M2post
-
-SWA0_global <- post$alpha +
-  post$beta2 * TO_z_med +
-  post$beta3 * RIPA_z_med +
-  post$beta4 * UDA_z_med
-
-SWA0_global <- pmax(SWA0_global, 0)  # enforce SWA ≥ 0
-
-
-# global effect
-
-prop_global <- post$beta1 / SWA0_global
-quantile(prop_global, c(0.025, 0.5, 0.975))
-
-
-prop_df <- tibble(prop = prop_global)
-
-ggplot(prop_df, aes(x = prop)) +
-  geom_density(fill = "skyblue", alpha = 0.4, linewidth = 1.2) +
-  geom_vline(xintercept = median(prop_global), color = "blue", linewidth = 1) +
-  geom_vline(xintercept = quantile(prop_global, 0.025), linetype = "dashed") +
-  geom_vline(xintercept = quantile(prop_global, 0.975), linetype = "dashed") +
-  scale_x_continuous(labels = scales::percent_format(accuracy = 0.1)) +
-  labs(
-    x = "Proportional Change in SWA (Dammed vs Undammed)",
-    y = "Posterior Density",
-    title = "Global Proportional Effect of Beaver Dams",
-    subtitle = "Population-level dam effect relative to global baseline SWA"
-  ) +
-  theme_minimal(base_size = 14)
-
-
-```
-
-
-
-
-
-----
-
-----
-
-----
-
-----
-
-----
-
-----
-
-----
-
-
-This next section intends to explore seasonal variation in beaver dam effect. 
-
-Uses nested random slopes for beaver dam effect to allow for stream, year, and 
-sampleEvent to cause deviation from the global mean beaver effect.
+Uses nested random slopes for beaver dam effect to allow for stream, year, and sampleEvent to cause deviation from the global mean beaver effect.
 
 
 Implement HGLMMs:
@@ -6129,91 +815,91 @@ M3: Dam Presence Only; seasonal random slope (sampleEvent)
 ----
 
 
-```{r, echo=FALSE}
-library(jagsUI)
-
-Sys.time()
-
-sink("m3_HGLM_SWA.jags")
-
-cat("
-model {
-
-  for (i in 1:N) {
-    SWA[i] ~ dnorm(mu[i], tau)
-
-  mu[i] <- alpha
-             + (beta1
-                + b_stream_event[stream[i],sampleEvent[i]]) * damPresence[i]
-             + eta_stream[stream[i]]
-             + eta_event[sampleEvent[i]]
-             + eta_cluster[clusterID[i]]
-  }
-
-  # Fixed effects
-  alpha ~ dnorm(0, 0.001)
-  beta1 ~ dnorm(0, 0.001)
-
-  # Random Effects
-  # Stream/Watershed
-  for (j in 1:n_stream) {
-    eta_stream[j] ~ dnorm(0, tau_stream)     # random intercept for stream
-    b_stream[j]   ~ dnorm(0, tau_b_stream)   # random slope for stream
-  }
-  
-  # Year-level dam effect
-  for(yr in 1:n_year) {
-    b_year[yr] ~ dnorm(0, tau_b_year)        # random slope for year
-  }
-  
-  # Event-level dam effect nested within year
-  for (k in 1:n_event) {
-    b_event[k] ~ dnorm(b_year[event_year[k]],tau_b_event)       # random slope for year/survey 'sampling event'
-    eta_event[k] ~ dnorm(0, tau_event)
-  }
-  
-  # Stream/Event Interaction
-  for(j in 1:n_stream){
-    for(k in 1:n_event){
-      b_stream_event[j,k] ~ dnorm(b_event[k] + b_stream[j], tau_b_stream_event)
+    library(jagsUI)
+    
+    Sys.time()
+    
+    sink("HGLMM_damPres.jags")
+    
+    cat("
+    model {
+    
+      for (i in 1:N) {
+        SWA[i] ~ dnorm(mu[i], tau)
+    
+      mu[i] <- alpha
+                 + (beta1
+                    + b_stream_event[stream[i],sampleEvent[i]]) * damPresence[i]
+                 + eta_stream[stream[i]]
+                 + eta_event[sampleEvent[i]]
+                 + eta_cluster[clusterID[i]]
+      }
+    
+      # Fixed effects
+      alpha ~ dnorm(0, 0.001)
+      beta1 ~ dnorm(0, 0.001)
+    
+      # Random Effects
+      # Stream/Watershed
+      for (j in 1:n_stream) {
+        eta_stream[j] ~ dnorm(0, tau_stream)     # random intercept for stream
+        b_stream[j]   ~ dnorm(0, tau_b_stream)   # random slope for stream
+      }
+      
+      # Year-level dam effect
+      for(yr in 1:n_year) {
+        b_year[yr] ~ dnorm(0, tau_b_year)        # random slope for year
+      }
+      
+      # Event-level dam effect nested within year
+      for (k in 1:n_event) {
+        b_event[k] ~ dnorm(b_year[event_year[k]],tau_b_event)       # random slope for year/survey 'sampling event'
+        eta_event[k] ~ dnorm(0, tau_event)       # random intercept for event
+      }
+      
+      # Stream/Event Interaction
+      for(j in 1:n_stream){
+        for(k in 1:n_event){
+          b_stream_event[j,k] ~ dnorm(b_event[k] + b_stream[j], tau_b_stream_event)
+        }
+      }
+      
+      # Cluster ID
+      for (c in 1:n_cluster) {
+        eta_cluster[c] ~ dnorm(0, tau_cluster)    # random intercept for sampleCluster
+      }
+    
+      # Hyperpriors
+      sigma ~ dnorm(0, 1 / pow(sd_SWA, 2)) T(0,)   # half-normal with sd ≈ sd_SWA
+      tau <- pow(sigma, -2)
+    
+      sigma_stream ~ dunif(0, 10)
+      tau_stream <- pow(sigma_stream, -2)
+    
+      sigma_b_stream ~ dunif(0, 10)
+      tau_b_stream <- pow(sigma_b_stream, -2)
+      
+      sigma_b_year ~ dunif(0,10)
+      tau_b_year <- pow(sigma_b_year, -2)
+    
+      sigma_b_event ~ dunif(0, 10)
+      tau_b_event <- pow(sigma_b_event, -2)
+      
+      sigma_event ~ dunif(0,10)
+      tau_event <- pow(sigma_event, -2)
+      
+      sigma_b_stream_event ~ dunif(0,10)
+      tau_b_stream_event <- pow(sigma_b_stream_event, -2)
+      
+      sigma_cluster ~ dunif(0,10)
+      tau_cluster <- pow(sigma_cluster, -2)
     }
-  }
-  
-  # Cluster ID
-  for (c in 1:n_cluster) {
-    eta_cluster[c] ~ dnorm(0, tau_cluster)
-  }
-
-  # Hyperpriors
-  sigma ~ dnorm(0, 1 / pow(sd_SWA, 2)) T(0,)   # half-normal with sd ≈ sd_SWA
-  tau <- pow(sigma, -2)
-
-  sigma_stream ~ dunif(0, 10)
-  tau_stream <- pow(sigma_stream, -2)
-
-  sigma_b_stream ~ dunif(0, 10)
-  tau_b_stream <- pow(sigma_b_stream, -2)
-  
-  sigma_b_year ~ dunif(0,10)
-  tau_b_year <- pow(sigma_b_year, -2)
-
-  sigma_b_event ~ dunif(0, 10)
-  tau_b_event <- pow(sigma_b_event, -2)
-  
-  sigma_event ~ dunif(0,10)
-  tau_event <- pow(sigma_event, -2)
-  
-  sigma_b_stream_event ~ dunif(0,10)
-  tau_b_stream_event <- pow(sigma_b_stream_event, -2)
-  
-  sigma_cluster ~ dunif(0,10)
-  tau_cluster <- pow(sigma_cluster, -2)
-}
-", fill = TRUE)
-
-sink()
+    ", fill = TRUE)
+    
+    sink()
 
 
+```{r,echo=FALSE}
 m3_data_list <- list(
   N = nrow(aoi_GLM_Data_mod_3_4),
   SWA = aoi_GLM_Data_mod_3_4$SWA,
@@ -6262,7 +948,7 @@ nburn <- 5000
 m3_HGLM_SWA <- jags(data = m3_data_list,
                    inits = m3inits,
                    parameters.to.save = parameters_m3,
-                   model.file = "m3_HGLM_SWA.jags",
+                   model.file = "HGLMM_damPres.jags",
                    parallel = T,
                    n.chains = nchains,
                    n.thin = nthin,
@@ -6275,6 +961,7 @@ Sys.time()
 print(m3_HGLM_SWA) # model with local and watershed dam density as fixed effects
 
 ```
+
 difference in sys.time = elapsed time for model to run
 
 ```{r, echo=FALSE}
@@ -6378,10 +1065,15 @@ print(mean(m3_HGLM_SWA$sims.list$beta1))
 ```
 
 
-^^^ Average dam effect across the study area is 283.9. This translates to:
+^^^ Average dam effect across the study area is 180.5 This translates to:
 
-"On average, dammed reaches pond about 284 m^2 more surface water than undammed 
+"On average, dammed reaches pond about 180 m^2 more surface water than undammed 
 reaches."
+
+
+NOTE:
+
+Previous iterations used an improper prior for sigma
 
 
 ----
@@ -6471,8 +1163,6 @@ ggplot(M3effect_df, aes(x = as.factor(event),
 ```
 
 
-^^^^ With SUBSTANTIAL variation among watersheds and years
-
 
 
 Compare b1 trajectory across event, by stream:
@@ -6509,7 +1199,7 @@ ggplot(M3line_df, aes(x = event, y = mean, color = watershed, group = watershed)
     labels = unique(event_lookup$label)   # if you want "19_t1", "19_t2", etc.
   ) +
   labs(
-    title = "Seasonal Trajectory of Beaver Dam Effect on SWA, by Watershed",
+    title = "M3: Seasonal Trajectory of Beaver Dam Effect on SWA, by Watershed",
     subtitle = "Gaps represent breaks by Year; t1:t4 excluded for 2023",
     x = "Sampling Events (t5 : t8) \n (August : September) \n (2019, 2021, 2023)",
     y = "Dam Effect (SWA m²)",
@@ -6535,97 +1225,99 @@ M4: Dam Presence + Context with updated random effects structure
 ----
 
 
-```{r, echo=FALSE}
-library(jagsUI)
 
-Sys.time()
-
-sink("m4_HGLM_SWA.jags")
-
-cat("
-    model {
-
-  for (i in 1:N) {
-    SWA[i] ~ dnorm(mu[i], tau)
-
-  mu[i] <- alpha
-             + (beta1
-                + b_stream_event[stream[i],sampleEvent[i]]) * damPresence[i]
-             + beta2 * TO[i] 
-             + beta3 * RIPA[i]
-             + beta4 * UDA[i]
-             + eta_stream[stream[i]]
-             + eta_event[sampleEvent[i]]
-             + eta_cluster[clusterID[i]]
-  }
-
-  # Fixed effects
-  alpha ~ dnorm(0, 0.001)
-  beta1 ~ dnorm(0, 0.001)
-  beta2 ~ dnorm(0, 0.001)
-  beta3 ~ dnorm(0, 0.001)
-  beta4 ~ dnorm(0, 0.001)
-
-  # Random Effects
-  # Stream/Watershed
-  for (j in 1:n_stream) {
-    eta_stream[j] ~ dnorm(0, tau_stream)     # random intercept for stream
-    b_stream[j]   ~ dnorm(0, tau_b_stream)   # random slope for stream
-  }
-  
-  # Year-level dam effect
-  for(yr in 1:n_year) {
-    b_year[yr] ~ dnorm(0, tau_b_year)        # random slope for year
-  }
-  
-  # Event-level dam effect nested within year
-  for (k in 1:n_event) {
-    b_event[k] ~ dnorm(b_year[event_year[k]],tau_b_event)       # random slope for year/survey 'sampling event'
-    eta_event[k] ~ dnorm(0, tau_event)
-  }
-  
-  # Stream/Event Interaction
-  for(j in 1:n_stream){
-    for(k in 1:n_event){
-      b_stream_event[j,k] ~ dnorm(b_event[k] + b_stream[j], tau_b_stream_event)
+    library(jagsUI)
+    
+    Sys.time()
+    
+    sink("HGLMM_allCovar.jags")
+    
+    cat("
+        model {
+    
+      for (i in 1:N) {
+        SWA[i] ~ dnorm(mu[i], tau)
+    
+      mu[i] <- alpha
+                 + (beta1
+                    + b_stream_event[stream[i],sampleEvent[i]]) * damPresence[i]
+                 + beta2 * TO[i] 
+                 + beta3 * RIPA[i]
+                 + beta4 * UDA[i]
+                 + eta_stream[stream[i]]
+                 + eta_event[sampleEvent[i]]
+                 + eta_cluster[clusterID[i]]
+      }
+    
+      # Fixed effects
+      alpha ~ dnorm(0, 0.001)
+      beta1 ~ dnorm(0, 0.001)
+      beta2 ~ dnorm(0, 0.001)
+      beta3 ~ dnorm(0, 0.001)
+      beta4 ~ dnorm(0, 0.001)
+    
+      # Random Effects
+      # Stream/Watershed
+      for (j in 1:n_stream) {
+        eta_stream[j] ~ dnorm(0, tau_stream)     # random intercept for stream
+        b_stream[j]   ~ dnorm(0, tau_b_stream)   # random slope for stream
+      }
+      
+      # Year-level dam effect
+      for(yr in 1:n_year) {
+        b_year[yr] ~ dnorm(0, tau_b_year)        # random slope for year
+      }
+      
+      # Event-level dam effect nested within year
+      for (k in 1:n_event) {
+        b_event[k] ~ dnorm(b_year[event_year[k]],tau_b_event)       # random slope for year/survey 'sampling event'
+        eta_event[k] ~ dnorm(0, tau_event)
+      }
+      
+      # Stream/Event Interaction
+      for(j in 1:n_stream){
+        for(k in 1:n_event){
+          b_stream_event[j,k] ~ dnorm(b_event[k] + b_stream[j], tau_b_stream_event)
+        }
+      }
+      
+      # Cluster ID
+      for (c in 1:n_cluster) {
+        eta_cluster[c] ~ dnorm(0, tau_cluster)
+      }
+    
+      # Hyperpriors
+      sigma ~ dnorm(0, 1 / pow(sd_SWA, 2)) T(0,)   # half-normal with sd ≈ sd_SWA
+      tau <- pow(sigma, -2)
+    
+      sigma_stream ~ dunif(0, 10)
+      tau_stream <- pow(sigma_stream, -2)
+    
+      sigma_b_stream ~ dunif(0, 10)
+      tau_b_stream <- pow(sigma_b_stream, -2)
+      
+      sigma_b_year ~ dunif(0,10)
+      tau_b_year <- pow(sigma_b_year, -2)
+    
+      sigma_b_event ~ dunif(0, 10)
+      tau_b_event <- pow(sigma_b_event, -2)
+      
+      sigma_event ~ dunif(0,10)
+      tau_event <- pow(sigma_event, -2)
+      
+      sigma_b_stream_event ~ dunif(0,10)
+      tau_b_stream_event <- pow(sigma_b_stream_event, -2)
+      
+      sigma_cluster ~ dunif(0,10)
+      tau_cluster <- pow(sigma_cluster, -2)
     }
-  }
-  
-  # Cluster ID
-  for (c in 1:n_cluster) {
-    eta_cluster[c] ~ dnorm(0, tau_cluster)
-  }
-
-  # Hyperpriors
-  sigma ~ dnorm(0, 1 / pow(sd_SWA, 2)) T(0,)   # half-normal with sd ≈ sd_SWA
-  tau <- pow(sigma, -2)
-
-  sigma_stream ~ dunif(0, 10)
-  tau_stream <- pow(sigma_stream, -2)
-
-  sigma_b_stream ~ dunif(0, 10)
-  tau_b_stream <- pow(sigma_b_stream, -2)
-  
-  sigma_b_year ~ dunif(0,10)
-  tau_b_year <- pow(sigma_b_year, -2)
-
-  sigma_b_event ~ dunif(0, 10)
-  tau_b_event <- pow(sigma_b_event, -2)
-  
-  sigma_event ~ dunif(0,10)
-  tau_event <- pow(sigma_event, -2)
-  
-  sigma_b_stream_event ~ dunif(0,10)
-  tau_b_stream_event <- pow(sigma_b_stream_event, -2)
-  
-  sigma_cluster ~ dunif(0,10)
-  tau_cluster <- pow(sigma_cluster, -2)
-}
-", fill = TRUE)
-
-sink()
+    ", fill = TRUE)
+    
+    sink()
 
 
+
+```{r,echo=FALSE}
 m4_data_list <- list(
   N = nrow(aoi_GLM_Data_mod_3_4),
   SWA = aoi_GLM_Data_mod_3_4$SWA,
@@ -6680,7 +1372,7 @@ nburn <- 5000
 m4_HGLM_SWA <- jags(data = m4_data_list,
                    inits = m4inits,
                    parameters.to.save = parameters_m4,
-                   model.file = "m4_HGLM_SWA.jags",
+                   model.file = "HGLMM_allCovar.jags",
                    parallel = T,
                    n.chains = nchains,
                    n.thin = nthin,
@@ -6698,7 +1390,7 @@ difference in sys.time = elapsed time for model to run
 **NOTE:**
 ----
 
-In M4, TO was transformed to "channel incision" by taking the inverse of proportion openness:
+TO was transformed to "channel incision" by taking the inverse of proportion openness:
 
 $$ChannelIncision = 1 - (TO/90) $$
 
@@ -6739,23 +1431,69 @@ m4df_scalar <- tibble(
             quantile(m4post$beta4, 0.975))
 )
 
+# Stream-level slopes
+m4df_stream <- map_df(1:ncol(m4post$b_stream), function(j){
+  tibble(
+    parameter = paste0("b_stream[", j, "]"),
+    mean = mean(m4post$b_stream[, j]),
+    lower = quantile(m4post$b_stream[, j], 0.025),
+    upper = quantile(m4post$b_stream[, j], 0.975)
+  )
+})
 
-m4summary_df <- m4df_scalar
+# Season-level slopes
+m4df_event <- map_df(1:ncol(m4post$b_event), function(y){
+  tibble(
+    parameter = paste0("b_event[", y, "]"),
+    mean = mean(m4post$b_event[, y]),
+    lower = quantile(m4post$b_event[, y], 0.025),
+    upper = quantile(m4post$b_event[, y], 0.975)
+  )
+})
+
+m4summary_df <- bind_rows(m4df_scalar, m4df_stream, m4df_event)
+
+#m4summary_df <- m4df_scalar
 
 # Give parameters meaningful names
-pretty_names <- c(
+pretty_names2 <- c(
   alpha           = "Intercept",
   beta1           = "Dam Presence",
   beta2           = "Channel Incision",
   beta3           = "Riparian Area (m^2)",
-  beta4           = "Contributing Drainage Area"
+  beta4           = "Contributing Drainage Area",
+  "b_stream[1]"   = "Brazil Ck",
+  "b_stream[2]"   = "Lower Beaver Ck",
+  "b_stream[3]"   = "Larb Ck",
+  "b_stream[4]"   = "Lone Tree Ck",
+  "b_stream[5]"   = "Upper Beaver Ck",
+  "b_stream[6]"   = "Willow Ck",
+  "b_event[1]"     = "19_t1",
+  "b_event[2]"     = "19_t2",
+  "b_event[3]"     = "19_t3",
+  "b_event[4]"     = "19_t4",
+  "b_event[5]"     = "19_t5",
+  "b_event[6]"     = "19_t6",
+  "b_event[7]"     = "19_t7",
+  "b_event[8]"     = "19_t8",
+  "b_event[9]"     = "21_t1",
+  "b_event[10]"     = "21_t2",
+  "b_event[11]"     = "21_t3",
+  "b_event[12]"     = "21_t4",
+  "b_event[13]"     = "21_t5",
+  "b_event[14]"     = "21_t6",
+  "b_event[15]"     = "21_t7",
+  "b_event[16]"     = "21_t8",
+  "b_event[17]"     = "23_t5",
+  "b_event[18]"     = "23_t6",
+  "b_event[19]"     = "23_t7",
+  "b_event[20]"     = "23_t8"
 )
 
 
 # Plot
 ggplot(
-  m4summary_df %>% 
-    filter(parameter %in% c("beta1", "beta2", "beta3", "beta4")),
+  m4summary_df, 
   aes(x = parameter, y = mean)
 ) +
   geom_point(size = 3) +
@@ -6879,7 +1617,7 @@ Dam Effect"
   labs(
     x = "Sample Event",
     y = "Watershed",
-    title = "Magnitude of Dam Effect by Watershed and SampleEvent",
+    title = "M4: Magnitude of Dam Effect by Watershed and SampleEvent",
     subtitle = "Aug:Sep; 5:8 = 2019; 13:16 = 2021; 21:24 = 2023"
   ) +
   theme_minimal(base_size = 14)
@@ -6928,7 +1666,7 @@ SWA0_global <- pmax(SWA0_global, 0)  # enforce SWA ≥ 0
 
 prop_global <- post$beta1 / SWA0_global
 quantile(prop_global, c(0.025, 0.5, 0.975))
-
+density
 
 prop_df <- tibble(prop = prop_global)
 
@@ -6939,14 +1677,20 @@ hist(SWA0_global,
      main = "Posterior Distribution of Global Baseline SWA",
      xlab = "Baseline SWA (m²)")
 
+```
+```{r,echo=TRUE}
+mean(SWA0_global)
+sd(SWA0_global)
+```
 
-
+```{r,echo=FALSE}
 ggplot(prop_df, aes(x = prop)) +
   geom_density(fill = "skyblue", alpha = 0.4, linewidth = 1.2) +
-  geom_vline(xintercept = median(prop_global), color = "blue", linewidth = 1) +
+  geom_vline(xintercept = mean(prop_global), color = "blue", linewidth = 1) +
   geom_vline(xintercept = quantile(prop_global, 0.025), linetype = "dashed") +
   geom_vline(xintercept = quantile(prop_global, 0.975), linetype = "dashed") +
-  scale_x_continuous(labels = scales::percent_format(accuracy = 0.1)) +
+  scale_x_continuous(labels = scales::percent_format(accuracy = 0.1),
+                     limits = c(0, NA)) +
   labs(
     x = "Proportional Change in SWA (Dammed vs Undammed)",
     y = "Posterior Density",
@@ -6955,4 +1699,62 @@ ggplot(prop_df, aes(x = prop)) +
   ) +
   theme_minimal(base_size = 14)
 ```
+
+```{r,echo=TRUE}
+mean(prop_df$prop)*100
+```
+
+    NOTE: Blue line = mean() of posterior estimate for proportional change
+          Dashed lines = 95% CI
+
+
+Compare b1 trajectory across event, by stream:
+----
+
+```{r, echo=FALSE}
+M4line_df <- m4effect_df %>%
+  arrange(watershed, event) %>%
+  mutate(event = as.numeric(event)) %>%
+  group_by(watershed) %>%
+  do({
+    df <- .
+
+    gap_rows <- tibble(
+      stream = df$stream[1],
+      event = c(4.5, 8.5),   # ← add as many gaps as you want
+      mean = NA,
+      lower = NA,
+      upper = NA,
+      positive = NA,
+      watershed = df$watershed[1]
+    )
+
+    bind_rows(df, gap_rows)
+  }) %>%
+  arrange(watershed, event)
+
+
+
+ggplot(M4line_df, aes(x = event, y = mean, color = watershed, group = watershed)) +
+  geom_line(linewidth = 1.2, na.rm = TRUE) +
+  geom_point(size = 2, na.rm = TRUE) +
+  scale_x_continuous(
+    breaks = unique(m4effect_df$event),
+    labels = unique(event_lookup$label)   # if you want "19_t1", "19_t2", etc.
+  ) +
+  labs(
+    title = "M4: Seasonal Trajectory of Beaver Dam Effect on SWA, by Watershed",
+    subtitle = "Gaps represent breaks by Year; t1:t4 excluded for 2023",
+    x = "Sampling Events (t5 : t8) \n (August : September) \n (2019, 2021, 2023)",
+    y = "Dam Effect (SWA m²)",
+    color = "Watershed"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "right"
+  )
+
+```
+
 
