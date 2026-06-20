@@ -1,5 +1,5 @@
 ---
-title: "Ch1_SW_Differences"
+title: "Ch1_HGLMM_Late season influence of beaver dams on surface water area"
 output:
   html_document: default
   pdf_document: default
@@ -8,9 +8,9 @@ editor_options:
 ---
 
 
-The purpose of this script is to explore the effect of beaver dams on surface water area, relative to local geomorphology, and contributing drainage area. This modeling focusses solely on late summer months; August : September. 
+The purpose of this script is to explore the effect of beaver dams on surface water area, relative to local geomorphology, and contributing drainage area. This modeling focuses solely on late summer months; August : September. 
 
-Two models are presented herein. Both models have the same random effects structure for stream, year, adn sample event. Model 1 examines the effect of beaver dam presence on surface water area, with no consideration for local context. Model 2 includes additional fixed effects of channel incision, riparian area, and drainage area. 
+Two models are presented herein. Both models have the same random effects structure for stream, year, and sample event. Model 1 examines the effect of beaver dam presence on surface water area, with no consideration for local context. Model 2 includes additional fixed effects of channel incision, riparian area, and drainage area. 
 
 ----
 
@@ -43,7 +43,8 @@ library(broom.mixed)
       
 ----
 
-Read in Flow data from USGS LBV Guston Coulee gage:
+Data from USGS LBV Guston Coulee gage, near Saco, MT:
+----
 
 ```{r,echo=FALSE, warning=FALSE}
 # LOWER BEAVER CK
@@ -127,7 +128,7 @@ lateSummerFlow <- usgs_df %>%
          )
 ```
 
-LATE SUMMER FLOW CONDITIONS:
+Late Summer Flow Conditions
 ----
 
 2019:
@@ -232,7 +233,7 @@ ggplot(flow23, aes(x = date,
 
 
 
-Read in GEE-derived data for each stream:
+GEE-derived data for each stream:
 ----
 
 ```{r, echo=FALSE}
@@ -524,8 +525,8 @@ Where:
 ----
 
 
-**Relative flow data**. 
-----
+**Relative flow data.**
+
 NOTE: currently this represents data from the USGS Guston Coulee gage that has been z-standardized over the current data acquisition range (June-Sept; 2019, 2021, 2023). 
 
 Then, for each 2-week survey time period (1:8), the average relative flow $[mean(zFlow)]$ was computed, and added as a data column. IT IS ASSUMED that this flow data is representative of the RELATIVE flow pattern experienced throughout the study area during this time.
@@ -579,65 +580,36 @@ UBV_RelFlow <- UBV %>%
 ```
 
 
-----
-----
-----
-----
-----
-----
-----
-----
 
 
-Compare Hierarchical GLMs
+
+Hierarchical Generalized Linear Mixed Effects Models
 ----
 
 Proposed Models:
 ----
 
 
-Both: 
+**Both models:** 
 
 $$  SWA \sim N(\mu, \sigma);$$
 
-M1:
-
-$$\mu = alpha + \eta_{stream} + \eta_{survey} + (\beta_1 + \beta_{s) * DamPresence$$
 
 
-    This models the effect of dam presence on surface water area ("B1"), with:          
-      - Random intercepts for:
-        - Stream/watershed to account for unmeasureable differences in watersheds
-        such as human development intensity (e.g., reservoirs, check dams), and 
-        presence of springs, and so on.
-        
-        - Unique survey period (Year.t[1:8]) to account for unmeasureable seasonal hydrologic 
-        change
-      
-      - Random slopes for:
-        - Stream/watershed to account for dam*watershed specific effects
-        - Year to account for massive hydrologic differences among sample years
+**M1:**
 
 
-
-M2:
-
-$$\mu = alpha + \eta_{stream} + \eta_{survey} + (\beta_1 + \beta_{stream} + \beta_{year}) * DamPresence + \beta_2*TO + \beta_3*RiparianArea + \beta_4 * ContributingDrainageArea$$
-
-
-    This models the effect of dam presence on surface water area ("B1"), with:
-    
-      - All of the same things as Model 1 and:
-      
-      - Effect of topographic openness on SWA
-      - Effect of riparian area on SWA
-      - Effect of contributing drainage area on SWA
-      
-
+$$\mu = \alpha + \eta_{stream} + \eta_{event} + \eta_{cluster} + (\beta1+\beta_{streamEvent})*damPresence $$
 
 ----
+----
 
-Example of Input Data Structure:
+**M2:**
+
+$$\mu = \alpha + \eta_{stream} + \eta_{event} + \eta_{cluster} + (\beta_1+\beta_{streamEvent})*damPresence + \beta_2 * Incision + \beta_3 * riparianArea + \beta_4 * drainageArea$$
+
+----
+----
 ---- 
 
 ```{r,include=FALSE}
@@ -802,7 +774,7 @@ event_year_3_4 <- as.numeric(event_year_3_4)
 
 
 
-This next section explores late season SWA in relation to beaver dam presence.
+This section explores late season SWA in relation to beaver dam presence.
 
 Uses nested random slopes for beaver dam effect to allow for stream, year, and sampleEvent to cause deviation from the global mean beaver effect.
 
@@ -814,9 +786,11 @@ Implement HGLMMs:
 M3: Dam Presence Only; seasonal random slope (sampleEvent)
 ----
 
-
+```{r,echo=FALSE}
     library(jagsUI)
-    
+```
+
+
     Sys.time()
     
     sink("HGLMM_damPres.jags")
@@ -958,7 +932,7 @@ m3_HGLM_SWA <- jags(data = m3_data_list,
 
 Sys.time()
 
-print(m3_HGLM_SWA) # model with local and watershed dam density as fixed effects
+#print(m3_HGLM_SWA) # model with local and watershed dam density as fixed effects
 
 ```
 
@@ -1019,26 +993,18 @@ pretty_names <- c(
   "b_stream[4]"   = "Lone Tree Ck",
   "b_stream[5]"   = "Upper Beaver Ck",
   "b_stream[6]"   = "Willow Ck",
-  "b_event[1]"     = "19_t1",
-  "b_event[2]"     = "19_t2",
-  "b_event[3]"     = "19_t3",
-  "b_event[4]"     = "19_t4",
-  "b_event[5]"     = "19_t5",
-  "b_event[6]"     = "19_t6",
-  "b_event[7]"     = "19_t7",
-  "b_event[8]"     = "19_t8",
-  "b_event[9]"     = "21_t1",
-  "b_event[10]"     = "21_t2",
-  "b_event[11]"     = "21_t3",
-  "b_event[12]"     = "21_t4",
-  "b_event[13]"     = "21_t5",
-  "b_event[14]"     = "21_t6",
-  "b_event[15]"     = "21_t7",
-  "b_event[16]"     = "21_t8",
-  "b_event[17]"     = "23_t5",
-  "b_event[18]"     = "23_t6",
-  "b_event[19]"     = "23_t7",
-  "b_event[20]"     = "23_t8"
+  "b_event[1]"     = "19_t5",
+  "b_event[2]"     = "19_t6",
+  "b_event[3]"     = "19_t7",
+  "b_event[4]"     = "19_t8",
+  "b_event[5]"     = "21_t5",
+  "b_event[6]"     = "21_t6",
+  "b_event[7]"     = "21_t7",
+  "b_event[8]"     = "21_t8",
+  "b_event[9]"     = "23_t5",
+  "b_event[10]"     = "23_t6",
+  "b_event[11]"     = "23_t7",
+  "b_event[12]"     = "23_t8"
 )
 
 
@@ -1069,11 +1035,6 @@ print(mean(m3_HGLM_SWA$sims.list$beta1))
 
 "On average, dammed reaches pond about 180 m^2 more surface water than undammed 
 reaches."
-
-
-NOTE:
-
-Previous iterations used an improper prior for sigma
 
 
 ----
@@ -1200,9 +1161,9 @@ ggplot(M3line_df, aes(x = event, y = mean, color = watershed, group = watershed)
   ) +
   labs(
     title = "M3: Seasonal Trajectory of Beaver Dam Effect on SWA, by Watershed",
-    subtitle = "Gaps represent breaks by Year; t1:t4 excluded for 2023",
+    subtitle = "Gaps represent breaks by Year",
     x = "Sampling Events (t5 : t8) \n (August : September) \n (2019, 2021, 2023)",
-    y = "Dam Effect (SWA m²)",
+    y = "Dam Effect (SWA m^2)",
     color = "Watershed"
   ) +
   theme_minimal(base_size = 14) +
@@ -1382,21 +1343,27 @@ m4_HGLM_SWA <- jags(data = m4_data_list,
 
 Sys.time()
 
-print(m4_HGLM_SWA) # model with local and watershed dam density as fixed effects
+#print(m4_HGLM_SWA) # model with local and watershed dam density as fixed effects
 ```
 difference in sys.time = elapsed time for model to run
 
 
-**NOTE:**
 ----
+----
+
+**NOTE:**
 
 TO was transformed to "channel incision" by taking the inverse of proportion openness:
 
+
 $$ChannelIncision = 1 - (TO/90) $$
+
 
 Where $(TO/90)$ is the proportion of max openness (90 degrees = "flat"/"fully open")
 
 
+----
+----
 
 
 ```{r, echo=FALSE}
@@ -1468,26 +1435,18 @@ pretty_names2 <- c(
   "b_stream[4]"   = "Lone Tree Ck",
   "b_stream[5]"   = "Upper Beaver Ck",
   "b_stream[6]"   = "Willow Ck",
-  "b_event[1]"     = "19_t1",
-  "b_event[2]"     = "19_t2",
-  "b_event[3]"     = "19_t3",
-  "b_event[4]"     = "19_t4",
-  "b_event[5]"     = "19_t5",
-  "b_event[6]"     = "19_t6",
-  "b_event[7]"     = "19_t7",
-  "b_event[8]"     = "19_t8",
-  "b_event[9]"     = "21_t1",
-  "b_event[10]"     = "21_t2",
-  "b_event[11]"     = "21_t3",
-  "b_event[12]"     = "21_t4",
-  "b_event[13]"     = "21_t5",
-  "b_event[14]"     = "21_t6",
-  "b_event[15]"     = "21_t7",
-  "b_event[16]"     = "21_t8",
-  "b_event[17]"     = "23_t5",
-  "b_event[18]"     = "23_t6",
-  "b_event[19]"     = "23_t7",
-  "b_event[20]"     = "23_t8"
+  "b_event[1]"     = "19_t5",
+  "b_event[2]"     = "19_t6",
+  "b_event[3]"     = "19_t7",
+  "b_event[4]"     = "19_t8",
+  "b_event[5]"     = "21_t5",
+  "b_event[6]"     = "21_t6",
+  "b_event[7]"     = "21_t7",
+  "b_event[8]"     = "21_t8",
+  "b_event[9]"     = "23_t5",
+  "b_event[10]"     = "23_t6",
+  "b_event[11]"     = "23_t7",
+  "b_event[12]"     = "23_t8"
 )
 
 
@@ -1500,7 +1459,7 @@ ggplot(
   geom_errorbar(aes(ymin = lower, ymax = upper), width = 0.1) +
   geom_hline(yintercept = 0, color = "black", linewidth = 1) +
   coord_flip() +
-  scale_x_discrete(labels = pretty_names) +
+  scale_x_discrete(labels = pretty_names2) +
   theme_minimal(base_size = 14) +
   labs(
     title = expression("Model 4: (" * SWA * " ~ " * Dam_Presence * ") + Geomorphic Context"),
@@ -1513,32 +1472,36 @@ ggplot(
 
 m4 Mean Dam Effect:
 
-Same interpretation as M1
-
 ```{r,echo=FALSE}
 print(mean(m4_HGLM_SWA$sims.list$beta1))
 ```
 
+----
+
 m4 Mean TO Effect
 
-Interpretation: SWA(m^2) change per 1 standard deviation increase in TO
+Interpretation: SWA(m^2) change per 1 standard deviation increase in channel incision
 
 ```{r,echo=FALSE}
 print(mean(m4_HGLM_SWA$sims.list$beta2))
 ```
 
+----
+
 m4 Mean RIPA Effect:
 
-Interpretation: SWA(m^2) change per 1 standard deviation increase in RIPA
+Interpretation: SWA(m^2) change per 1 standard deviation increase in riparian area
 
 
 ```{r,echo=FALSE}
 print(mean(m4_HGLM_SWA$sims.list$beta3))
 ```
 
+----
+
 m4 Mean CDA Effect
 
-Interpretation: SWA(m^2) change per 1 standard deviation increase in CDA
+Interpretation: SWA(m^2) change per 1 standard deviation increase in contributing drainage area
 
 
 ```{r,echo=FALSE}
@@ -1623,9 +1586,6 @@ Dam Effect"
   theme_minimal(base_size = 14)
 ```
 
-^^^ Less dam effect overall, still lots of variation among watersheds and years
-
-Also, streams are ordered here ^^ by contributing drainage area. Higher on the y axis = greater drainage area
 
 
 
@@ -1634,7 +1594,7 @@ Also, streams are ordered here ^^ by contributing drainage area. Higher on the y
 Visualize proportional change from undammed to dammed
 ----
 
-```{r, echo=TRUE}
+```{r, echo=FALSE}
 # Compute predicted baseline for 'typical' reach for each stream/year
 
 post <- m4post
@@ -1666,7 +1626,7 @@ SWA0_global <- pmax(SWA0_global, 0)  # enforce SWA ≥ 0
 
 prop_global <- post$beta1 / SWA0_global
 quantile(prop_global, c(0.025, 0.5, 0.975))
-density
+
 
 prop_df <- tibble(prop = prop_global)
 
@@ -1708,6 +1668,10 @@ mean(prop_df$prop)*100
           Dashed lines = 95% CI
 
 
+
+^^^^typical dam effect = (+)~185m^2 SWA compared to undammed. Typical baseline SWA condition = ~134m^2. Hence, near doubling when we look at proportional change.
+
+
 Compare b1 trajectory across event, by stream:
 ----
 
@@ -1744,9 +1708,9 @@ ggplot(M4line_df, aes(x = event, y = mean, color = watershed, group = watershed)
   ) +
   labs(
     title = "M4: Seasonal Trajectory of Beaver Dam Effect on SWA, by Watershed",
-    subtitle = "Gaps represent breaks by Year; t1:t4 excluded for 2023",
+    subtitle = "Gaps represent breaks by Year",
     x = "Sampling Events (t5 : t8) \n (August : September) \n (2019, 2021, 2023)",
-    y = "Dam Effect (SWA m²)",
+    y = "Dam Effect (SWA m^2)",
     color = "Watershed"
   ) +
   theme_minimal(base_size = 14) +
