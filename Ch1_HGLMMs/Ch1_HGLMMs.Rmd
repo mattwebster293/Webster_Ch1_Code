@@ -991,25 +991,25 @@ M3summary_df <- bind_rows(M3df_scalar, M3df_stream, M3df_event)
 # Give parameters meaningful names
 pretty_names <- c(
   alpha           = "Intercept",
-  beta1           = "Dam Presence",
-  "b_stream[1]"   = "Brazil Ck",
-  "b_stream[2]"   = "Lower Beaver Ck",
-  "b_stream[3]"   = "Larb Ck",
-  "b_stream[4]"   = "Lone Tree Ck",
-  "b_stream[5]"   = "Upper Beaver Ck",
-  "b_stream[6]"   = "Willow Ck",
-  "b_event[1]"     = "19_t5",
-  "b_event[2]"     = "19_t6",
-  "b_event[3]"     = "19_t7",
-  "b_event[4]"     = "19_t8",
-  "b_event[5]"     = "21_t5",
-  "b_event[6]"     = "21_t6",
-  "b_event[7]"     = "21_t7",
-  "b_event[8]"     = "21_t8",
-  "b_event[9]"     = "23_t5",
-  "b_event[10]"     = "23_t6",
-  "b_event[11]"     = "23_t7",
-  "b_event[12]"     = "23_t8"
+  beta1           = "B1: DamPresence",
+  "b_stream[1]"   = "Random Slope: Brazil",
+  "b_stream[2]"   = "Random Slope: LowerBeaver",
+  "b_stream[3]"   = "Random Slope: Larb",
+  "b_stream[4]"   = "Random Slope: LoneTree",
+  "b_stream[5]"   = "Random Slope: UpperBeaver",
+  "b_stream[6]"   = "Random Slope: Willow",
+  "b_event[1]"     = "Random Slope: 2019 Early Aug",
+  "b_event[2]"     = "Random Slope: 2019 Late Aug",
+  "b_event[3]"     = "Random Slope: 2019 Early Sep",
+  "b_event[4]"     = "Random Slope: 2019 Late Sep",
+  "b_event[5]"     = "Random Slope: 2021 Early Aug",
+  "b_event[6]"     = "Random Slope: 2021 Late Aug",
+  "b_event[7]"     = "Random Slope: 2021 Early Sep",
+  "b_event[8]"     = "Random Slope: 2021 Late Sep",
+  "b_event[9]"     = "Random Slope: 2023 Early Aug",
+  "b_event[10]"     = "Random Slope: 2023 Late Aug",
+  "b_event[11]"     = "Random Slope: 2023 Early Sep",
+  "b_event[12]"     = "Random Slope: 2023 Late Sep"
 )
 
 
@@ -1036,18 +1036,13 @@ print(mean(m3_HGLM_SWA$sims.list$beta1))
 ```
 
 
-^^^ Average dam effect across the study area is 180.5 This translates to:
-
-"On average, dammed reaches pond about 180 m^2 more surface water than undammed 
-reaches."
-
+This is on a z-standardized log(SWA) scale ^^^
 
 ----
 
+Compute predicted dam effects:
 
 ```{r,echo=FALSE}
-# HEAT MAP IT
-
 # Data dimensions:
 M3n_sims   <- length(M3post$beta1)
 M3n_stream <- ncol(M3post$b_stream)
@@ -1073,8 +1068,89 @@ for(j in 1:M3n_stream){
   }
 }
 
+# --- Compute baseline (no-dam) standardized log-SWA ---
+M3Baseline_std <- array(NA, dim = c(M3n_sims, M3n_stream, M3n_event))
+
+for(j in 1:M3n_stream){
+  for(e in 1:M3n_event){
+    M3Baseline_std[, j, e] <-
+      M3post$alpha +
+      M3post$eta_stream[, j] +
+      M3post$eta_event[, e]
+  }
+}
+
+# --- Compute dammed standardized log-SWA ---
+M3Dammed_std <- M3Baseline_std + M3DamEffect
+
+# --- Back-transform both to raw SWA (m²) ---
+M3Baseline_raw <- exp(M3Baseline_std * SWA_log_sd + SWA_log_mean)-1
+M3Dammed_raw   <- exp(M3Dammed_std   * SWA_log_sd + SWA_log_mean)-1
+
+# --- Absolute increase in SWA (m²) ---
+M3Delta_raw <- M3Dammed_raw - M3Baseline_raw
+
+# --- Proportional increase in SWA ---
+M3Ratio_raw <- (M3Dammed_raw + 1) / (M3Baseline_raw + 1)
+M3Prop_raw  <- M3Ratio_raw - 1
 ```
 
+
+Compute "typical dam effect across watersheds and late summer sampling events"
+
+```{r,echo = F}
+# All stream × event combinations
+M3_delta_vec <- as.vector(M3Delta_raw)
+
+M3_typical_effect_mean  <- mean(M3_delta_vec, na.rm = TRUE)
+M3_typical_effect_lower <- quantile(M3_delta_vec, 0.025, na.rm = TRUE)
+M3_typical_effect_upper <- quantile(M3_delta_vec, 0.975, na.rm = TRUE)
+
+M3_typical_effect_mean
+M3_typical_effect_lower
+M3_typical_effect_upper
+
+```
+
+
+Compute global proportional change in SWA caused by dam presence:
+
+```{r,echo=FALSE}
+# Flatten all sims × streams × events
+M3_prop_vec <- as.vector(M3Prop_raw)
+
+M3_global_prop_mean  <- mean(M3_prop_vec, na.rm = TRUE)
+M3_global_prop_lower <- quantile(M3_prop_vec, 0.025, na.rm = TRUE)
+M3_global_prop_upper <- quantile(M3_prop_vec, 0.975, na.rm = TRUE)
+
+M3_global_prop_mean
+M3_global_prop_lower
+M3_global_prop_upper
+
+
+
+
+# visualize it!
+M3_globalPropChange_df <- tibble(prop = M3_prop_vec)
+
+ggplot(M3_globalPropChange_df, aes(x = prop)) +
+  geom_density(fill = "steelblue", alpha = 0.5) +
+  geom_vline(xintercept = M3_global_prop_mean, color = "black", linewidth = 1) +
+  geom_vline(xintercept = M3_global_prop_lower, linetype = "dashed") +
+  geom_vline(xintercept = M3_global_prop_upper, linetype = "dashed") +
+  labs(
+    title = "Model 3: Global Proportional Change in SWA Due to Beaver Dam Presence",
+    x = "Proportional Increase",
+    y = "Posterior Density"
+  ) +
+  xlim(-2,20) +
+  theme_minimal(base_size = 14)
+```
+
+
+
+
+Compute proportional change in SWA across watersheds and sampling events
 
 ```{r,echo=FALSE}
 #Summarize posteriors for each 
@@ -1084,7 +1160,7 @@ M3summary_list <- list()
 for(j in 1:M3n_stream){
   for(e in 1:M3n_event){
     
-    eff <- as.vector(M3DamEffect[, j, e, drop = FALSE])
+    eff <- as.vector(M3Prop_raw[, j, e, drop = FALSE])
     
     M3summary_list[[paste(j, e, sep = "_")]] <- tibble(
       stream = j,
@@ -1120,17 +1196,14 @@ ggplot(M3effect_df, aes(x = as.factor(old),
                         y = watershed, 
                         fill = mean)) +
   geom_tile(color = "black") +
-  scale_fill_gradient2(
-    low = "white",
-    mid = "cornflowerblue",
-    high = "navy",
-    midpoint = 186,
-    name = "Dam Effect"
-  ) +
+  scale_fill_viridis_c(
+    option = "C",
+    name = "Proportional Increase\n(SWA_dam / SWA_base - 1)"
+  )    +
   labs(
     x = "Sampling Event",
     y = "Watershed",
-    title = "M3: Magnitude of Beaver Dam Effect on Surface Water Area"
+    title = "M3: Predicted proportional increase in SWA due to beaver dam presence"
   ) +
   theme_minimal(base_size = 14)
 ```
@@ -1172,10 +1245,10 @@ ggplot(M3line_df, aes(x = event, y = mean, color = watershed, group = watershed)
     labels = unique(event_lookup$label)   # if you want "19_t1", "19_t2", etc.
   ) +
   labs(
-    title = "M3: Seasonal Trajectory of Beaver Dam Effect on SWA, by Watershed",
+    title = "M3: Proportional change in SWA given beaver dam presence",
     subtitle = "Gaps represent breaks by Year",
     x = "Sampling Events (t5 : t8) \n (August : September) \n (2019, 2021, 2023)",
-    y = "Dam Effect (SWA m^2)",
+    y = "Proportional Difference from Baseline SWA",
     color = "Watershed"
   ) +
   theme_minimal(base_size = 14) +
