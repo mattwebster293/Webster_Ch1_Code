@@ -1,0 +1,6244 @@
+---
+title: "SWA_Paired_AOI"
+author: "Matt Webster"
+date: '...'
+output:
+  html_document: default
+  pdf_document: default
+editor_options:
+  chunk_output_type: console
+---
+
+
+    The purposes of this script are as follows:
+    
+    COMPLETE THE FOLLOWING FOR ALL TARGET WATERSHEDS:
+    
+      1) Import and organize data from various sources/source scripts:
+        a) Surface water area (m2) per riparian polygon
+        b) Riparian polygon geometries, and riparian polygon area (m2)
+        c) Topographic Openness (no unit) per riparian polygon
+        d) dynOcc data: grid cells, p, f, UDA
+        e) Dam count per riparian polygon
+          - beaver dams ('certain' and 'all' detections)
+          - anthropogenic dams/channel spanning structures (e.g., road crossings, check dams, etc.)
+      2) Implement density based cluster analysis of dammed stream reaches
+        a) Max distance to be considered same cluster (Eps) = 250(m)
+        b) Minimum dams for one cluster (minPoints) = 1 dam
+      3) Implement paired sampling of dammed and undammed reaches
+        a) Dammed/undammed not within 500m of 'anthro'
+        b) Undammed pair = same stream length as dammed
+        c) Undammed not within 500m of 'dammed'
+        d) Undammed not within 250m of 'undammed' (force no overlap via spatial thinning)
+      4) Compare surface water area (SWA) at dammed vs paired undammed reaches
+      5) Visualize diff(SW) b/t dammed and undammed as heat map
+        a) x axis is relative flow (2wk average for time t)
+        b) y axis is ponding capacity (RIPA*(TO/90))
+      
+      5) Data needs:
+        a. Surface Water Area [sum(SWA)] (m2) for cluster[i]
+        b. Topographic Openness [mean(TO)] for cluster[i]
+        c. Riparian Area [sum(RIPA)] (m2) for cluster[i]
+        d. damIntensity/damDensity (Nhat) for cluster[i]
+        e. Upstream drainage area [max(UDA)] (km2) for cluster[i] (a.k.a. contributing catchment are)
+    
+----
+
+----
+
+----
+
+```{r, include=FALSE}
+library(tidyverse) #the all mighty tidy
+library(knitr) #knitting complex shit
+library(ggplot2) #plotting
+library(zoo) #for moving window
+library(stringr) #knitting complex shit
+library(vioplot) #plotting
+library(purrr) #plotting?
+library(leaflet) #for interactive maps
+library(sf)
+library(jsonlite)
+library(dbscan) #for dam cluster analysis
+library(dataRetrieval) #for USGS flow data
+```
+
+----
+
+----
+
+----
+
+2021:
+----
+
+Flow Condition Across Study Area:
+----
+
+Dry year; Low flow conditions experienced across the board. 
+
+Visualize USGS flow data from Guston Coulee Gage on Beaver Ck, near Saco, MT.
+
+Eventually, you'll connect riparian inundation back to this for a post hoc heat map
+
+----
+
+```{r,echo=FALSE, warning=FALSE}
+# LOWER BEAVER CK
+# Gage near Guston Coulee
+usgsGage_06166000 <- readNWISdv(
+  siteNumbers = "06166000",
+  parameterCd = "00060",
+  startDate = "1995-05-01",
+  endDate   = "2024-10-01"
+)
+
+###########################################
+
+
+# Clean USGS
+usgs_df <- usgsGage_06166000 %>%
+  mutate(
+    source = "USGS",
+    date   = Date,
+    flow   = X_00060_00003,
+    zFlow  = scale(flow)
+  ) %>%
+  select(date, flow, zFlow)
+
+# Combine
+targetFlow <- usgs_df %>%
+  mutate(date = as.Date(date)) %>%
+  filter(
+    (date >= as.Date("2014-05-01") & date <= as.Date("2014-10-01")) |
+    (date >= as.Date("2015-05-01") & date <= as.Date("2015-10-01")) |
+    (date >= as.Date("2016-05-01") & date <= as.Date("2016-10-01")) |
+    (date >= as.Date("2017-05-01") & date <= as.Date("2017-10-01")) |
+    (date >= as.Date("2018-05-01") & date <= as.Date("2018-10-01")) |
+    (date >= as.Date("2019-05-01") & date <= as.Date("2019-10-01")) |
+    (date >= as.Date("2020-05-01") & date <= as.Date("2020-10-01")) |
+    (date >= as.Date("2021-05-01") & date <= as.Date("2021-10-01")) |
+    (date >= as.Date("2022-05-01") & date <= as.Date("2022-10-01")) |
+    (date >= as.Date("2023-05-01") & date <= as.Date("2023-10-01")) |
+    (date >= as.Date("2024-05-01") & date <= as.Date("2024-10-01"))
+  )
+
+
+####
+
+ggplot(targetFlow, aes(x = date, 
+                       y = zFlow,
+                       group = lubridate::year(date))) +
+  annotate(
+    "rect",
+    xmin = as.Date("2021-05-01"),
+    xmax = as.Date("2021-10-01"),
+    ymin = -Inf,
+    ymax = Inf,
+    fill = NA,
+    color = "red",
+    linewidth = 1
+  ) +
+  geom_line(linewidth = 0.8, alpha = 0.8) +
+  scale_x_date(date_breaks = "1 year",
+               date_labels = "%Y") +
+  labs(
+    x = "Date",
+    y = "Discharge (cfs)",
+    title = "Stream Discharge from USGS gage on ubv (Summer 2014-2024)",
+    subtitle = "z-standardized over 30yr period (1995-2024)"
+  ) +
+  theme_minimal(base_size = 14)
+
+```
+
+----
+  
+----
+
+----
+
+----
+
+----
+
+----  
+
+1) WILLOW CREEK; 2021
+----
+
+----
+
+```{r, echo=FALSE}
+swData21 <- read.csv("wc_SW_21_031626.csv")
+
+wc_SW_21 <- swData21[,c(2:19, 20)]
+colnames(wc_SW_21)[1] <- "TP_ID"
+
+# Collapse duplicate rows caused by TP overlap:
+wc_SW_21_collapsed <- wc_SW_21 %>%
+  group_by(TP_ID) %>%
+  summarise(
+    # sum all SWA_t columns
+    across(starts_with("SWA_t"), ~ sum(.x, na.rm = TRUE)),
+    
+    # sum all containsNull_t columns
+    across(starts_with("containsNull_t"), ~ sum(.x, na.rm = TRUE)),
+    
+    # sum riparian area
+    riparian_area_m2 = sum(riparian_area_m2, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+wcRiparianGeometries <- st_read("WC_RIP_GEOMS.shp") %>% 
+  st_make_valid() %>% 
+  select(Input_FID,
+         geometry) %>% 
+  rename(TP_ID = Input_FID) %>% 
+  st_transform(4326) %>% 
+  filter(TP_ID != 11609)
+```
+
+```{r,echo=FALSE}
+################################################################################
+# Visualize spread of SWA across riparian polygons (n=10892)
+wcsw21 <- wc_SW_21_collapsed[,2:9]
+colnames(wcsw21) <- c("t1","t2","t3","t4","t5","t6","t7","t8")
+                 
+boxplot(wcsw21,
+        xlab = "Time Period (t)",
+        ylab = "Surface Water Area (m^2)")
+
+title(main = "2021 Surface Water Area (m^2) in riparian polygons",
+        sub = "n = 12748 riparian polygons")
+#str(wc_SW_21)
+```
+
+----
+
+    - Combine TP derived data with dynOcc data
+
+    - Get detection and false positive data
+
+```{r,echo=FALSE}
+# Read in detection and false positive data
+# This data will be used to estimate damIntensity within a given dammed cluster
+# Nhat = sum(rawDams)/mean(p)*(1-mean(f))
+aoi_detData21 <- read.csv("site_year_detection_falsepositive_probs.csv") %>%
+  filter(year=="2021")
+
+colnames(aoi_detData21) <- c("unique_ID",
+                    "Year",
+                    "p",
+                    "f")
+
+wc_detData21 <- aoi_detData21 %>% 
+  filter(str_detect(unique_ID,"WC"))
+
+#hist(wc2021$p,
+#     xlab = "Detection Probability (p)")
+
+#title(sub = "n = 1401 Grid Cells from CP DynOcc Analysis")
+
+##############################
+
+#hist(wc2021$f,
+#     xlab = "Detection Probability (f)")
+
+#title(sub = "n = 1401 Grid Cells from CP DynOcc Analysis")
+
+```
+
+    - Get UDA from dynOcc gridcells; Combine with detection data & dam count data
+
+```{r, echo=FALSE}
+# Read in csv of thiessen polygons representing the riparian corridor with dam count data, and attach data from wc21, re: detection and false positives from dynOcc
+
+wc_dynOccGC_UDA <- read.csv("dynOccData_2021_oct7.csv") %>% 
+  filter(Stream == "WC") %>% 
+  select(unique_ID,
+         catchment_km2) #Get contributing drainage area for each dynOcc grid cell
+
+wc_TP_Dams_21 <- read.csv("wc_wGCID_wDamCount_2021.csv")
+colnames(wc_TP_Dams_21) <- c("systemIndex",
+                             "TP_ID",
+                             "unique_ID",
+                             "dam_count_beav_all",
+                             "dam_count_anthro",
+                             "dam_count_beav_conf",
+                             ".geo")
+                             
+#'unique_ID' refers to the id of the dynOcc grid cell that a particular tPoly is closest to
+wc_newPolys_21 <- wc_TP_Dams_21 %>% 
+  left_join(wc_detData21, by = "unique_ID") %>%  #add detection data
+  left_join(wc_dynOccGC_UDA, by = "unique_ID") %>%  #add grid cell level data
+  select(Year,        #2021
+         unique_ID,   #Nearest GridCell ID (DynOcc)
+         TP_ID,       #RiparianPolygon ID
+         dam_count_beav_all,   #Beaver dam count per TP_ID; all confidence scores
+         dam_count_beav_conf,  #Beaver dam count per TP_ID; ONLY confident (2)
+         dam_count_anthro,     #Anthro dam count per TP_ID; all
+         p,           #Detection Prob for nearest GC
+         f,           #False Positive Prob for nearest GC
+         catchment_km2) %>%  #Contributing drainage area for nearest GC
+  filter(TP_ID != 11609)
+  
+
+#Condense duplicated rows created by TP overlap
+wc_newPolys_21_collapsed <- wc_newPolys_21 %>%
+  group_by(TP_ID) %>%
+  summarise(Year = first(Year),
+            unique_ID = first(unique_ID),
+            
+            # sum dam counts
+            dam_count_beav_all  = sum(dam_count_beav_all, na.rm = TRUE),
+            dam_count_beav_conf = sum(dam_count_beav_conf, na.rm = TRUE),
+            dam_count_anthro    = sum(dam_count_anthro, na.rm = TRUE),
+           
+             # mean geomorphic / hydrologic variables
+            p = mean(p, na.rm = TRUE),
+            f = mean(f, na.rm = TRUE),
+            catchment_km2  = mean(catchment_km2, na.rm = TRUE),
+            
+            .groups = "drop"
+  )
+
+
+#Trim down ^
+wc_riparianSampleAreas_21 <- wc_newPolys_21_collapsed %>% 
+  select(Year,
+         unique_ID,
+         TP_ID,
+         dam_count_beav_all,
+         dam_count_beav_conf,
+         dam_count_anthro,
+         p,
+         f,
+         catchment_km2)
+
+#head(wc_riparianSampleAreas_21)
+#str(wc_riparianSampleAreas_21)
+```
+
+    - Add Topographic Openness data
+      - TO (positive) is the mean() of azimuth angles from each of 8 intercardinal directions
+  
+
+```{r, echo=FALSE}
+# Bring Topographic Openness into the mix:
+#### TO is an approximate measure of stream channel confinement
+#### TO has been computed for each riparian polygon (thiessen 10m) along Willow Ck
+
+wc_data_TO <- read.csv("wc_riparian_wTO.csv") %>% 
+  distinct(TP_ID, .keep_all = TRUE)%>% 
+  filter(TP_ID != 11609)
+
+wc_data_meanTO <- wc_data_TO %>% 
+  mutate(meanTO = rowMeans(select(.,     #Compute mean(TO) for each RipPoly
+                                  E,     #mean() TO of all 8 intercardinal 
+                                  N,     #directions
+                                  NE,
+                                  NW,
+                                  S,
+                                  SE,
+                                  SW,
+                                  W))) 
+
+wc_meanTO_trim <- wc_data_meanTO %>% 
+  select(TP_ID,E,N,NE,NW,S,SE,SW,W,meanTO) 
+
+colnames(wc_meanTO_trim) <- c("TP_ID","E","N","NE","NW","S","SE","SW","W","TO")
+```
+
+```{r, echo=FALSE}
+# Join TO data to riparian polygon data (w/ p, f, damCount)
+wc_ripAreas_wTO_21 <- wc_riparianSampleAreas_21 %>% 
+  left_join(wc_meanTO_trim, by = "TP_ID") %>% 
+  select(Year,
+         unique_ID,
+         TP_ID,
+         dam_count_beav_all,
+         dam_count_beav_conf,
+         dam_count_anthro,
+         p,
+         f,
+         catchment_km2,
+         TO)
+
+```
+
+    - Add riparian area, surface water data, and null pixel data for each polygon:
+
+```{r,echo=FALSE}
+# RIPARIAN AREA (m^2) for each thiessen polygon
+wc_TP_wRIPA <- wc_SW_21_collapsed %>% 
+  select(TP_ID,
+         riparian_area_m2)
+# WATER
+wc_SWdata_2021 <- wc_SW_21_collapsed[,1:9]
+
+# NULL PIXELS
+wc_Nulldata_2021 <- wc_SW_21_collapsed[,c(1,10:17)] 
+
+# Add them to the dataFrame
+wc_2021 <- wc_ripAreas_wTO_21 %>% 
+  left_join(wc_TP_wRIPA, by="TP_ID") %>% 
+  left_join(wc_SWdata_2021, by="TP_ID") %>% 
+  left_join(wc_Nulldata_2021, by="TP_ID")
+```
+
+    - Data frame structure:
+
+    - Year = year
+    - unique_ID = ID of the nearest dynOcc grid cell to each riparian polygon
+    - TP_ID = ID of the current riparian polygon ('tp' = 'thiessen polygon')
+    - dam_count = raw count of unique dams in each riparian polygon
+    - p = P(dam detection) for nearest grid cell to current riparian polygon
+    - f = P(false positive dam detection) for nearest grid cell to current riparian polygon
+    - catchment_km2 = upstream drainage area for nearest dynOcc grid cell to current riparian polygon
+    - TO = topographic openness for current riparian polygon
+    - riparian_area_m2 = area in m^2 of the current riparian polygon
+    - SWA_t : surface water area of polygon at time t
+    - containsNull_t : 0,1 contains null pixels at time t
+
+```{r, echo=FALSE}
+#str(wc_2021)
+```
+
+----
+
+NOTE: where hasNull = '1', SWA = 'NA'
+
+```{r,echo=FALSE}
+wc21_nulls <- wc_2021 %>%
+  mutate(across(
+    .cols = starts_with("SWA_t"),
+    .fns  = ~ ifelse(
+      wc_2021[[str_replace(cur_column(), "SWA", "containsNull")]] == 1,
+      NA,
+      .
+    )
+  ))
+
+
+#str(wc21_nulls)
+```
+
+Time period 5 is the only one in 2021 that has issues with masked/null pixels:
+
+----
+
+
+```{r, echo=FALSE}
+# Assess the max SWA for each row/window across time periods in 2021:
+
+wc21_SWmax <- wc21_nulls %>% 
+  mutate(SWmax = NA) 
+
+wc21_SWmax$SWmax <- apply(
+  wc21_SWmax[, paste0("SWA_t", 1:8)],
+  1,
+  max,
+  na.rm = TRUE
+)
+
+#hist(wc21_SWmax$SWmax,
+ #    xlab = "SurfaceWaterMax of window[w]")
+
+#title(sub = "n = 10892 windows")
+
+
+#summary(wc21_SWmax$SWmax)
+```
+
+<!---
+----
+
+Time[t] at which max SWA was achieved in 2021
+----
+```{r, echo=FALSE}
+# Identify the SWA columns
+wc21_swa_cols <- paste0("SWA_t", 1:8) 
+
+# Compute t_MAX for each row
+wc21_SWmax$t_MAX <- apply(
+  wc21_SWmax[, wc21_swa_cols],
+  1,
+  function(x) which.max(x)   # returns 1..8
+)
+
+####
+
+hist(wc21_SWmax$t_MAX,
+     xlab = "TimePeriod [t] at SWmax for riparianPolygon [r]")
+
+title(sub = "n = 12748 polygons")
+```
+
+
+----
+
+Visualize data relationships:
+----
+
+----
+
+SWmax[w] ~ TO[w] 2021
+----
+
+SWmax does seem to be positively correlated with TO, though considerably weaker than 2019
+```{r, echo=FALSE}
+plot(wc21_SWmax$SWmax ~ wc21_SWmax$TO,
+     xlab = "mean(TO) of riparianPolygon[r]",
+     ylab = "SWmax of riparianPolygon[r]")
+title(main = "2021 Willow Creek (SWmax ~ TO)")
+```
+
+SWmax[w] ~ RiparianArea[w] 2021
+----
+
+SWmax is positively correlated with, and capped by riparian Area, though weaker than 2019
+```{r, echo=FALSE}
+plot(wc21_SWmax$SWmax ~ wc21_SWmax$riparian_area_m2,
+     xlab = "mean(RiparianArea) of riparianPolygon[r]",
+     ylab = "SWmax of riparianPolygon[r]")
+title(main = "2021 Willow Creek (SWmax ~ Area)")
+```
+--->
+
+
+----
+
+----
+
+----
+
+now dams..
+
+----
+
+----
+
+----
+  
+IDENTIFY Anthro Dams/Reservoirs
+----
+
+    Reservoirs confound the potential effect of beaver dams on surface water by creating artificially flat open floodplains which allows LARGE amounts of water to pond. Additionally, active reservoirs are managed such that there is very little variation in SWA. Conditions experienced in these zones are not topographically or hydrologically consistent with the 'natural' stream conditions experienced in our study area. We want to compare beaver dammed to undammed **without** the potential influence of anthropogenic reservoirs.
+
+    Reservoirs were identified using the National Wetland Inventory data in ArcGIS Pro. "Attribute" codes that end with 'h' are categorized as "dyked/impounded". If a riparian polygon was within 50m of a dyked/impounded NWI polygon, it is deemed 'affected' by the anthropogenic impoundment.
+    
+    All affected polygons are assigned "isAnthro = 1". This designation will be built into the dam clustering / sample reach delineation
+
+Willow Ck: ~ 4% of riparian polygons are/were anthropogenically impounded
+
+```{r, echo=FALSE}
+wc_anthroDammed <- read.csv("WC_RIP_isAnthro.csv")
+
+colnames(wc_anthroDammed) <- c("TP_ID", "isAnthro")
+
+wc_anthroDammed <- wc_anthroDammed %>% 
+  filter(TP_ID != 11609) %>% 
+  group_by(TP_ID) %>% 
+  summarise(isAnthro = first(isAnthro))
+```
+
+```{r,echo=FALSE}
+# 1. Mask SWA_t* where AnthroDammed = 1
+wc21_SWmax <- wc21_SWmax %>%
+  left_join(wc_anthroDammed,
+            by = "TP_ID")
+```
+
+
+
+DETERMINE DAM CLUSTERS
+----
+
+    Use 1-D DENSITY BASED CLUSTER ANALYSIS (DBSCAN), where TP_ID is the single 'spatial dimension'. Instead of using geographic coordinates, this uses distance along the stream line to search for clustering.
+    
+    Eps = 25
+    Min(ClusterSize) = 1 dammed polygon.
+    
+    
+    NOTE: 
+      - NOT DOING EPS[optimal] approach. Test clustering using 25 and test clustering using 10; Make a call.
+      - Median distance between nearest neighbors is 300-m. Thus, less than 300m could be considered 'closer than normal'; go with 250-m
+      - At Eps=10 (100m search) just about every dam on WC is it's own cluster (155 dams, 126 clusters)
+    
+    
+```{r,echo=FALSE}
+# 1. Extract dammed TP_IDs as a numeric vector
+wc21_damIDs_bvAll <- wc21_SWmax %>% 
+  filter(dam_count_beav_all == 1) %>% 
+  pull(TP_ID)
+
+wc21_damIDs_bvConf <- wc21_SWmax %>% 
+  filter(dam_count_beav_conf == 1) %>% 
+  pull(TP_ID)
+
+wc21_damIDs_anthro <- wc21_SWmax %>% 
+  filter(dam_count_anthro == 1 |
+           isAnthro == 1) %>% 
+  pull(TP_ID)
+```
+
+
+<!---
+```{r,include=FALSE}
+# ~~~~ 1-D K-Dist EPSILON OPTIMIZATION ~~~~~~~ #
+# Rahmah and Sitanggang (2016)
+
+# Function to compute 1-D k-distance (k = 2 recommended for minPts = 1)
+wc_compute_kdist_1d <- function(tp_ids, k = 2) {
+  tp_ids <- sort(tp_ids)
+  n <- length(tp_ids)
+  kdist <- numeric(n)
+  
+  for (i in seq_len(n)) {
+    dists <- abs(tp_ids[i] - tp_ids[-i])  # bidirectional 1-D distance
+    dists <- sort(dists)
+    kdist[i] <- dists[k]                  # k-th nearest neighbor
+  }
+  
+  sort(kdist)
+}
+
+tp_sorted   <- sort(wc21_damIDs_bvAll)
+spacing     <- diff(tp_sorted)
+
+eps_opt_TPID <- median(spacing)  # or 2 * median(spacing)
+
+eps_opt_TPID
+
+
+# ---------------------------------------------------------------------------
+
+kdist_sorted <- wc_compute_kdist_1d(wc21_damIDs_bvAll, k = 2)
+
+kdist_df <- tibble(
+  index = seq_along(kdist_sorted),
+  kdist = kdist_sorted
+)
+
+ggplot(kdist_df, aes(x = index, y = kdist)) +
+  geom_line(color = "steelblue", linewidth = 1) +
+  geom_point(size = 1.2, color = "steelblue") +
+  geom_hline(yintercept = eps_opt_TPID, 
+             color = "red", linetype = "dashed", linewidth = 1) +
+  annotate("text", 
+           x = max(kdist_df$index) * 0.8, 
+           y = eps_opt_TPID, 
+           label = paste0("eps_opt (median) = ", round(eps_opt_TPID, 2)),
+           vjust = -0.5, color = "red") +
+  labs(
+    title = "1-D k-Distance Curve (k = 2)",
+    x = "Sorted Point Index",
+    y = "k-Distance"
+  ) +
+  theme_minimal(base_size = 14)
+
+```
+--->
+
+
+```{r,echo=FALSE}
+
+# Get only elligible beaver dams; those outside the potential impact of anthro impoundments
+
+#Determine 500m buffers up and down from each anthro cluster; NO 'undammed' within this zone
+wc21_anthro_influence_500 <- unique(unlist(
+  lapply(wc21_damIDs_anthro,
+         function(x) seq(x - 50, x + 50))  
+))
+
+wc21_damIDs_bvEligible <- wc21_damIDs_bvAll[!wc21_damIDs_bvAll %in% wc21_anthro_influence_500]
+
+
+# 2. Convert to matrix (dbscan requires matrix input)
+wc21_dam_mat <- matrix(wc21_damIDs_bvEligible, ncol = 1)
+
+# 3. Run DBSCAN
+wc21_db <- dbscan(
+  wc21_dam_mat,
+  eps = 25,        #Test with 25 and with 10; bidirectional
+  minPts = 1       #min(cluster) = 1 dam; this ensures that isolated dams are still included
+)
+
+# 3b. Build a dataframe of dammed rows + cluster IDs
+wc21_dammed_df <- wc21_SWmax %>%
+  filter(TP_ID %in% wc21_damIDs_bvEligible) %>%   # only eligible BV dams
+  arrange(TP_ID) %>%                              # ensure same order as DBSCAN input
+  mutate(clusterID_dbscan = wc21_db$cluster)
+
+
+# 5. Compute # of dams per cluster
+wc21_damClusterCount <- wc21_dammed_df %>%
+  filter(dam_count_beav_all == 1) %>%
+  count(clusterID_dbscan, name = "cluster_dam_count")
+
+wc21_dammed_df <- wc21_dammed_df %>%
+  left_join(wc21_damClusterCount, by = "clusterID_dbscan")
+
+# 6. Compute Stream Length per Cluster
+wc_streamPerCluster <- wc21_dammed_df %>%
+  filter(dam_count_beav_all == 1) %>%
+  group_by(clusterID_dbscan) %>%
+  summarise(cluster_start = min(TP_ID),
+            cluster_end   = max(TP_ID+5),
+            cluster_length_TPID = ((cluster_end - cluster_start))*10,
+            .groups = "drop"
+            ) %>% 
+  arrange(cluster_start)  %>%        # downstream → upstream
+  mutate(clusterID_seq = row_number()) # make sure that clusterID is in order from downstream to upstream
+
+
+wc21_dammed_df <- wc21_dammed_df %>%
+  left_join(wc_streamPerCluster %>% select(clusterID_dbscan, 
+                                           clusterID_seq,
+                                           cluster_start,
+                                           cluster_end),
+    by = "clusterID_dbscan")
+```
+--->
+----
+
+
+VISUALIZE DAM CLUSTERS:
+----
+
+5. Plot sample regions for Willow Creek 2021 on a map:
+----
+
+```{r, echo=FALSE,  fig.width=10, fig.height=10}
+# Join geometries to polygons with data
+wc_dam_map_21 <- wc21_dammed_df %>%       # one row per TP_ID
+  left_join(wcRiparianGeometries, by = "TP_ID") %>% 
+  st_as_sf()
+
+wc_points_21 <- st_centroid(wc_dam_map_21)
+
+
+pal <- colorFactor(
+  palette = colorRampPalette(RColorBrewer::brewer.pal(12, "Paired"))(length(unique(wc_points_21$clusterID_seq))),
+  domain = wc_points_21$clusterID_seq
+)
+
+leaflet(wc_points_21) %>%
+  addProviderTiles(providers$USGS.USImageryTopo) %>%
+  addCircleMarkers(
+    radius = 5,
+    color = ~pal(clusterID_seq),
+    fillOpacity = 0.9,
+    stroke = FALSE,
+    popup = ~paste0(
+      "<b>TP_ID:</b> ", TP_ID, "<br>",
+      "<b>Cluster:</b> ", clusterID_seq)
+  ) %>%
+  addLegend("bottomright", pal = pal, values = wc_points_21$clusterID_seq, title = "Cluster") %>%
+  addScaleBar(
+    position = "bottomleft",
+    options = scaleBarOptions(
+      maxWidth = 200,
+      metric = TRUE,
+      imperial = FALSE,
+      updateWhenIdle = TRUE
+    )
+  )
+```
+
+color: cluster;
+----
+--->
+
+----
+
+DEFINE PAIRED UNDAMMED REACHES:
+----
+
+    - Undammed sample reaches must be:
+      - interspersed between dammed reaches
+      - (>=) 500m from nearest dam
+      - 'paired' with a nearby dam cluster
+      - (>=) 250m from nearest undammed (forced thinning post-pairing)
+
+```{r,echo=FALSE}
+wc21_dam_min <- min(wc21_dammed_df$TP_ID) #Find min/max dammed TP_ID to intersperse undammed among
+wc21_dam_max <- max(wc21_dammed_df$TP_ID)
+
+
+#Determine 500m buffers up and down from each dammed cluster; NO 'undammed' within this zone
+wc21_dam_influence_500 <- unique(unlist(
+  apply(wc21_dammed_df[, c("cluster_start", "cluster_end")], 1, function(row) {
+    seq(row["cluster_start"] - 50,
+        row["cluster_end"]   + 50)
+  })
+))  
+
+#Get all available Riparian Polygons (excludes reservoir-affected)
+wc21_all_tpids <- sort(unique(wc21_SWmax$TP_ID))  
+
+#Ensure interspersion of undammed within dammed sites
+wc21_inRange_tpids <- wc21_all_tpids[wc21_all_tpids >= wc21_dam_min & wc21_all_tpids <= wc21_dam_max]
+
+#Get only riparian polygons that are not inside the dam or anthro influence zone (cluster+-500m)
+wc21_eligible_undammed_tpids <- wc21_inRange_tpids[(!wc21_inRange_tpids %in% wc21_dam_influence_500) &
+                                                     (!wc21_inRange_tpids %in% wc21_anthro_influence_500)]
+
+#Get cluster start point for each dammed cluster
+wc21_dam_clusters <- wc21_dammed_df %>%
+  distinct(clusterID_seq, 
+           cluster_start, 
+           cluster_end, 
+           cluster_dam_count) %>%
+  arrange(clusterID_seq)
+
+
+#PROXIMITY BASED PAIRING
+#Define available undammed reaches to sample
+wc21_remaining_undammed <- wc21_eligible_undammed_tpids
+
+#Define undammed reaches that have been matched with dammed clusters
+wc21_assigned_matches <- integer(nrow(wc21_dam_clusters)) #get 1 undammed for each dammed
+
+# Iterate through dammed clusters
+for (i in seq_len(nrow(wc21_dam_clusters))) {
+  # find cluster start
+  cs <- wc21_dam_clusters$cluster_start[i]
+  
+  # find nearest remaining undammed site
+  idx <- which.min(abs(wc21_remaining_undammed - cs))
+  match <- wc21_remaining_undammed[idx]
+  
+  wc21_assigned_matches[i] <- match
+  
+  # remove it so it cannot be reused
+  wc21_remaining_undammed <- wc21_remaining_undammed[-idx]
+}
+
+#Create table to visualize and gut check matches
+wc21_pairings <- wc21_dam_clusters %>%
+  mutate(undam_match = wc21_assigned_matches) %>%
+  left_join(wc21_dammed_df %>%
+              group_by(clusterID_seq) %>%
+              summarise(dam_window_length_tpid = max(cluster_end) - min(cluster_start),
+                        .groups = "drop"),
+            by = "clusterID_seq") %>%
+  mutate(undam_window_start = undam_match,
+         undam_window_end   = undam_match + dam_window_length_tpid
+  )
+
+# THIN UNDAMMED WINDOWS *AFTER* WINDOW LENGTH IS KNOWN ---------------
+
+wc21_pairings <- wc21_pairings %>% arrange(undam_window_start)
+
+thinned <- list()
+last_end <- -Inf
+
+for (i in seq_len(nrow(wc21_pairings))) {
+  start_i <- wc21_pairings$undam_window_start[i]
+  end_i   <- wc21_pairings$undam_window_end[i]
+  
+  if (start_i >= last_end + 25) {   # enforce 250-m spacing
+    thinned <- append(thinned, i)   # NOTE: ^ no diff. than 100-m on wc21
+    last_end <- end_i
+  }
+}
+
+wc21_pairings <- wc21_pairings[unlist(thinned), ]
+
+# Now combine dammed and undammed windows into a unified table and select only those windows from the main dataframe
+wc21_dammed_windows <- wc21_pairings %>%
+  transmute(
+    clusterID_seq,
+    window_type = "dammed",
+    window_start = cluster_start,
+    window_end   = cluster_end,
+    window_length = (window_end - window_start)*10,
+    dam_intensity = cluster_dam_count
+  )
+
+wc21_undammed_windows <- wc21_pairings %>% 
+  transmute(
+    clusterID_seq,
+    window_type = "undammed",
+    window_start = undam_match,
+    window_end   = undam_match + dam_window_length_tpid,
+    window_length = dam_window_length_tpid * 10,
+    dam_intensity = 0
+  )
+
+wc21_all_windows <- bind_rows(
+  wc21_dammed_windows,
+  wc21_undammed_windows
+)
+
+wc21_sampled <- wc21_SWmax %>%
+  cross_join(wc21_all_windows) %>%   # explicit Cartesian join
+  filter(
+    TP_ID >= window_start,
+    TP_ID <= window_end
+  )
+```
+
+Double check even sampling between dammed and undammed windows from thinned data frame:
+
+    30 DAMMED
+
+    30 UNDAMMED
+
+```{r,echo=FALSE}
+#length(wc21_pairings$clusterID_seq)
+```
+
+
+
+Plot sample regions for Willow Creek 2021 on a map:
+----
+
+```{r, echo=FALSE,warning=FALSE,fig.width=10, fig.height=10}
+# Join geometries to polygons with data
+wc_samples_21 <- wc21_sampled %>%
+  left_join(wcRiparianGeometries, by = "TP_ID") %>% 
+  st_as_sf() #restore sf class for mapping
+
+wc_SampleReaches_21 <- st_centroid(wc_samples_21)
+
+
+# Color palette for clusters
+cluster_palette <- colorFactor(
+  palette = colorRampPalette(RColorBrewer::brewer.pal(12, "Paired"))(43),
+  domain = wc_SampleReaches_21$clusterID_seq
+)
+
+
+leaflet(wc_SampleReaches_21) %>%
+  addProviderTiles(providers$USGS.USImageryTopo) %>%
+
+  #Undammed (black)
+  addCircleMarkers(
+    data = subset(wc_SampleReaches_21, window_type == "undammed"),
+    radius = 6,
+    fillColor = "black",
+    fillOpacity = 0.9,
+    color = "black",
+    weight = 1,
+    popup = ~paste0(
+      "<b>TP_ID:</b> ", TP_ID, "<br>",
+      "<b>Cluster:</b> ", clusterID_seq, "<br>",
+      "<b>Type:</b> Undammed"
+    )
+  ) %>%
+
+  #Dammed (colored by cluster ID)
+  addCircleMarkers(
+    data = subset(wc_SampleReaches_21, 
+                  window_type == "dammed"),
+    radius = 6,
+    fillColor = ~cluster_palette(clusterID_seq),
+    fillOpacity = 0.9,
+    color = "black",
+    weight = 1,
+    popup = ~paste0(
+      "<b>TP_ID:</b> ", TP_ID, "<br>",
+      "<b>Cluster:</b> ", clusterID_seq, "<br>",
+      "<b>Type:</b> Dammed"
+    )
+  ) %>%
+# Legend for dammed clusters only
+  addLegend(
+    "bottomleft",
+    pal = cluster_palette,
+    values = subset(wc_SampleReaches_21, window_type == "dammed")$clusterID_seq,
+    title = "Dammed Cluster ID"
+  ) %>%
+
+  addScaleBar(
+    position = "bottomright",
+    options = scaleBarOptions(
+      maxWidth = 200,
+      metric = TRUE,
+      imperial = FALSE,
+      updateWhenIdle = TRUE
+    )
+  )
+
+```
+
+
+Finalize df by computing Nhat, TO, RIPA, SWA for each sample window:
+----
+
+NOTE:
+
+    "Nhat" is the estimated dam count w/in sample window
+
+    Computed as:
+    
+  $$\hat{N} = \displaystyle \frac{\sum(C)}{\mu(p)*(1-\mu(f))} $$
+
+    Where:
+    
+    - $\hat{N}$ is the estimated dam count, given det. and fp det. probabilities
+    - $\sum(C)$ is the sum of raw dam counts for all Thiessen polygons in a given sample window
+    - $\mu(p)$ is the average detection probability for a given sample window
+    - $\mu(f)$ is the average false positive probability for a given sample window
+    
+    [adapted from McCallum 2005; *Equation 1:* $\hat{N} = \displaystyle \frac{C}{\hat{p}}$; included term to consider false positive detection probability, and iterate across window[w]]
+    
+
+
+```{r,echo=FALSE,warning=FALSE}
+wc21_sampled$clusterID_seq <- as.factor(wc21_sampled$clusterID_seq)
+wc21_sampled$window_type <- as.factor(wc21_sampled$window_type)
+
+wc21_final <- wc21_sampled %>%
+  select(clusterID_seq, 
+         window_type,
+         dam_count_beav_all,
+         dam_count_beav_conf,
+         dam_count_anthro,
+         p,
+         f, 
+         TO,
+         riparian_area_m2,
+         starts_with("SWA_t"),
+         starts_with("containsNull")
+  ) %>%
+  group_by(clusterID_seq, window_type) %>%
+  summarize(
+    # Nhat components
+    sum_c = sum(dam_count_beav_all, na.rm = TRUE),
+    mean_p = mean(p, na.rm = TRUE),
+    mean_f = mean(f, na.rm = TRUE),
+    Nhat = sum_c / (mean_p * (1 - mean_f)),
+
+    # TO
+    TO_mean = mean(TO, na.rm = TRUE),
+
+    # Riparian area
+    riparian_area_sum = sum(riparian_area_m2, na.rm = TRUE),
+
+    # SWA across time periods
+    across(starts_with("SWA_t"), ~ sum(.x, na.rm = TRUE), .names = "sum_{.col}"),
+
+    # Null flag across ANY time period
+    contains_null = any(c_across(starts_with("containsNull")) == 1),
+
+    .groups = "drop"
+  )
+
+
+#hist(unique(wc21_final$Nhat))
+
+# MAKE LONG FORMAT for plotting and such
+wc21_final_long <- wc21_final %>%
+  pivot_longer(
+    cols = starts_with("sum_SWA_t"),
+    names_to = "time_period",
+    values_to = "SWA"
+  ) %>%
+  mutate(
+    t = as.factor(gsub("sum_SWA_t", "", time_period))
+  )
+
+```
+
+
+```{r,echo=FALSE,warning=FALSE, fig.width=8, fig.height=4, fig.align='center'}
+wc21_damcounts <- wc21_final %>%
+  filter(window_type == "dammed") %>%
+  select(clusterID_seq, sum_c)
+
+wc21_damcounts <- wc21_damcounts %>%
+  mutate(sum_c = factor(sum_c),
+         clusterID_seq = factor(clusterID_seq))
+
+ggplot(wc21_damcounts,
+       aes(x = sum_c,
+           fill = factor(clusterID_seq))) +
+  geom_bar(color = "black", width = 0.8) +
+  scale_fill_manual(
+    values = colorRampPalette(RColorBrewer::brewer.pal(12, "Paired"))(31),
+    name = "Cluster ID"
+  ) +
+  labs(
+    x = "Dam Count per Cluster Window",
+    y = "Number of Dammed Clusters",
+    title = "Distribution of Dam Counts Across Sampled Dammed Clusters",
+    subtitle = "n = 31 Dammed clusters"
+  ) +
+  theme_bw(base_size = 14) +
+  theme(
+    legend.position = "right",
+    panel.grid.minor = element_blank()
+  )
+
+```
+
+
+
+Compare SWA across time periods for undammed,  and dammed windows:
+----
+
+```{r,echo=FALSE,warning=FALSE, fig.width=8, fig.height=4, fig.align='center'}
+#Plot boxplot:
+
+ggplot(wc21_final_long,
+       aes(x = t,
+           y = SWA,
+           fill = window_type)) +
+  geom_boxplot(outlier.size = 0.4, alpha = 0.8) + 
+  scale_fill_manual(values = c("undammed" = "steelblue",
+                               "dammed"   = "brown")) +
+  labs(
+    x = "Time period (t)",
+    y = "Surface Water Area (SWA) (m^2)",
+    fill = "Sample Window Type",
+    title = "Surface Water Area by Dam Status",
+    subtitle = "Willow Creek 2021"
+  ) +
+  theme_bw(base_size = 14)
+```
+
+----
+
+Ensure that dam categories span relatively similar riparian areas:
+----
+
+Riparian Area (m^2) ~ Dam Status
+
+```{r, echo=FALSE, fig.width=8, fig.height=4, fig.align='center'}
+ggplot(wc21_final_long,
+       aes(x = window_type,
+           y = riparian_area_sum,
+           fill = window_type)) +
+  geom_boxplot(outlier.size = 0.4, alpha = 0.8) + 
+  scale_fill_manual(values = c("undammed" = "steelblue",
+                               "dammed"   = "brown")) +
+  labs(
+    x = "Time period (t)",
+    y = "Riparian Area (m^2)",
+    fill = "Sample Window Type",
+    title = "Riparian Area by Dam Status",
+    subtitle = "Willow Creek 2021"
+  ) +
+  theme_bw(base_size = 14)
+```
+
+----
+
+Ensure that dam categories span relatively similar TO:
+----
+
+TO ~ Dam Status
+
+```{r, echo=FALSE, fig.width=8, fig.height=4, fig.align='center'}
+ggplot(wc21_final_long,
+       aes(x = window_type,
+           y = TO_mean,
+           fill = window_type)) +
+  geom_boxplot(outlier.size = 0.4, alpha = 0.8) + 
+  scale_fill_manual(values = c("undammed" = "steelblue",
+                               "dammed"   = "brown")) +
+  labs(
+    x = "Time period (t)",
+    y = "Topographic Openness",
+    fill = "Sample Window Type",
+    title = "TO by Dam Status",
+    subtitle = "Willow Creek 2021"
+  ) +
+  theme_bw(base_size = 14)
+```
+
+
+```{r,include=FALSE}
+write.csv(wc21_final_long, "C:\\Users\\mattw\\OneDrive\\Desktop\\UMT\\Data\\GEE\\Paired_SWA_Sampling_AOI_2021\\WC_2021_DF_Final_Long.csv", row.names=FALSE)
+```
+
+----
+  
+----
+
+----
+
+----
+
+----
+
+
+----
+  
+----
+
+----
+
+----
+
+----
+
+
+
+
+----  
+
+2) LONE TREE CREEK; 2021
+----
+
+----
+
+```{r, echo=FALSE}
+lt_swData21 <- read.csv("lt_SW_21_031626.csv")
+
+lt_SW_21 <- lt_swData21[,c(2:20)]
+colnames(lt_SW_21)[1] <- "TP_ID"
+
+# Collapse duplicate rows caused by TP overlap:
+lt_SW_21_collapsed <- lt_SW_21 %>%
+  group_by(TP_ID) %>%
+  summarise(
+    # sum all SWA_t columns
+    across(starts_with("SWA_t"), ~ sum(.x, na.rm = TRUE)),
+    
+    # sum all containsNull_t columns
+    across(starts_with("containsNull_t"), ~ sum(.x, na.rm = TRUE)),
+    
+    # sum riparian area
+    riparian_area_m2 = sum(riparian_area_m2, na.rm = TRUE),
+
+    .groups = "drop"
+  )
+
+ltRiparianGeometries <- st_read("LT_RIP_GEOMS.shp") %>%
+  st_make_valid() %>% 
+  select(Input_FID,
+         geometry) %>% 
+  rename(TP_ID = Input_FID) %>% 
+  st_transform(4326)
+```
+
+```{r,echo=FALSE}
+################################################################################
+# Visualize spread of SWA across riparian polygons (n=10892)
+ltsw21 <- lt_SW_21_collapsed[,2:9]
+colnames(ltsw21) <- c("t1","t2","t3","t4","t5","t6","t7","t8")
+                 
+boxplot(ltsw21,
+        xlab = "Time Period (t)",
+        ylab = "Surface Water Area (m^2)")
+
+title(main = "2021 Surface Water Area (m^2) in riparian polygons",
+        sub = "n = 4200 riparian polygons")
+#str(lt_SW_21)
+```
+
+----
+
+    - Combine TP derived data with dynOcc data
+
+    - Get detection and false positive data
+
+```{r,echo=FALSE}
+# Read in detection and false positive data
+# This data will be used to estimate damIntensity within a given dammed cluster
+# Nhat = sum(rawDams)/mean(p)*(1-mean(f))
+aoi_detData21 <- read.csv("site_year_detection_falsepositive_probs.csv") %>%
+  filter(year=="2021")
+
+colnames(aoi_detData21) <- c("unique_ID",
+                    "Year",
+                    "p",
+                    "f")
+
+lt_detData21 <- aoi_detData21 %>% 
+  filter(str_detect(unique_ID,"LT"))
+
+#hist(lt2021$p,
+#     xlab = "Detection Probability (p)")
+
+#title(sub = "n = 1401 Grid Cells from CP DynOcc Analysis")
+
+##############################
+
+#hist(lt2021$f,
+#     xlab = "Detection Probability (f)")
+
+#title(sub = "n = 1401 Grid Cells from CP DynOcc Analysis")
+
+```
+
+    - Get UDA from dynOcc gridcells; Combine with detection data & dam count data
+
+```{r, echo=FALSE}
+# Read in csv of thiessen polygons representing the riparian corridor with dam count data, and attach data from lt21, re: detection and false positives from dynOcc
+
+lt_dynOccGC_UDA <- read.csv("dynOccData_2021_oct7.csv") %>% 
+  filter(Stream == "LT") %>% 
+  select(unique_ID,
+         catchment_km2) #Get contributing drainage area for each dynOcc grid cell
+
+lt_TP_Dams_21 <- read.csv("lt_wGCID_wDamCount_2021.csv") 
+colnames(lt_TP_Dams_21) <- c("systemIndex",
+                             "TP_ID",
+                             "unique_ID",
+                             "dam_count_beav_all",
+                             "dam_count_anthro",
+                             "dam_count_beav_conf",
+                             ".geo") 
+lt_TP_Dams_21 <- lt_TP_Dams_21 %>%
+  mutate(unique_ID = str_replace(unique_ID, "^lt", "LT"))
+                             
+#'unique_ID' refers to the id of the dynOcc grid cell that a particular tPoly is closest to
+lt_newPolys_21 <- lt_TP_Dams_21 %>% 
+  left_join(lt_detData21, by = "unique_ID") %>%  #add detection data
+  left_join(lt_dynOccGC_UDA, by = "unique_ID") %>%  #add grid cell level data
+  select(Year,        #2021
+         unique_ID,   #Nearest GridCell ID (DynOcc)
+         TP_ID,       #RiparianPolygon ID
+         dam_count_beav_all,   #Beaver dam count per TP_ID; all confidence scores
+         dam_count_beav_conf,  #Beaver dam count per TP_ID; ONLY confident (2)
+         dam_count_anthro,     #Anthro dam count per TP_ID; all
+         p,           #Detection Prob for nearest GC
+         f,           #False Positive Prob for nearest GC
+         catchment_km2) #Contributing drainage area for nearest GC
+
+  
+#Condense duplicated rows created by TP overlap
+lt_newPolys_21_collapsed <- lt_newPolys_21 %>%
+  group_by(TP_ID) %>%
+  summarise(Year = first(Year),
+            unique_ID = first(unique_ID),
+            
+            # sum dam counts
+            dam_count_beav_all  = sum(dam_count_beav_all, na.rm = TRUE),
+            dam_count_beav_conf = sum(dam_count_beav_conf, na.rm = TRUE),
+            dam_count_anthro    = sum(dam_count_anthro, na.rm = TRUE),
+           
+             # mean geomorphic / hydrologic variables
+            p = mean(p, na.rm = TRUE),
+            f = mean(f, na.rm = TRUE),
+            catchment_km2  = mean(catchment_km2, na.rm = TRUE),
+            
+            .groups = "drop"
+  )
+
+
+#Trim down ^
+lt_riparianSampleAreas_21 <- lt_newPolys_21_collapsed %>% 
+  select(Year,
+         unique_ID,
+         TP_ID,
+         dam_count_beav_all,
+         dam_count_beav_conf,
+         dam_count_anthro,
+         p,
+         f,
+         catchment_km2)
+
+#head(lt_riparianSampleAreas_21)
+#str(lt_riparianSampleAreas_21)
+```
+
+    - Add Topographic Openness data
+      - TO (positive) is the mean() of azimuth angles from each of 8 intercardinal directions
+  
+
+```{r, echo=FALSE}
+# Bring Topographic Openness into the mix:
+#### TO is an approximate measure of stream channel confinement
+#### TO has been computed for each riparian polygon (thiessen 10m) along Willow Ck
+
+lt_data_TO <- read.csv("lt_riparian_wTO.csv") %>% 
+  distinct(TP_ID, .keep_all = TRUE)
+
+lt_data_meanTO <- lt_data_TO %>% 
+  mutate(meanTO = rowMeans(select(.,     #Compute mean(TO) for each RipPoly
+                                  E,     #mean() TO of all 8 intercardinal 
+                                  N,     #directions
+                                  NE,
+                                  NW,
+                                  S,
+                                  SE,
+                                  SW,
+                                  W))) 
+
+lt_meanTO_trim <- lt_data_meanTO %>% 
+  select(TP_ID,E,N,NE,NW,S,SE,SW,W,meanTO) 
+
+colnames(lt_meanTO_trim) <- c("TP_ID","E","N","NE","NW","S","SE","SW","W","TO")
+```
+
+```{r, echo=FALSE}
+# Join TO data to riparian polygon data (w/ p, f, damCount)
+lt_ripAreas_wTO_21 <- lt_riparianSampleAreas_21 %>% 
+  left_join(lt_meanTO_trim, by = "TP_ID") %>% 
+  select(Year,
+         unique_ID,
+         TP_ID,
+         dam_count_beav_all,
+         dam_count_beav_conf,
+         dam_count_anthro,
+         p,
+         f,
+         catchment_km2,
+         TO)
+
+```
+
+    - Add riparian area, surface water data, and null pixel data for each polygon:
+
+```{r,echo=FALSE}
+# RIPARIAN AREA (m^2) for each thiessen polygon
+lt_TP_wRIPA <- lt_SW_21_collapsed %>% 
+  select(TP_ID,
+         riparian_area_m2)
+# WATER
+lt_SWdata_2021 <- lt_SW_21_collapsed[,1:9]
+
+# NULL PIXELS
+lt_Nulldata_2021 <- lt_SW_21_collapsed[,c(1,10:17)] 
+
+# Add them to the dataFrame
+lt_2021 <- lt_ripAreas_wTO_21 %>% 
+  left_join(lt_TP_wRIPA, by="TP_ID") %>% 
+  left_join(lt_SWdata_2021, by="TP_ID") %>% 
+  left_join(lt_Nulldata_2021, by="TP_ID")
+```
+
+    - Data frame structure:
+
+    - Year = year
+    - unique_ID = ID of the nearest dynOcc grid cell to each riparian polygon
+    - TP_ID = ID of the current riparian polygon ('tp' = 'thiessen polygon')
+    - dam_count = raw count of unique dams in each riparian polygon
+    - p = P(dam detection) for nearest grid cell to current riparian polygon
+    - f = P(false positive dam detection) for nearest grid cell to current riparian polygon
+    - catchment_km2 = upstream drainage area for nearest dynOcc grid cell to current riparian polygon
+    - TO = topographic openness for current riparian polygon
+    - riparian_area_m2 = area in m^2 of the current riparian polygon
+    - SWA_t : surface water area of polygon at time t
+    - containsNull_t : 0,1 contains null pixels at time t
+
+```{r, echo=FALSE}
+#str(lt_2021)
+```
+
+----
+
+NOTE: where hasNull = '1', SWA = 'NA'
+
+```{r,echo=FALSE}
+lt21_nulls <- lt_2021 %>%
+  mutate(across(
+    .cols = starts_with("SWA_t"),
+    .fns  = ~ ifelse(
+      lt_2021[[str_replace(cur_column(), "SWA", "containsNull")]] == 1,
+      NA,
+      .
+    )
+  ))
+
+
+#str(lt21_nulls)
+```
+
+Time period 5 is the only one in 2021 that has issues with masked/null pixels:
+
+----
+
+
+```{r, echo=FALSE}
+# Assess the max SWA for each row/window across time periods in 2021:
+
+lt21_SWmax <- lt21_nulls %>% 
+  mutate(SWmax = NA) 
+
+lt21_SWmax$SWmax <- apply(
+  lt21_SWmax[, paste0("SWA_t", 1:8)],
+  1,
+  max,
+  na.rm = TRUE
+)
+
+#hist(lt21_SWmax$SWmax,
+ #    xlab = "SurfaceWaterMax of window[w]")
+
+#title(sub = "n = 10892 windows")
+
+
+#summary(lt21_SWmax$SWmax)
+```
+
+<!---
+----
+
+Time[t] at which max SWA was achieved in 2021
+----
+```{r, echo=FALSE}
+# Identify the SWA columns
+lt21_swa_cols <- paste0("SWA_t", 1:8) 
+
+# Compute t_MAX for each row
+lt21_SWmax$t_MAX <- apply(
+  lt21_SWmax[, lt21_swa_cols],
+  1,
+  function(x) which.max(x)   # returns 1..8
+)
+
+####
+
+hist(lt21_SWmax$t_MAX,
+     xlab = "TimePeriod [t] at SWmax for riparianPolygon [r]")
+
+title(sub = "n = 12748 polygons")
+```
+
+
+----
+
+Visualize data relationships:
+----
+
+----
+
+SWmax[w] ~ TO[w] 2021
+----
+
+SWmax does seem to be positively correlated with TO, though considerably weaker than 2019
+```{r, echo=FALSE}
+plot(lt21_SWmax$SWmax ~ lt21_SWmax$TO,
+     xlab = "mean(TO) of riparianPolygon[r]",
+     ylab = "SWmax of riparianPolygon[r]")
+title(main = "2021 Willow Creek (SWmax ~ TO)")
+```
+
+SWmax[w] ~ RiparianArea[w] 2021
+----
+
+SWmax is positively correlated with, and capped by riparian Area, though weaker than 2019
+```{r, echo=FALSE}
+plot(lt21_SWmax$SWmax ~ lt21_SWmax$riparian_area_m2,
+     xlab = "mean(RiparianArea) of riparianPolygon[r]",
+     ylab = "SWmax of riparianPolygon[r]")
+title(main = "2021 Willow Creek (SWmax ~ Area)")
+```
+--->
+
+----
+
+----
+
+----
+
+now dams..
+
+----
+
+----
+
+----
+  
+IDENTIFY Anthro Dams/Reservoirs
+----
+<!---
+    Reservoirs confound the potential effect of beaver dams on surface water by creating artificially flat open floodplains which allows LARGE amounts of water to pond. Additionally, active reservoirs are managed such that there is very little variation in SWA. Conditions experienced in these zones are not topographically or hydrologically consistent with the 'natural' stream conditions experienced in our study area. We want to compare beaver dammed to undammed **without** the potential influence of anthropogenic reservoirs.
+
+    Reservoirs were identified using the National Wetland Inventory data in ArcGIS Pro. "Attribute" codes that end with 'h' are categorized as "dyked/impounded". If a riparian polygon was within 50m of a dyked/impounded NWI polygon, it is deemed 'affected' by the anthropogenic impoundment.
+    
+    All affected polygons are assigned "isAnthro = 1". This designation will be built into the dam clustering / sample reach delineation
+--->
+
+Lone Tree Ck: ~ 7% of riparian polygons are/were anthropogenically impounded
+
+NWI IS NOT PERFECT
+
+```{r, echo=FALSE}
+lt_anthroDammed <- read.csv("lt_RIP_isAnthro.csv")
+
+colnames(lt_anthroDammed) <- c("TP_ID", "isAnthro")
+
+lt_anthroDammed <- lt_anthroDammed %>%
+  group_by(TP_ID) %>% 
+  summarise(isAnthro = first(isAnthro))
+```
+
+```{r,echo=FALSE}
+# 1. Mask SWA_t* where AnthroDammed = 1
+lt21_SWmax <- lt21_SWmax %>%
+  left_join(lt_anthroDammed,
+            by = "TP_ID")
+```
+
+
+
+DETERMINE DAM CLUSTERS
+----
+
+
+```{r,echo=FALSE}
+# 1. Extract dammed TP_IDs as a numeric vector
+lt21_damIDs_bvAll <- lt21_SWmax %>% 
+  filter(dam_count_beav_all == 1) %>% 
+  pull(TP_ID)
+
+lt21_damIDs_bvConf <- lt21_SWmax %>% 
+  filter(dam_count_beav_conf == 1) %>% 
+  pull(TP_ID)
+
+lt21_damIDs_anthro <- lt21_SWmax %>% 
+  filter(dam_count_anthro == 1 |
+           isAnthro == 1) %>% 
+  pull(TP_ID)
+```
+--->
+<!---
+
+```{r,include=FALSE}
+# ~~~~ 1-D K-Dist EPSILON OPTIMIZATION ~~~~~~~ #
+# Rahmah and Sitanggang (2016)
+
+# Function to compute 1-D k-distance (k = 2 recommended for minPts = 1)
+lt_compute_kdist_1d <- function(tp_ids, k = 2) {
+  tp_ids <- sort(tp_ids)
+  n <- length(tp_ids)
+  kdist <- numeric(n)
+  
+  for (i in seq_len(n)) {
+    dists <- abs(tp_ids[i] - tp_ids[-i])  # bidirectional 1-D distance
+    dists <- sort(dists)
+    kdist[i] <- dists[k]                  # k-th nearest neighbor
+  }
+  
+  sort(kdist)
+}
+
+tp_sorted   <- sort(lt21_damIDs_bvAll)
+spacing     <- diff(tp_sorted)
+
+eps_opt_TPID <- median(spacing)  # or 2 * median(spacing)
+
+eps_opt_TPID
+
+
+# ---------------------------------------------------------------------------
+
+kdist_sorted <- lt_compute_kdist_1d(lt21_damIDs_bvAll, k = 2)
+
+kdist_df <- tibble(
+  index = seq_along(kdist_sorted),
+  kdist = kdist_sorted
+)
+
+ggplot(kdist_df, aes(x = index, y = kdist)) +
+  geom_line(color = "steelblue", linewidth = 1) +
+  geom_point(size = 1.2, color = "steelblue") +
+  geom_hline(yintercept = eps_opt_TPID, 
+             color = "red", linetype = "dashed", linewidth = 1) +
+  annotate("text", 
+           x = max(kdist_df$index) * 0.8, 
+           y = eps_opt_TPID, 
+           label = paste0("eps_opt (median) = ", round(eps_opt_TPID, 2)),
+           vjust = -0.5, color = "red") +
+  labs(
+    title = "1-D k-Distance Curve (k = 2)",
+    x = "Sorted Point Index",
+    y = "k-Distance"
+  ) +
+  theme_minimal(base_size = 14)
+
+```
+--->
+
+
+```{r,echo=FALSE}
+
+# Get only elligible beaver dams; those outside the potential impact of anthro impoundments
+
+#Determine 500m buffers up and down from each anthro cluster; NO 'dammed' within this zone
+
+lt21_anthro_influence_500 <- unique(unlist(
+  lapply(lt21_damIDs_anthro,
+         function(x) seq(x - 50, x + 50))  
+))
+
+lt21_damIDs_bvEligible <- lt21_damIDs_bvAll[!lt21_damIDs_bvAll %in% lt21_anthro_influence_500]
+
+
+# 2. Convert to matrix (dbscan requires matrix input)
+lt21_dam_mat <- matrix(lt21_damIDs_bvEligible, ncol = 1)
+
+# 3. Run DBSCAN
+lt21_db <- dbscan(
+  lt21_dam_mat,
+  eps = 25,        #Test with 25 and with 10; bidirectional
+  minPts = 1       #min(cluster) = 1 dam; this ensures that isolated dams are still included
+)
+
+# 3b. Build a dataframe of dammed rows + cluster IDs
+lt21_dammed_df <- lt21_SWmax %>%
+  filter(TP_ID %in% lt21_damIDs_bvEligible) %>%   # only eligible BV dams
+  arrange(TP_ID) %>%                              # ensure same order as DBSCAN input
+  mutate(clusterID_dbscan = lt21_db$cluster)
+
+# 5. Compute # of dams per cluster
+lt21_damClusterCount <- lt21_dammed_df %>%
+  filter(dam_count_beav_all == 1) %>%
+  count(clusterID_dbscan, name = "cluster_dam_count")
+
+lt21_dammed_df <- lt21_dammed_df %>%
+  left_join(lt21_damClusterCount, by = "clusterID_dbscan")
+
+# 6. Compute Stream Length per Cluster
+lt_streamPerCluster <- lt21_dammed_df %>%
+  filter(dam_count_beav_all == 1) %>%
+  group_by(clusterID_dbscan) %>%
+  summarise(cluster_start = min(TP_ID),
+            cluster_end   = max(TP_ID+5),
+            cluster_length_TPID = ((cluster_end - cluster_start))*10,
+            .groups = "drop"
+            ) %>% 
+  arrange(cluster_start)  %>%        # downstream → upstream
+  mutate(clusterID_seq = row_number()) # make sure that clusterID is in order from downstream to upstream
+
+
+lt21_dammed_df <- lt21_dammed_df %>%
+  left_join(lt_streamPerCluster %>% select(clusterID_dbscan, 
+                                           clusterID_seq,
+                                           cluster_start,
+                                           cluster_end),
+    by = "clusterID_dbscan")
+```
+
+----
+
+
+VISUALIZE RAW DAM CLUSTERS:
+----
+
+5. Plot sample regions for Lone Tree Creek 2021 on a map:
+----
+
+```{r, echo=FALSE, warning=FALSE, fig.width=10, fig.height=10}  
+# Join geometries to polygons with data
+lt_dam_map_21 <- lt21_dammed_df %>%       # one row per TP_ID
+  left_join(ltRiparianGeometries, by = "TP_ID") %>% 
+  st_as_sf()
+
+lt_points_21 <- st_centroid(lt_dam_map_21)
+
+
+#ggplot(lt_points_21) +
+#  geom_sf(aes(color = factor(clusterID_seq))) +
+#  theme_minimal() 
+
+
+
+pal <- colorFactor(
+  palette = colorRampPalette(RColorBrewer::brewer.pal(12, "Paired"))(length(unique(lt_points_21$clusterID_seq))),
+  domain = lt_points_21$clusterID_seq
+)
+
+leaflet(lt_points_21) %>%
+  addProviderTiles(providers$USGS.USImageryTopo) %>%
+  addCircleMarkers(
+    radius = 5,
+    color = ~pal(clusterID_seq),
+    fillOpacity = 0.9,
+    stroke = FALSE,
+    popup = ~paste0(
+      "<b>TP_ID:</b> ", TP_ID, "<br>",
+      "<b>Cluster:</b> ", clusterID_seq)
+  ) %>%
+  addLegend("bottomright", pal = pal, values = lt_points_21$clusterID_seq, title = "Cluster") %>%
+  addScaleBar(
+    position = "bottomleft",
+    options = scaleBarOptions(
+      maxWidth = 200,
+      metric = TRUE,
+      imperial = FALSE,
+      updateWhenIdle = TRUE
+    )
+  )
+```
+
+color: cluster;
+----
+
+----
+
+DEFINE PAIRED UNDAMMED REACHES:
+----
+
+    - Undammed sample reaches must be:
+      - interspersed between dammed reaches
+      - (>=) 500m from nearest dam
+      - 'paired' with a nearby dam cluster
+      - (>=) 250m from nearest undammed (forced thinning post-pairing)
+
+```{r,echo=FALSE}
+lt21_dam_min <- min(lt21_dammed_df$TP_ID) #Find min/max dammed TP_ID to intersperse undammed among
+lt21_dam_max <- max(lt21_dammed_df$TP_ID)
+
+
+#Determine 500m buffers up and down from each dammed cluster; NO 'undammed' within this zone
+lt21_dam_influence_500 <- unique(unlist(
+  apply(lt21_dammed_df[, c("cluster_start", "cluster_end")], 1, function(row) {
+    seq(row["cluster_start"] - 50,
+        row["cluster_end"]   + 50)
+  })
+)) 
+
+#Get all available Riparian Polygons (excludes reservoir-affected)
+lt21_all_tpids <- sort(unique(lt21_SWmax$TP_ID))  
+
+#Ensure interspersion of undammed within dammed sites
+lt21_inRange_tpids <- lt21_all_tpids[lt21_all_tpids >= lt21_dam_min & lt21_all_tpids <= lt21_dam_max]
+
+#Get only riparian polygons that are not inside the dam or anthro influence zone (cluster+-500m)
+lt21_eligible_undammed_tpids <- lt21_inRange_tpids[(!lt21_inRange_tpids %in% lt21_dam_influence_500) &
+                                                     (!lt21_inRange_tpids %in% lt21_anthro_influence_500)]
+
+#Get cluster start point for each dammed cluster
+lt21_dam_clusters <- lt21_dammed_df %>%
+  distinct(clusterID_seq, 
+           cluster_start, 
+           cluster_end, 
+           cluster_dam_count) %>%
+  arrange(clusterID_seq)
+
+
+#PROXIMITY BASED PAIRING
+#Define available undammed reaches to sample
+lt21_remaining_undammed <- lt21_eligible_undammed_tpids
+
+#Define undammed reaches that have been matched with dammed clusters
+lt21_assigned_matches <- integer(nrow(lt21_dam_clusters)) #get 1 undammed for each dammed
+
+# Iterate through dammed clusters
+for (i in seq_len(nrow(lt21_dam_clusters))) {
+  # find cluster start
+  cs <- lt21_dam_clusters$cluster_start[i]
+  
+  # find nearest remaining undammed site
+  idx <- which.min(abs(lt21_remaining_undammed - cs))
+  match <- lt21_remaining_undammed[idx]
+  
+  lt21_assigned_matches[i] <- match
+  
+  # remove it so it cannot be reused
+  lt21_remaining_undammed <- lt21_remaining_undammed[-idx]
+}
+
+#Create table to visualize and gut check matches
+lt21_pairings <- lt21_dam_clusters %>%
+  mutate(undam_match = lt21_assigned_matches) %>%
+  left_join(lt21_dammed_df %>%
+              group_by(clusterID_seq) %>%
+              summarise(dam_window_length_tpid = max(cluster_end) - min(cluster_start),
+                        .groups = "drop"),
+            by = "clusterID_seq") %>%
+  mutate(undam_window_start = undam_match,
+         undam_window_end   = undam_match + dam_window_length_tpid
+  )
+
+# THIN UNDAMMED WINDOWS *AFTER* WINDOW LENGTH IS KNOWN ---------------
+
+lt21_pairings <- lt21_pairings %>% arrange(undam_window_start)
+
+thinned <- list()
+last_end <- -Inf
+
+for (i in seq_len(nrow(lt21_pairings))) {
+  start_i <- lt21_pairings$undam_window_start[i]
+  end_i   <- lt21_pairings$undam_window_end[i]
+  
+  if (start_i >= last_end + 25) {   # enforce 250-m spacing
+    thinned <- append(thinned, i)   # NOTE: ^ no diff. than 100-m on lt21
+    last_end <- end_i
+  }
+}
+
+lt21_pairings <- lt21_pairings[unlist(thinned), ]
+
+# Now combine dammed and undammed windows into a unified table and select only those windows from the main dataframe
+lt21_dammed_windows <- lt21_pairings %>%
+  transmute(
+    clusterID_seq,
+    window_type = "dammed",
+    window_start = cluster_start,
+    window_end   = cluster_end,
+    window_length = (window_end - window_start)*10,
+    dam_intensity = cluster_dam_count
+  )
+
+lt21_undammed_windows <- lt21_pairings %>% 
+  transmute(
+    clusterID_seq,
+    window_type = "undammed",
+    window_start = undam_match,
+    window_end   = undam_match + dam_window_length_tpid,
+    window_length = dam_window_length_tpid * 10,
+    dam_intensity = 0
+  )
+
+lt21_all_windows <- bind_rows(
+  lt21_dammed_windows,
+  lt21_undammed_windows
+)
+
+lt21_sampled <- lt21_SWmax %>%
+  cross_join(lt21_all_windows) %>%   # explicit Cartesian join
+  filter(
+    TP_ID >= window_start,
+    TP_ID <= window_end
+  )
+```
+
+Double check even sampling between dammed and undammed windows from thinned data frame:
+
+    11 DAMMED
+
+    11 UNDAMMED
+
+```{r,echo=FALSE}
+length(lt21_pairings$clusterID_seq)
+```
+
+
+
+Plot sample regions for Lone Tree Creek 2021 on a map:
+----
+
+```{r, echo=FALSE,warning=FALSE,fig.width=10, fig.height=10}
+# Join geometries to polygons with data
+lt_samples_21 <- lt21_sampled %>%       # one row per TP_ID
+  left_join(ltRiparianGeometries, by = "TP_ID") %>% 
+  st_as_sf() #restore as sf class for mapping
+
+lt_SampleReaches_21 <- st_centroid(lt_samples_21)
+
+
+# Color palette for clusters
+cluster_palette <- colorFactor(
+  palette = colorRampPalette(RColorBrewer::brewer.pal(12, "Paired"))(11),
+  domain = lt_SampleReaches_21$clusterID_seq
+)
+
+
+leaflet(lt_SampleReaches_21) %>%
+  addProviderTiles(providers$USGS.USImageryTopo) %>%
+
+  #Undammed (black)
+  addCircleMarkers(
+    data = subset(lt_SampleReaches_21, window_type == "undammed"),
+    radius = 6,
+    fillColor = "black",
+    fillOpacity = 0.9,
+    color = "black",
+    weight = 1,
+    popup = ~paste0(
+      "<b>TP_ID:</b> ", TP_ID, "<br>",
+      "<b>Cluster:</b> ", clusterID_seq, "<br>",
+      "<b>Type:</b> Undammed"
+    )
+  ) %>%
+
+  #Dammed (colored by cluster ID)
+  addCircleMarkers(
+    data = subset(lt_SampleReaches_21, 
+                  window_type == "dammed"),
+    radius = 6,
+    fillColor = ~cluster_palette(clusterID_seq),
+    fillOpacity = 0.9,
+    color = "black",
+    weight = 1,
+    popup = ~paste0(
+      "<b>TP_ID:</b> ", TP_ID, "<br>",
+      "<b>Cluster:</b> ", clusterID_seq, "<br>",
+      "<b>Type:</b> Dammed"
+    )
+  ) %>%
+# Legend for dammed clusters only
+  addLegend(
+    "bottomleft",
+    pal = cluster_palette,
+    values = subset(lt_SampleReaches_21, window_type == "dammed")$clusterID_seq,
+    title = "Dammed Cluster ID"
+  ) %>%
+
+  addScaleBar(
+    position = "bottomright",
+    options = scaleBarOptions(
+      maxWidth = 200,
+      metric = TRUE,
+      imperial = FALSE,
+      updateWhenIdle = TRUE
+    )
+  )
+
+```
+
+
+Finalize df by computing Nhat, TO, RIPA, SWA for each sample window:
+----
+--->
+<!---
+NOTE:
+
+    "Nhat" is the estimated dam count w/in sample window
+
+    Computed as:
+    
+  $$\hat{N} = \displaystyle \frac{\sum(C)}{\mu(p)*(1-\mu(f))} $$
+
+    Where:
+    
+    - $\hat{N}$ is the estimated dam count, given det. and fp det. probabilities
+    - $\sum(C)$ is the sum of raw dam counts for all Thiessen polygons in a given sample window
+    - $\mu(p)$ is the average detection probability for a given sample window
+    - $\mu(f)$ is the average false positive probability for a given sample window
+    
+    [adapted from McCallum 2005; *Equation 1:* $\hat{N} = \displaystyle \frac{C}{\hat{p}}$; included term to consider false positive detection probability, and iterate across window[w]]
+    
+--->
+
+```{r,echo=FALSE,warning=FALSE}
+lt21_sampled$clusterID_seq <- as.factor(lt21_sampled$clusterID_seq)
+lt21_sampled$window_type <- as.factor(lt21_sampled$window_type)
+
+lt21_final <- lt21_sampled %>%
+  select(clusterID_seq, 
+         window_type,
+         dam_count_beav_all,
+         dam_count_beav_conf,
+         dam_count_anthro,
+         p,
+         f, 
+         TO,
+         riparian_area_m2,
+         starts_with("SWA_t"),
+         starts_with("containsNull")
+  ) %>%
+  group_by(clusterID_seq, window_type) %>%
+  summarize(
+    # Nhat components
+    sum_c = sum(dam_count_beav_all, na.rm = TRUE),
+    mean_p = mean(p, na.rm = TRUE),
+    mean_f = mean(f, na.rm = TRUE),
+    Nhat = sum_c / (mean_p * (1 - mean_f)),
+
+    # TO
+    TO_mean = mean(TO, na.rm = TRUE),
+
+    # Riparian area
+    riparian_area_sum = sum(riparian_area_m2, na.rm = TRUE),
+
+    # SWA across time periods
+    across(starts_with("SWA_t"), ~ sum(.x, na.rm = TRUE), .names = "sum_{.col}"),
+
+    # Null flag across ANY time period
+    contains_null = any(c_across(starts_with("containsNull")) == 1),
+
+    .groups = "drop"
+  )
+
+
+#hist(unique(lt21_final$Nhat))
+
+# MAKE LONG FORMAT for plotting and such
+lt21_final_long <- lt21_final %>%
+  pivot_longer(
+    cols = starts_with("sum_SWA_t"),
+    names_to = "time_period",
+    values_to = "SWA"
+  ) %>%
+  mutate(
+    t = as.factor(gsub("sum_SWA_t", "", time_period))
+  )
+
+```
+
+
+```{r,echo=FALSE,warning=FALSE, fig.width=8, fig.height=4, fig.align='center'}
+lt21_damcounts <- lt21_final %>%
+  filter(window_type == "dammed") %>%
+  select(clusterID_seq, sum_c)
+
+lt21_damcounts <- lt21_damcounts %>%
+  mutate(sum_c = factor(sum_c),
+         clusterID_seq = factor(clusterID_seq))
+
+ggplot(lt21_damcounts,
+       aes(x = sum_c,
+           fill = factor(clusterID_seq))) +
+  geom_bar(color = "black", width = 0.8) +
+  scale_fill_manual(
+    values = colorRampPalette(RColorBrewer::brewer.pal(12, "Paired"))(11),
+    name = "Cluster ID"
+  ) +
+  labs(
+    x = "Dam Count per Cluster Window",
+    y = "Number of Dammed Clusters",
+    title = "Distribution of Dam Counts Across Sampled Dammed Clusters",
+    subtitle = "n = 11 Dammed clusters"
+  ) +
+  theme_bw(base_size = 14) +
+  theme(
+    legend.position = "right",
+    panel.grid.minor = element_blank()
+  )
+
+```
+
+
+
+Compare SWA across time periods for undammed,  and dammed windows:
+----
+
+```{r,echo=FALSE,warning=FALSE, fig.width=8, fig.height=4, fig.align='center'}
+#Plot boxplot:
+
+ggplot(lt21_final_long,
+       aes(x = t,
+           y = SWA,
+           fill = window_type)) +
+  geom_boxplot(outlier.size = 0.4, alpha = 0.8) + 
+  scale_fill_manual(values = c("undammed" = "steelblue",
+                               "dammed"   = "brown")) +
+  labs(
+    x = "Time period (t)",
+    y = "Surface Water Area (SWA) (m^2)",
+    fill = "Sample Window Type",
+    title = "Surface Water Area by Dam Status",
+    subtitle = "Lone Tree Creek 2021"
+  ) +
+  theme_bw(base_size = 14)
+```
+
+
+----
+
+Ensure that dam categories span relatively similar riparian areas:
+----
+
+Riparian Area (m^2) ~ Dam Status
+
+```{r, echo=FALSE, fig.width=8, fig.height=4, fig.align='center'}
+ggplot(lt21_final_long,
+       aes(x = window_type,
+           y = riparian_area_sum,
+           fill = window_type)) +
+  geom_boxplot(outlier.size = 0.4, alpha = 0.8) + 
+  scale_fill_manual(values = c("undammed" = "steelblue",
+                               "dammed"   = "brown")) +
+  labs(
+    x = "Time period (t)",
+    y = "Riparian Area (m^2)",
+    fill = "Sample Window Type",
+    title = "Riparian Area by Dam Status",
+    subtitle = "Lone Tree Creek 2021"
+  ) +
+  theme_bw(base_size = 14)
+```
+
+----
+
+Ensure that dam categories span relatively similar TO:
+----
+
+TO ~ Dam Status
+
+```{r, echo=FALSE, fig.width=8, fig.height=4, fig.align='center'}
+ggplot(lt21_final_long,
+       aes(x = window_type,
+           y = TO_mean,
+           fill = window_type)) +
+  geom_boxplot(outlier.size = 0.4, alpha = 0.8) + 
+  scale_fill_manual(values = c("undammed" = "steelblue",
+                               "dammed"   = "brown")) +
+  labs(
+    x = "Time period (t)",
+    y = "Topographic Openness",
+    fill = "Sample Window Type",
+    title = "TO by Dam Status",
+    subtitle = "Lone Tree Creek 2021"
+  ) +
+  theme_bw(base_size = 14)
+```
+
+
+
+
+```{r,include=FALSE}
+write.csv(lt21_final_long, "C:\\Users\\mattw\\OneDrive\\Desktop\\UMT\\Data\\GEE\\Paired_SWA_Sampling_AOI_2021\\LT_2021_DF_Final_Long.csv", row.names=FALSE)
+```
+
+----
+  
+----
+
+----
+
+----
+
+----
+
+
+
+
+----  
+
+3) BRAZIL CREEK; 2021
+----
+
+----
+
+```{r, echo=FALSE}
+brz_swData21 <- read.csv("brz_SW_21_031626.csv")
+
+brz_SW_21 <- brz_swData21[,c(2:20)]
+colnames(brz_SW_21)[1] <- "TP_ID"
+
+# Collapse duplicate rows caused by TP overlap:
+brz_SW_21_collapsed <- brz_SW_21 %>%
+  group_by(TP_ID) %>%
+  summarise(
+    # sum all SWA_t columns
+    across(starts_with("SWA_t"), ~ sum(.x, na.rm = TRUE)),
+    
+    # sum all containsNull_t columns
+    across(starts_with("containsNull_t"), ~ sum(.x, na.rm = TRUE)),
+    
+    # sum riparian area
+    riparian_area_m2 = sum(riparian_area_m2, na.rm = TRUE),
+    
+    .groups = "drop"
+  )
+
+brzRiparianGeometries <- st_read("BRZ_RIP_GEOMS.shp") %>% 
+  st_make_valid() %>% 
+  select(Input_FID,
+         geometry) %>% 
+  rename(TP_ID = Input_FID) %>% 
+  st_transform(4326) %>%
+  filter(TP_ID!=5682)
+
+```
+
+```{r,echo=FALSE}
+################################################################################
+# Visualize spread of SWA across riparian polygons (n=10892)
+brzsw21 <- brz_SW_21_collapsed[,2:9]
+colnames(brzsw21) <- c("t1","t2","t3","t4","t5","t6","t7","t8")
+                 
+boxplot(brzsw21,
+        xlab = "Time Period (t)",
+        ylab = "Surface Water Area (m^2)")
+
+title(main = "2021 Surface Water Area (m^2) in riparian polygons",
+        sub = "n = 4200 riparian polygons")
+#str(brz_SW_21)
+```
+
+----
+
+    - Combine TP derived data with dynOcc data
+
+    - Get detection and false positive data
+
+```{r,echo=FALSE}
+# Read in detection and false positive data
+# This data will be used to estimate damIntensity within a given dammed cluster
+# Nhat = sum(rawDams)/mean(p)*(1-mean(f))
+aoi_detData21 <- read.csv("site_year_detection_falsepositive_probs.csv") %>%
+  filter(year=="2021")
+
+colnames(aoi_detData21) <- c("unique_ID",
+                    "Year",
+                    "p",
+                    "f")
+
+brz_detData21 <- aoi_detData21 %>% 
+  filter(str_detect(unique_ID,"BRZ"))
+
+#hist(brz2021$p,
+#     xlab = "Detection Probability (p)")
+
+#title(sub = "n = 1401 Grid Cells from CP DynOcc Analysis")
+
+##############################
+
+#hist(brz2021$f,
+#     xlab = "Detection Probability (f)")
+
+#title(sub = "n = 1401 Grid Cells from CP DynOcc Analysis")
+
+```
+
+    - Get UDA from dynOcc gridcells; Combine with detection data & dam count data
+
+```{r, echo=FALSE}
+# Read in csv of thiessen polygons representing the riparian corridor with dam count data, and attach data from brz21, re: detection and false positives from dynOcc
+
+brz_dynOccGC_UDA <- read.csv("dynOccData_2021_oct7.csv") %>% 
+  filter(Stream == "BRZ") %>% 
+  select(unique_ID,
+         catchment_km2) #Get contributing drainage area for each dynOcc grid cell
+
+brz_TP_Dams_21 <- read.csv("brz_wGCID_wDamCount_2021.csv") 
+colnames(brz_TP_Dams_21) <- c("systemIndex",
+                             "TP_ID",
+                             "unique_ID",
+                             "dam_count_beav_all",
+                             "dam_count_anthro",
+                             "dam_count_beav_conf",
+                             ".geo") 
+brz_TP_Dams_21 <- brz_TP_Dams_21 %>%
+  mutate(unique_ID = str_replace(unique_ID, "brz", "BRZ"))
+                             
+#'unique_ID' refers to the id of the dynOcc grid cell that a particular tPoly is closest to
+brz_newPolys_21 <- brz_TP_Dams_21 %>% 
+  left_join(brz_detData21, by = "unique_ID") %>%  #add detection data
+  left_join(brz_dynOccGC_UDA, by = "unique_ID") %>%  #add grid cell level data
+  select(Year,        #2021
+         unique_ID,   #Nearest GridCell ID (DynOcc)
+         TP_ID,       #RiparianPolygon ID
+         dam_count_beav_all,   #Beaver dam count per TP_ID; all confidence scores
+         dam_count_beav_conf,  #Beaver dam count per TP_ID; ONLY confident (2)
+         dam_count_anthro,     #Anthro dam count per TP_ID; all
+         p,           #Detection Prob for nearest GC
+         f,           #False Positive Prob for nearest GC
+         catchment_km2) #Contributing drainage area for nearest GC
+  
+
+#Condense duplicated rows created by TP overlap
+brz_newPolys_21_collapsed <- brz_newPolys_21 %>%
+  group_by(TP_ID) %>%
+  summarise(Year = first(Year),
+            unique_ID = first(unique_ID),
+            
+            # sum dam counts
+            dam_count_beav_all  = sum(dam_count_beav_all, na.rm = TRUE),
+            dam_count_beav_conf = sum(dam_count_beav_conf, na.rm = TRUE),
+            dam_count_anthro    = sum(dam_count_anthro, na.rm = TRUE),
+           
+             # mean geomorphic / hydrologic variables
+            p = mean(p, na.rm = TRUE),
+            f = mean(f, na.rm = TRUE),
+            catchment_km2  = mean(catchment_km2, na.rm = TRUE),
+           
+            .groups = "drop"
+  ) %>% 
+  filter(TP_ID!=5682)
+
+
+#Trim down ^
+brz_riparianSampleAreas_21 <- brz_newPolys_21_collapsed %>% 
+  select(Year,
+         unique_ID,
+         TP_ID,
+         dam_count_beav_all,
+         dam_count_beav_conf,
+         dam_count_anthro,
+         p,
+         f,
+         catchment_km2)
+
+#head(brz_riparianSampleAreas_21)
+#str(brz_riparianSampleAreas_21)
+```
+
+    - Add Topographic Openness data
+      - TO (positive) is the mean() of azimuth angles from each of 8 intercardinal directions
+  
+
+```{r, echo=FALSE}
+# Bring Topographic Openness into the mix:
+#### TO is an approximate measure of stream channel confinement
+#### TO has been computed for each riparian polygon (thiessen 10m) along Willow Ck
+
+brz_data_TO <- read.csv("brz_riparian_wTO.csv") %>% 
+  distinct(TP_ID, .keep_all = TRUE)
+
+brz_data_meanTO <- brz_data_TO %>% 
+  mutate(meanTO = rowMeans(select(.,     #Compute mean(TO) for each RipPoly
+                                  E,     #mean() TO of all 8 intercardinal 
+                                  N,     #directions
+                                  NE,
+                                  NW,
+                                  S,
+                                  SE,
+                                  SW,
+                                  W))) 
+
+brz_meanTO_trim <- brz_data_meanTO %>% 
+  select(TP_ID,E,N,NE,NW,S,SE,SW,W,meanTO) %>% 
+  filter(TP_ID!=5682)
+
+colnames(brz_meanTO_trim) <- c("TP_ID","E","N","NE","NW","S","SE","SW","W","TO")
+```
+
+```{r, echo=FALSE}
+# Join TO data to riparian polygon data (w/ p, f, damCount)
+brz_ripAreas_wTO_21 <- brz_riparianSampleAreas_21 %>% 
+  left_join(brz_meanTO_trim, by = "TP_ID") %>% 
+  select(Year,
+         unique_ID,
+         TP_ID,
+         dam_count_beav_all,
+         dam_count_beav_conf,
+         dam_count_anthro,
+         p,
+         f,
+         catchment_km2,
+         TO)
+
+```
+
+    - Add riparian area, surface water data, and null pixel data for each polygon:
+
+```{r,echo=FALSE}
+# RIPARIAN AREA (m^2) for each thiessen polygon
+brz_TP_wRIPA <- brz_SW_21_collapsed %>% 
+  select(TP_ID,
+         riparian_area_m2)
+# WATER
+brz_SWdata_2021 <- brz_SW_21_collapsed[,1:9]
+
+# NULL PIXELS
+brz_Nulldata_2021 <- brz_SW_21_collapsed[,c(1,10:17)] 
+
+# Add them to the dataFrame
+brz_2021 <- brz_ripAreas_wTO_21 %>% 
+  left_join(brz_TP_wRIPA, by="TP_ID") %>% 
+  left_join(brz_SWdata_2021, by="TP_ID") %>% 
+  left_join(brz_Nulldata_2021, by="TP_ID")
+```
+
+    - Data frame structure:
+
+    - Year = year
+    - unique_ID = ID of the nearest dynOcc grid cell to each riparian polygon
+    - TP_ID = ID of the current riparian polygon ('tp' = 'thiessen polygon')
+    - dam_count = raw count of unique dams in each riparian polygon
+    - p = P(dam detection) for nearest grid cell to current riparian polygon
+    - f = P(false positive dam detection) for nearest grid cell to current riparian polygon
+    - catchment_km2 = upstream drainage area for nearest dynOcc grid cell to current riparian polygon
+    - TO = topographic openness for current riparian polygon
+    - riparian_area_m2 = area in m^2 of the current riparian polygon
+    - SWA_t : surface water area of polygon at time t
+    - containsNull_t : 0,1 contains null pixels at time t
+
+```{r, echo=FALSE}
+#str(brz_2021)
+```
+
+----
+
+NOTE: where hasNull = '1', SWA = 'NA'
+
+```{r,echo=FALSE}
+brz21_nulls <- brz_2021 %>%
+  mutate(across(
+    .cols = starts_with("SWA_t"),
+    .fns  = ~ ifelse(
+      brz_2021[[str_replace(cur_column(), "SWA", "containsNull")]] == 1,
+      NA,
+      .
+    )
+  ))
+
+
+#str(brz21_nulls)
+```
+
+Time period 5 is the only one in 2021 that has issues with masked/null pixels:
+
+----
+
+
+```{r, echo=FALSE}
+# Assess the max SWA for each row/window across time periods in 2021:
+
+brz21_SWmax <- brz21_nulls %>% 
+  mutate(SWmax = NA) 
+
+brz21_SWmax$SWmax <- apply(
+  brz21_SWmax[, paste0("SWA_t", 1:8)],
+  1,
+  max,
+  na.rm = TRUE
+)
+
+#hist(brz21_SWmax$SWmax,
+ #    xlab = "SurfaceWaterMax of window[w]")
+
+#title(sub = "n = 10892 windows")
+
+
+#summary(brz21_SWmax$SWmax)
+```
+
+<!---
+----
+
+Time[t] at which max SWA was achieved in 2021
+----
+```{r, echo=FALSE}
+# Identify the SWA columns
+brz21_swa_cols <- paste0("SWA_t", 1:8) 
+
+# Compute t_MAX for each row
+brz21_SWmax$t_MAX <- apply(
+  brz21_SWmax[, brz21_swa_cols],
+  1,
+  function(x) which.max(x)   # returns 1..8
+)
+
+####
+
+hist(brz21_SWmax$t_MAX,
+     xlab = "TimePeriod [t] at SWmax for riparianPolygon [r]")
+
+title(sub = "n = 12748 polygons")
+```
+
+
+----
+
+Visualize data relationships:
+----
+
+----
+
+SWmax[w] ~ TO[w] 2021
+----
+
+SWmax does seem to be positively correlated with TO, though considerably weaker than 2019
+```{r, echo=FALSE}
+plot(brz21_SWmax$SWmax ~ brz21_SWmax$TO,
+     xlab = "mean(TO) of riparianPolygon[r]",
+     ylab = "SWmax of riparianPolygon[r]")
+title(main = "2021 Willow Creek (SWmax ~ TO)")
+```
+
+SWmax[w] ~ RiparianArea[w] 2021
+----
+
+SWmax is positively correlated with, and capped by riparian Area, though weaker than 2019
+```{r, echo=FALSE}
+plot(brz21_SWmax$SWmax ~ brz21_SWmax$riparian_area_m2,
+     xlab = "mean(RiparianArea) of riparianPolygon[r]",
+     ylab = "SWmax of riparianPolygon[r]")
+title(main = "2021 Willow Creek (SWmax ~ Area)")
+```
+--->
+
+----
+
+----
+
+----
+
+now dams..
+
+----
+
+----
+
+----
+  
+IDENTIFY Anthro Dams/Reservoirs
+----
+<!---
+    Reservoirs confound the potential effect of beaver dams on surface water by creating artificially flat open floodplains which allows LARGE amounts of water to pond. Additionally, active reservoirs are managed such that there is very little variation in SWA. Conditions experienced in these zones are not topographically or hydrologically consistent with the 'natural' stream conditions experienced in our study area. We want to compare beaver dammed to undammed **without** the potential influence of anthropogenic reservoirs.
+
+    Reservoirs were identified using the National Wetland Inventory data in ArcGIS Pro. "Attribute" codes that end with 'h' are categorized as "dyked/impounded". If a riparian polygon was within 50m of a dyked/impounded NWI polygon, it is deemed 'affected' by the anthropogenic impoundment.
+    
+    All affected polygons are assigned "isAnthro = 1". This designation will be buibrz into the dam clustering / sample reach delineation
+--->
+
+Lone Tree Ck: ~ 7% of riparian polygons are/were anthropogenically impounded
+
+NWI IS NOT PERFECT
+
+```{r, echo=FALSE}
+brz_anthroDammed <- read.csv("brz_RIP_isAnthro.csv")
+
+colnames(brz_anthroDammed) <- c("TP_ID", "isAnthro")
+
+brz_anthroDammed <- brz_anthroDammed %>%
+  group_by(TP_ID) %>% 
+  summarise(isAnthro = first(isAnthro)) %>% 
+  filter(TP_ID!=5682)
+```
+
+```{r,echo=FALSE}
+# 1. Add anthroDammed
+brz21_SWmax <- brz21_SWmax %>%
+  left_join(brz_anthroDammed,
+            by = "TP_ID")
+```
+
+
+
+DETERMINE DAM CLUSTERS
+----
+
+
+```{r,echo=FALSE}
+# 1. Extract dammed TP_IDs as a numeric vector
+brz21_damIDs_bvAll <- brz21_SWmax %>% 
+  filter(dam_count_beav_all == 1) %>% 
+  pull(TP_ID)
+
+brz21_damIDs_bvConf <- brz21_SWmax %>% 
+  filter(dam_count_beav_conf == 1) %>% 
+  pull(TP_ID)
+
+brz21_damIDs_anthro <- brz21_SWmax %>% 
+  filter(dam_count_anthro == 1 |
+           isAnthro == 1) %>% 
+  pull(TP_ID)
+```
+
+<!---
+
+```{r,include=FALSE}
+# ~~~~ 1-D K-Dist EPSILON OPTIMIZATION ~~~~~~~ #
+# Rahmah and Sitanggang (2016)
+
+# Function to compute 1-D k-distance (k = 2 recommended for minPts = 1)
+brz_compute_kdist_1d <- function(tp_ids, k = 2) {
+  tp_ids <- sort(tp_ids)
+  n <- length(tp_ids)
+  kdist <- numeric(n)
+  
+  for (i in seq_len(n)) {
+    dists <- abs(tp_ids[i] - tp_ids[-i])  # bidirectional 1-D distance
+    dists <- sort(dists)
+    kdist[i] <- dists[k]                  # k-th nearest neighbor
+  }
+  
+  sort(kdist)
+}
+
+tp_sorted   <- sort(brz21_damIDs_bvAll)
+spacing     <- diff(tp_sorted)
+
+eps_opt_TPID <- median(spacing)  # or 2 * median(spacing)
+
+eps_opt_TPID
+
+
+# ---------------------------------------------------------------------------
+
+kdist_sorted <- brz_compute_kdist_1d(brz21_damIDs_bvAll, k = 2)
+
+kdist_df <- tibble(
+  index = seq_along(kdist_sorted),
+  kdist = kdist_sorted
+)
+
+ggplot(kdist_df, aes(x = index, y = kdist)) +
+  geom_line(color = "steelblue", linewidth = 1) +
+  geom_point(size = 1.2, color = "steelblue") +
+  geom_hline(yintercept = eps_opt_TPID, 
+             color = "red", linetype = "dashed", linewidth = 1) +
+  annotate("text", 
+           x = max(kdist_df$index) * 0.8, 
+           y = eps_opt_TPID, 
+           label = paste0("eps_opt (median) = ", round(eps_opt_TPID, 2)),
+           vjust = -0.5, color = "red") +
+  labs(
+    title = "1-D k-Distance Curve (k = 2)",
+    x = "Sorted Point Index",
+    y = "k-Distance"
+  ) +
+  theme_minimal(base_size = 14)
+
+```
+--->
+
+
+```{r,echo=FALSE}
+
+# Get only elligible beaver dams; those outside the potential impact of anthro impoundments
+
+#Determine 500m buffers up and down from each anthro cluster; NO 'undammed' within this zone
+
+brz21_anthro_influence_500 <- unique(unlist(
+  lapply(brz21_damIDs_anthro,
+         function(x) seq(x - 50, x + 50))  
+))
+
+brz21_damIDs_bvEligible <- brz21_damIDs_bvAll[!brz21_damIDs_bvAll %in% brz21_anthro_influence_500]
+
+
+# 2. Convert to matrix (dbscan requires matrix input)
+brz21_dam_mat <- matrix(brz21_damIDs_bvEligible, ncol = 1)
+
+# 3. Run DBSCAN
+brz21_db <- dbscan(
+  brz21_dam_mat,
+  eps = 25,        #Test with 25 and with 10; bidirectional
+  minPts = 1       #min(cluster) = 1 dam; this ensures that isolated dams are still included
+)
+
+# 3b. Build a dataframe of dammed rows + cluster IDs
+brz21_dammed_df <- brz21_SWmax %>%
+  filter(TP_ID %in% brz21_damIDs_bvEligible) %>%   # only eligible BV dams
+  arrange(TP_ID) %>%                              # ensure same order as DBSCAN input
+  mutate(clusterID_dbscan = brz21_db$cluster)
+
+# 5. Compute # of dams per cluster
+brz21_damClusterCount <- brz21_dammed_df %>%
+  filter(dam_count_beav_all == 1) %>%
+  count(clusterID_dbscan, name = "cluster_dam_count")
+
+brz21_dammed_df <- brz21_dammed_df %>%
+  left_join(brz21_damClusterCount, by = "clusterID_dbscan")
+
+# 6. Compute Stream Length per Cluster
+brz_streamPerCluster <- brz21_dammed_df %>%
+  filter(dam_count_beav_all == 1) %>%
+  group_by(clusterID_dbscan) %>%
+  summarise(cluster_start = min(TP_ID),
+            cluster_end   = max(TP_ID+5),
+            cluster_length_TPID = ((cluster_end - cluster_start))*10,
+            .groups = "drop"
+            ) %>% 
+  arrange(cluster_start)  %>%        # downstream → upstream
+  mutate(clusterID_seq = row_number()) # make sure that clusterID is in order from downstream to upstream
+
+
+brz21_dammed_df <- brz21_dammed_df %>%
+  left_join(brz_streamPerCluster %>% select(clusterID_dbscan, 
+                                           clusterID_seq,
+                                           cluster_start,
+                                           cluster_end),
+    by = "clusterID_dbscan")
+```
+
+----
+
+
+VISUALIZE RAW DAM CLUSTERS:
+----
+
+5. Plot sample regions for Brazil Creek 2021 on a map:
+----
+
+```{r, echo=FALSE, warning=FALSE, fig.width=10, fig.height=10}  
+# Join geometries to polygons with data
+brz_dam_map_21 <- brz21_dammed_df %>% 
+  left_join(brzRiparianGeometries, by = "TP_ID") %>% 
+  st_as_sf() #make it a valid sf object for mapping
+
+brz_points_21 <- st_centroid(brz_dam_map_21)
+
+
+#ggplot(brz_points_21) +
+#  geom_sf(aes(color = factor(clusterID_seq))) +
+#  theme_minimal() 
+
+
+
+pal <- colorFactor(
+  palette = colorRampPalette(RColorBrewer::brewer.pal(12, "Paired"))(length(unique(brz_points_21$clusterID_seq))),
+  domain = brz_points_21$clusterID_seq
+)
+
+leaflet(brz_points_21) %>%
+  addProviderTiles(providers$USGS.USImageryTopo) %>%
+  addCircleMarkers(
+    radius = 5,
+    color = ~pal(clusterID_seq),
+    fillOpacity = 0.9,
+    stroke = FALSE,
+    popup = ~paste0(
+      "<b>TP_ID:</b> ", TP_ID, "<br>",
+      "<b>Cluster:</b> ", clusterID_seq)
+  ) %>%
+  addLegend("bottomright", pal = pal, values = brz_points_21$clusterID_seq, title = "Cluster") %>%
+  addScaleBar(
+    position = "bottomleft",
+    options = scaleBarOptions(
+      maxWidth = 200,
+      metric = TRUE,
+      imperial = FALSE,
+      updateWhenIdle = TRUE
+    )
+  )
+```
+
+color: cluster;
+----
+--->
+
+----
+
+DEFINE PAIRED UNDAMMED REACHES:
+----
+
+    - Undammed sample reaches must be:
+      - interspersed between dammed reaches
+      - (>=) 500m from nearest dam
+      - 'paired' with a nearby dam cluster
+      - (>=) 250m from nearest undammed (forced thinning post-pairing)
+
+```{r,echo=FALSE}
+brz21_dam_min <- min(brz21_dammed_df$TP_ID) #Find min/max dammed TP_ID to intersperse undammed among
+brz21_dam_max <- max(brz21_dammed_df$TP_ID)
+
+
+
+#Determine 500m buffers up and down from each dammed cluster; NO 'undammed' within this zone
+brz21_dam_influence_500 <- unique(unlist(
+  apply(brz21_dammed_df[, c("cluster_start", "cluster_end")], 1, function(row) {
+    seq(row["cluster_start"] - 50,
+        row["cluster_end"]   + 50)
+  })
+))    
+
+#Get all available Riparian Polygons (excludes reservoir-affected)
+brz21_all_tpids <- sort(unique(brz21_SWmax$TP_ID))  
+
+#Ensure interspersion of undammed within dammed sites
+brz21_inRange_tpids <- brz21_all_tpids[brz21_all_tpids >= brz21_dam_min & brz21_all_tpids <= brz21_dam_max]
+
+#Get only riparian polygons that are not inside the dam or anthro influence zone (cluster+-500m)
+brz21_eligible_undammed_tpids <- brz21_inRange_tpids[(!brz21_inRange_tpids %in% brz21_dam_influence_500) &
+                                                     (!brz21_inRange_tpids %in% brz21_anthro_influence_500)]
+
+#Get cluster start point for each dammed cluster
+brz21_dam_clusters <- brz21_dammed_df %>%
+  distinct(clusterID_seq, 
+           cluster_start, 
+           cluster_end, 
+           cluster_dam_count) %>%
+  arrange(clusterID_seq)
+
+
+#PROXIMITY BASED PAIRING
+#Define available undammed reaches to sample
+brz21_remaining_undammed <- brz21_eligible_undammed_tpids
+
+#Define undammed reaches that have been matched with dammed clusters
+brz21_assigned_matches <- integer(nrow(brz21_dam_clusters)) #get 1 undammed for each dammed
+
+# Iterate through dammed clusters
+for (i in seq_len(nrow(brz21_dam_clusters))) {
+  # find cluster start
+  cs <- brz21_dam_clusters$cluster_start[i]
+  
+  # find nearest remaining undammed site
+  idx <- which.min(abs(brz21_remaining_undammed - cs))
+  match <- brz21_remaining_undammed[idx]
+  
+  brz21_assigned_matches[i] <- match
+  
+  # remove it so it cannot be reused
+  brz21_remaining_undammed <- brz21_remaining_undammed[-idx]
+}
+
+#Create table to visualize and gut check matches
+brz21_pairings <- brz21_dam_clusters %>%
+  mutate(undam_match = brz21_assigned_matches) %>%
+  left_join(brz21_dammed_df %>%
+              group_by(clusterID_seq) %>%
+              summarise(dam_window_length_tpid = max(cluster_end) - min(cluster_start),
+                        .groups = "drop"),
+            by = "clusterID_seq") %>%
+  mutate(undam_window_start = undam_match,
+         undam_window_end   = undam_match + dam_window_length_tpid
+  )
+
+# THIN UNDAMMED WINDOWS *AFTER* WINDOW LENGTH IS KNOWN ---------------
+
+brz21_pairings <- brz21_pairings %>% arrange(undam_window_start)
+
+thinned <- list()
+last_end <- -Inf
+
+for (i in seq_len(nrow(brz21_pairings))) {
+  start_i <- brz21_pairings$undam_window_start[i]
+  end_i   <- brz21_pairings$undam_window_end[i]
+  
+  if (start_i >= last_end + 25) {   # enforce 250-m spacing
+    thinned <- append(thinned, i)   # NOTE: ^ no diff. than 100-m on brz21
+    last_end <- end_i
+  }
+}
+
+brz21_pairings <- brz21_pairings[unlist(thinned), ]
+
+# Now combine dammed and undammed windows into a unified table and select only those windows from the main dataframe
+brz21_dammed_windows <- brz21_pairings %>%
+  transmute(
+    clusterID_seq,
+    window_type = "dammed",
+    window_start = cluster_start,
+    window_end   = cluster_end,
+    window_length = (window_end - window_start)*10,
+    dam_intensity = cluster_dam_count
+  )
+
+brz21_undammed_windows <- brz21_pairings %>% 
+  transmute(
+    clusterID_seq,
+    window_type = "undammed",
+    window_start = undam_match,
+    window_end   = undam_match + dam_window_length_tpid,
+    window_length = dam_window_length_tpid * 10,
+    dam_intensity = 0
+  )
+
+brz21_all_windows <- bind_rows(
+  brz21_dammed_windows,
+  brz21_undammed_windows
+)
+
+brz21_sampled <- brz21_SWmax %>%
+  cross_join(brz21_all_windows) %>%   # explicit Cartesian join
+  filter(
+    TP_ID >= window_start,
+    TP_ID <= window_end
+  )
+```
+
+Double check even sampling between dammed and undammed windows from thinned data frame:
+
+    12 DAMMED
+
+    12 UNDAMMED
+
+```{r,echo=FALSE}
+length(brz21_pairings$clusterID_seq)
+```
+
+
+
+Plot sample regions for Brazil Creek 2021 on a map:
+----
+
+```{r, echo=FALSE,warning=FALSE,fig.width=10, fig.height=10}
+# Join geometries to polygons with data
+brz_samples_21 <- brz21_sampled %>%
+  left_join(brzRiparianGeometries, by = "TP_ID") %>% 
+  st_as_sf() #restore sf class for mapping
+
+
+brz_SampleReaches_21 <- st_centroid(brz_samples_21)
+
+
+# Color palette for clusters
+cluster_palette <- colorFactor(
+  palette = colorRampPalette(RColorBrewer::brewer.pal(12, "Paired"))(43),
+  domain = brz_SampleReaches_21$clusterID_seq
+)
+
+
+leaflet(brz_SampleReaches_21) %>%
+  addProviderTiles(providers$USGS.USImageryTopo) %>%
+
+  #Undammed (black)
+  addCircleMarkers(
+    data = subset(brz_SampleReaches_21, window_type == "undammed"),
+    radius = 6,
+    fillColor = "black",
+    fillOpacity = 0.9,
+    color = "black",
+    weight = 1,
+    popup = ~paste0(
+      "<b>TP_ID:</b> ", TP_ID, "<br>",
+      "<b>Cluster:</b> ", clusterID_seq, "<br>",
+      "<b>Type:</b> Undammed"
+    )
+  ) %>%
+
+  #Dammed (colored by cluster ID)
+  addCircleMarkers(
+    data = subset(brz_SampleReaches_21, 
+                  window_type == "dammed"),
+    radius = 6,
+    fillColor = ~cluster_palette(clusterID_seq),
+    fillOpacity = 0.9,
+    color = "black",
+    weight = 1,
+    popup = ~paste0(
+      "<b>TP_ID:</b> ", TP_ID, "<br>",
+      "<b>Cluster:</b> ", clusterID_seq, "<br>",
+      "<b>Type:</b> Dammed"
+    )
+  ) %>%
+# Legend for dammed clusters only
+  addLegend(
+    "bottomleft",
+    pal = cluster_palette,
+    values = subset(brz_SampleReaches_21, window_type == "dammed")$clusterID_seq,
+    title = "Dammed Cluster ID"
+  ) %>%
+
+  addScaleBar(
+    position = "bottomright",
+    options = scaleBarOptions(
+      maxWidth = 200,
+      metric = TRUE,
+      imperial = FALSE,
+      updateWhenIdle = TRUE
+    )
+  )
+
+```
+
+
+Finalize df by computing Nhat, TO, RIPA, SWA for each sample window:
+----
+<!---
+NOTE:
+
+    "Nhat" is the estimated dam count w/in sample window
+
+    Computed as:
+    
+  $$\hat{N} = \displaystyle \frac{\sum(C)}{\mu(p)*(1-\mu(f))} $$
+
+    Where:
+    
+    - $\hat{N}$ is the estimated dam count, given det. and fp det. probabilities
+    - $\sum(C)$ is the sum of raw dam counts for all Thiessen polygons in a given sample window
+    - $\mu(p)$ is the average detection probability for a given sample window
+    - $\mu(f)$ is the average false positive probability for a given sample window
+    
+    [adapted from McCallum 2005; *Equation 1:* $\hat{N} = \displaystyle \frac{C}{\hat{p}}$; included term to consider false positive detection probability, and iterate across window[w]]
+    
+--->
+
+```{r,echo=FALSE,warning=FALSE}
+brz21_sampled$clusterID_seq <- as.factor(brz21_sampled$clusterID_seq)
+brz21_sampled$window_type <- as.factor(brz21_sampled$window_type)
+
+brz21_final <- brz21_sampled %>%
+  select(clusterID_seq, 
+         window_type,
+         dam_count_beav_all,
+         dam_count_beav_conf,
+         dam_count_anthro,
+         p,
+         f, 
+         TO,
+         riparian_area_m2,
+         starts_with("SWA_t"),
+         starts_with("containsNull")
+  ) %>%
+  group_by(clusterID_seq, window_type) %>%
+  summarize(
+    # Nhat components
+    sum_c = sum(dam_count_beav_all, na.rm = TRUE),
+    mean_p = mean(p, na.rm = TRUE),
+    mean_f = mean(f, na.rm = TRUE),
+    Nhat = sum_c / (mean_p * (1 - mean_f)),
+
+    # TO
+    TO_mean = mean(TO, na.rm = TRUE),
+
+    # Riparian area
+    riparian_area_sum = sum(riparian_area_m2, na.rm = TRUE),
+
+    # SWA across time periods
+    across(starts_with("SWA_t"), ~ sum(.x, na.rm = TRUE), .names = "sum_{.col}"),
+
+    # Null flag across ANY time period
+    contains_null = any(c_across(starts_with("containsNull")) == 1),
+
+    .groups = "drop"
+  )
+
+
+#hist(unique(brz21_final$Nhat))
+
+# MAKE LONG FORMAT for plotting and such
+brz21_final_long <- brz21_final %>%
+  pivot_longer(
+    cols = starts_with("sum_SWA_t"),
+    names_to = "time_period",
+    values_to = "SWA"
+  ) %>%
+  mutate(
+    t = as.factor(gsub("sum_SWA_t", "", time_period))
+  )
+
+```
+
+
+```{r,echo=FALSE,warning=FALSE, fig.width=8, fig.height=4, fig.align='center'}
+brz21_damcounts <- brz21_final %>%
+  filter(window_type == "dammed") %>%
+  select(clusterID_seq, sum_c)
+
+brz21_damcounts <- brz21_damcounts %>%
+  mutate(sum_c = factor(sum_c),
+         clusterID_seq = factor(clusterID_seq))
+
+ggplot(brz21_damcounts,
+       aes(x = sum_c,
+           fill = factor(clusterID_seq))) +
+  geom_bar(color = "black", width = 0.8) +
+  scale_fill_manual(
+    values = colorRampPalette(RColorBrewer::brewer.pal(12, "Paired"))(12),
+    name = "Cluster ID"
+  ) +
+  labs(
+    x = "Dam Count per Cluster Window",
+    y = "Number of Dammed Clusters",
+    title = "Distribution of Dam Counts Across Sampled Dammed Clusters",
+    subtitle = "n = 12 Dammed clusters"
+  ) +
+  theme_bw(base_size = 14) +
+  theme(
+    legend.position = "right",
+    panel.grid.minor = element_blank()
+  )
+
+```
+
+
+
+Compare SWA across time periods for undammed,  and dammed windows:
+----
+
+```{r,echo=FALSE,warning=FALSE, fig.width=8, fig.height=4, fig.align='center'}
+#Plot boxplot:
+
+ggplot(brz21_final_long,
+       aes(x = t,
+           y = SWA,
+           fill = window_type)) +
+  geom_boxplot(outlier.size = 0.4, alpha = 0.8) + 
+  scale_fill_manual(values = c("undammed" = "steelblue",
+                               "dammed"   = "brown")) +
+  labs(
+    x = "Time period (t)",
+    y = "Surface Water Area (SWA) (m^2)",
+    fill = "Sample Window Type",
+    title = "Surface Water Area by Dam Status",
+    subtitle = "Brazil Creek 2021"
+  ) +
+  theme_bw(base_size = 14)
+```
+
+----
+
+Ensure that dam categories span relatively similar riparian areas:
+----
+
+Riparian Area (m^2) ~ Dam Status
+
+```{r, echo=FALSE, fig.width=8, fig.height=4, fig.align='center'}
+ggplot(brz21_final_long,
+       aes(x = window_type,
+           y = riparian_area_sum,
+           fill = window_type)) +
+  geom_boxplot(outlier.size = 0.4, alpha = 0.8) + 
+  scale_fill_manual(values = c("undammed" = "steelblue",
+                               "dammed"   = "brown")) +
+  labs(
+    x = "Time period (t)",
+    y = "Riparian Area (m^2)",
+    fill = "Sample Window Type",
+    title = "Riparian Area by Dam Status",
+    subtitle = "Brazil Creek 2021"
+  ) +
+  theme_bw(base_size = 14)
+```
+
+----
+
+Ensure that dam categories span relatively similar TO:
+----
+
+TO ~ Dam Status
+
+```{r, echo=FALSE, fig.width=8, fig.height=4, fig.align='center'}
+ggplot(brz21_final_long,
+       aes(x = window_type,
+           y = TO_mean,
+           fill = window_type)) +
+  geom_boxplot(outlier.size = 0.4, alpha = 0.8) + 
+  scale_fill_manual(values = c("undammed" = "steelblue",
+                               "dammed"   = "brown")) +
+  labs(
+    x = "Time period (t)",
+    y = "Topographic Openness",
+    fill = "Sample Window Type",
+    title = "TO by Dam Status",
+    subtitle = "Brazil Creek 2021"
+  ) +
+  theme_bw(base_size = 14)
+```
+
+
+```{r,include=FALSE}
+write.csv(brz21_final_long, "C:\\Users\\mattw\\OneDrive\\Desktop\\UMT\\Data\\GEE\\Paired_SWA_Sampling_AOI_2021\\BRZ_2021_DF_Final_Long.csv", row.names=FALSE)
+```
+
+----
+  
+----
+
+----
+
+----
+
+----
+
+
+
+
+----  
+
+4) LARB CREEK; 2021
+----
+
+----
+
+```{r, echo=FALSE}
+lrb_swData21 <- read.csv("lrb_SW_21_031626.csv")
+
+lrb_SW_21 <- lrb_swData21[,c(2:20)]
+colnames(lrb_SW_21)[1] <- "TP_ID"
+
+# Collapse duplicate rows caused by TP overlap:
+lrb_SW_21_collapsed <- lrb_SW_21 %>%
+  group_by(TP_ID) %>%
+  summarise(
+    # sum all SWA_t columns
+    across(starts_with("SWA_t"), ~ sum(.x, na.rm = TRUE)),
+    
+    # sum all containsNull_t columns
+    across(starts_with("containsNull_t"), ~ sum(.x, na.rm = TRUE)),
+    
+    # sum riparian area
+    riparian_area_m2 = sum(riparian_area_m2, na.rm = TRUE),
+
+    .groups = "drop"
+  )
+
+lrbRiparianGeometries <- st_read("LRB_RIP_GEOMS.shp") %>% 
+  st_make_valid() %>% 
+  select(Input_FID,
+         geometry) %>% 
+  rename(TP_ID = Input_FID) %>% 
+  st_transform(4326) %>% 
+  filter(TP_ID != 4271)
+
+```
+
+```{r,echo=FALSE}
+################################################################################
+# Visualize spread of SWA across riparian polygons (n=10892)
+lrbsw21 <- lrb_SW_21_collapsed[,2:9]
+colnames(lrbsw21) <- c("t1","t2","t3","t4","t5","t6","t7","t8")
+                 
+boxplot(lrbsw21,
+        xlab = "Time Period (t)",
+        ylab = "Surface Water Area (m^2)")
+
+title(main = "2021 Surface Water Area (m^2) in riparian polygons",
+        sub = "n = 4200 riparian polygons")
+#str(lrb_SW_21)
+```
+
+----
+
+    - Combine TP derived data with dynOcc data
+
+    - Get detection and false positive data
+
+```{r,echo=FALSE}
+# Read in detection and false positive data
+# This data will be used to estimate damIntensity within a given dammed cluster
+# Nhat = sum(rawDams)/mean(p)*(1-mean(f))
+aoi_detData21 <- read.csv("site_year_detection_falsepositive_probs.csv") %>%
+  filter(year=="2021")
+
+colnames(aoi_detData21) <- c("unique_ID",
+                    "Year",
+                    "p",
+                    "f")
+
+lrb_detData21 <- aoi_detData21 %>% 
+  filter(str_detect(unique_ID,"LRB"))
+
+#hist(lrb2021$p,
+#     xlab = "Detection Probability (p)")
+
+#title(sub = "n = 1401 Grid Cells from CP DynOcc Analysis")
+
+##############################
+
+#hist(lrb2021$f,
+#     xlab = "Detection Probability (f)")
+
+#title(sub = "n = 1401 Grid Cells from CP DynOcc Analysis")
+
+```
+
+    - Get UDA from dynOcc gridcells; Combine with detection data & dam count data
+
+```{r, echo=FALSE}
+# Read in csv of thiessen polygons representing the riparian corridor with dam count data, and attach data from lrb21, re: detection and false positives from dynOcc
+
+lrb_dynOccGC_UDA <- read.csv("dynOccData_2021_oct7.csv") %>% 
+  filter(Stream == "LRB") %>% 
+  select(unique_ID,
+         catchment_km2) #Get contributing drainage area for each dynOcc grid cell
+
+lrb_TP_Dams_21 <- read.csv("lrb_wGCID_wDamCount_2021.csv") 
+colnames(lrb_TP_Dams_21) <- c("systemIndex",
+                             "TP_ID",
+                             "unique_ID",
+                             "dam_count_beav_all",
+                             "dam_count_anthro",
+                             "dam_count_beav_conf",
+                             ".geo") 
+lrb_TP_Dams_21 <- lrb_TP_Dams_21 %>%
+  mutate(unique_ID = str_replace(unique_ID, "lrb", "LRB"))
+                             
+#'unique_ID' refers to the id of the dynOcc grid cell that a particular tPoly is closest to
+lrb_newPolys_21 <- lrb_TP_Dams_21 %>% 
+  left_join(lrb_detData21, by = "unique_ID") %>%  #add detection data
+  left_join(lrb_dynOccGC_UDA, by = "unique_ID") %>%  #add grid cell level data
+  select(Year,        #2021
+         unique_ID,   #Nearest GridCell ID (DynOcc)
+         TP_ID,       #RiparianPolygon ID
+         dam_count_beav_all,   #Beaver dam count per TP_ID; all confidence scores
+         dam_count_beav_conf,  #Beaver dam count per TP_ID; ONLY confident (2)
+         dam_count_anthro,     #Anthro dam count per TP_ID; all
+         p,           #Detection Prob for nearest GC
+         f,           #False Positive Prob for nearest GC
+         catchment_km2) #Contributing drainage area for nearest GC
+  
+
+#Condense duplicated rows created by TP overlap
+lrb_newPolys_21_collapsed <- lrb_newPolys_21 %>%
+  group_by(TP_ID) %>%
+  summarise(Year = first(Year),
+            unique_ID = first(unique_ID),
+            
+            # sum dam counts
+            dam_count_beav_all  = sum(dam_count_beav_all, na.rm = TRUE),
+            dam_count_beav_conf = sum(dam_count_beav_conf, na.rm = TRUE),
+            dam_count_anthro    = sum(dam_count_anthro, na.rm = TRUE),
+           
+             # mean geomorphic / hydrologic variables
+            p = mean(p, na.rm = TRUE),
+            f = mean(f, na.rm = TRUE),
+            catchment_km2  = mean(catchment_km2, na.rm = TRUE),
+            
+            .groups = "drop"
+  ) %>% 
+  filter(TP_ID!=4271)
+
+
+#Trim down ^
+lrb_riparianSampleAreas_21 <- lrb_newPolys_21_collapsed %>% 
+  select(Year,
+         unique_ID,
+         TP_ID,
+         dam_count_beav_all,
+         dam_count_beav_conf,
+         dam_count_anthro,
+         p,
+         f,
+         catchment_km2)
+
+#head(lrb_riparianSampleAreas_21)
+#str(lrb_riparianSampleAreas_21)
+```
+
+    - Add Topographic Openness data
+      - TO (positive) is the mean() of azimuth angles from each of 8 intercardinal directions
+  
+
+```{r, echo=FALSE}
+# Bring Topographic Openness into the mix:
+#### TO is an approximate measure of stream channel confinement
+#### TO has been computed for each riparian polygon (thiessen 10m) along Willow Ck
+
+lrb_data_TO <- read.csv("lrb_riparian_wTO.csv") %>% 
+  distinct(TP_ID, .keep_all = TRUE)
+
+lrb_data_meanTO <- lrb_data_TO %>% 
+  mutate(meanTO = rowMeans(select(.,     #Compute mean(TO) for each RipPoly
+                                  E,     #mean() TO of all 8 intercardinal 
+                                  N,     #directions
+                                  NE,
+                                  NW,
+                                  S,
+                                  SE,
+                                  SW,
+                                  W))) 
+
+lrb_meanTO_trim <- lrb_data_meanTO %>% 
+  select(TP_ID,E,N,NE,NW,S,SE,SW,W,meanTO)
+
+colnames(lrb_meanTO_trim) <- c("TP_ID","E","N","NE","NW","S","SE","SW","W","TO")
+```
+
+```{r, echo=FALSE}
+# Join TO data to riparian polygon data (w/ p, f, damCount)
+lrb_ripAreas_wTO_21 <- lrb_riparianSampleAreas_21 %>% 
+  left_join(lrb_meanTO_trim, by = "TP_ID") %>% 
+  select(Year,
+         unique_ID,
+         TP_ID,
+         dam_count_beav_all,
+         dam_count_beav_conf,
+         dam_count_anthro,
+         p,
+         f,
+         catchment_km2,
+         TO)
+
+```
+
+    - Add riparian area, surface water data, and null pixel data for each polygon:
+
+```{r,echo=FALSE}
+# RIPARIAN AREA (m^2) for each thiessen polygon
+lrb_TP_wRIPA <- lrb_SW_21_collapsed %>% 
+  select(TP_ID,
+         riparian_area_m2)
+# WATER
+lrb_SWdata_2021 <- lrb_SW_21_collapsed[,1:9]
+
+# NULL PIXELS
+lrb_Nulldata_2021 <- lrb_SW_21_collapsed[,c(1,10:17)] 
+
+# Add them to the dataFrame
+lrb_2021 <- lrb_ripAreas_wTO_21 %>% 
+  left_join(lrb_TP_wRIPA, by="TP_ID") %>% 
+  left_join(lrb_SWdata_2021, by="TP_ID") %>% 
+  left_join(lrb_Nulldata_2021, by="TP_ID")
+```
+
+    - Data frame structure:
+
+    - Year = year
+    - unique_ID = ID of the nearest dynOcc grid cell to each riparian polygon
+    - TP_ID = ID of the current riparian polygon ('tp' = 'thiessen polygon')
+    - dam_count = raw count of unique dams in each riparian polygon
+    - p = P(dam detection) for nearest grid cell to current riparian polygon
+    - f = P(false positive dam detection) for nearest grid cell to current riparian polygon
+    - catchment_km2 = upstream drainage area for nearest dynOcc grid cell to current riparian polygon
+    - TO = topographic openness for current riparian polygon
+    - riparian_area_m2 = area in m^2 of the current riparian polygon
+    - SWA_t : surface water area of polygon at time t
+    - containsNull_t : 0,1 contains null pixels at time t
+
+```{r, echo=FALSE}
+#str(lrb_2021)
+```
+
+----
+
+NOTE: where hasNull = '1', SWA = 'NA'
+
+```{r,echo=FALSE}
+lrb21_nulls <- lrb_2021 %>%
+  mutate(across(
+    .cols = starts_with("SWA_t"),
+    .fns  = ~ ifelse(
+      lrb_2021[[str_replace(cur_column(), "SWA", "containsNull")]] == 1,
+      NA,
+      .
+    )
+  ))
+
+
+#str(lrb21_nulls)
+```
+
+Time period 5 is the only one in 2021 that has issues with masked/null pixels:
+
+----
+
+
+```{r, echo=FALSE}
+# Assess the max SWA for each row/window across time periods in 2021:
+
+lrb21_SWmax <- lrb21_nulls %>% 
+  mutate(SWmax = NA) 
+
+lrb21_SWmax$SWmax <- apply(
+  lrb21_SWmax[, paste0("SWA_t", 1:8)],
+  1,
+  max,
+  na.rm = TRUE
+)
+
+#hist(lrb21_SWmax$SWmax,
+ #    xlab = "SurfaceWaterMax of window[w]")
+
+#title(sub = "n = 10892 windows")
+
+
+#summary(lrb21_SWmax$SWmax)
+```
+
+<!---
+----
+
+Time[t] at which max SWA was achieved in 2021
+----
+```{r, echo=FALSE}
+# Identify the SWA columns
+lrb21_swa_cols <- paste0("SWA_t", 1:8) 
+
+# Compute t_MAX for each row
+lrb21_SWmax$t_MAX <- apply(
+  lrb21_SWmax[, lrb21_swa_cols],
+  1,
+  function(x) which.max(x)   # returns 1..8
+)
+
+####
+
+hist(lrb21_SWmax$t_MAX,
+     xlab = "TimePeriod [t] at SWmax for riparianPolygon [r]")
+
+title(sub = "n = 12748 polygons")
+```
+
+
+----
+
+Visualize data relationships:
+----
+
+----
+
+SWmax[w] ~ TO[w] 2021
+----
+
+SWmax does seem to be positively correlated with TO, though considerably weaker than 2019
+```{r, echo=FALSE}
+plot(lrb21_SWmax$SWmax ~ lrb21_SWmax$TO,
+     xlab = "mean(TO) of riparianPolygon[r]",
+     ylab = "SWmax of riparianPolygon[r]")
+title(main = "2021 Willow Creek (SWmax ~ TO)")
+```
+
+SWmax[w] ~ RiparianArea[w] 2021
+----
+
+SWmax is positively correlated with, and capped by riparian Area, though weaker than 2019
+```{r, echo=FALSE}
+plot(lrb21_SWmax$SWmax ~ lrb21_SWmax$riparian_area_m2,
+     xlab = "mean(RiparianArea) of riparianPolygon[r]",
+     ylab = "SWmax of riparianPolygon[r]")
+title(main = "2021 Willow Creek (SWmax ~ Area)")
+```
+--->
+
+----
+
+----
+
+----
+
+now dams..
+
+----
+
+----
+
+----
+  
+IDENTIFY Anthro Dams/Reservoirs
+----
+<!---
+    Reservoirs confound the potential effect of beaver dams on surface water by creating artificially flat open floodplains which allows LARGE amounts of water to pond. Additionally, active reservoirs are managed such that there is very little variation in SWA. Conditions experienced in these zones are not topographically or hydrologically consistent with the 'natural' stream conditions experienced in our study area. We want to compare beaver dammed to undammed **without** the potential influence of anthropogenic reservoirs.
+
+    Reservoirs were identified using the National Wetland Inventory data in ArcGIS Pro. "Attribute" codes that end with 'h' are categorized as "dyked/impounded". If a riparian polygon was within 50m of a dyked/impounded NWI polygon, it is deemed 'affected' by the anthropogenic impoundment.
+    
+    All affected polygons are assigned "isAnthro = 1". This designation will be builrb into the dam clustering / sample reach delineation
+--->
+
+```{r,echo=FALSE}
+# ONCE CREATED, CHECK: length(lrb21_anthro_influence_500)/nrow(lrb_SW_21_collapsed)
+```
+Larb Tree Ck: **~ 31 %** of riparian polygons are/were anthropogenically impounded
+
+NWI IS NOT PERFECT
+
+```{r, echo=FALSE}
+lrb_anthroDammed <- read.csv("lrb_RIP_isAnthro.csv")
+
+colnames(lrb_anthroDammed) <- c("TP_ID", "isAnthro")
+
+lrb_anthroDammed <- lrb_anthroDammed %>%
+  group_by(TP_ID) %>% 
+  summarise(isAnthro = first(isAnthro))  %>% 
+  filter(TP_ID!=4271)
+```
+
+```{r,echo=FALSE}
+# 1. Add anthroDammed to swMax
+lrb21_SWmax <- lrb21_SWmax %>%
+  left_join(lrb_anthroDammed,
+            by = "TP_ID")
+```
+
+
+
+DETERMINE DAM CLUSTERS
+----
+
+
+```{r,echo=FALSE}
+# 1. Extract dammed TP_IDs as a numeric vector
+lrb21_damIDs_bvAll <- lrb21_SWmax %>% 
+  filter(dam_count_beav_all == 1) %>% 
+  pull(TP_ID)
+
+lrb21_damIDs_bvConf <- lrb21_SWmax %>% 
+  filter(dam_count_beav_conf == 1) %>% 
+  pull(TP_ID)
+
+lrb21_damIDs_anthro <- lrb21_SWmax %>% 
+  filter(dam_count_anthro == 1 |
+           isAnthro == 1) %>% 
+  pull(TP_ID)
+```
+
+<!---
+
+```{r,include=FALSE}
+# ~~~~ 1-D K-Dist EPSILON OPTIMIZATION ~~~~~~~ #
+# Rahmah and Sitanggang (2016)
+
+# Function to compute 1-D k-distance (k = 2 recommended for minPts = 1)
+lrb_compute_kdist_1d <- function(tp_ids, k = 2) {
+  tp_ids <- sort(tp_ids)
+  n <- length(tp_ids)
+  kdist <- numeric(n)
+  
+  for (i in seq_len(n)) {
+    dists <- abs(tp_ids[i] - tp_ids[-i])  # bidirectional 1-D distance
+    dists <- sort(dists)
+    kdist[i] <- dists[k]                  # k-th nearest neighbor
+  }
+  
+  sort(kdist)
+}
+
+tp_sorted   <- sort(lrb21_damIDs_bvAll)
+spacing     <- diff(tp_sorted)
+
+eps_opt_TPID <- median(spacing)  # or 2 * median(spacing)
+
+eps_opt_TPID
+
+
+# ---------------------------------------------------------------------------
+
+kdist_sorted <- lrb_compute_kdist_1d(lrb21_damIDs_bvAll, k = 2)
+
+kdist_df <- tibble(
+  index = seq_along(kdist_sorted),
+  kdist = kdist_sorted
+)
+
+ggplot(kdist_df, aes(x = index, y = kdist)) +
+  geom_line(color = "steelblue", linewidth = 1) +
+  geom_point(size = 1.2, color = "steelblue") +
+  geom_hline(yintercept = eps_opt_TPID, 
+             color = "red", linetype = "dashed", linewidth = 1) +
+  annotate("text", 
+           x = max(kdist_df$index) * 0.8, 
+           y = eps_opt_TPID, 
+           label = paste0("eps_opt (median) = ", round(eps_opt_TPID, 2)),
+           vjust = -0.5, color = "red") +
+  labs(
+    title = "1-D k-Distance Curve (k = 2)",
+    x = "Sorted Point Index",
+    y = "k-Distance"
+  ) +
+  theme_minimal(base_size = 14)
+
+```
+--->
+
+
+```{r,echo=FALSE}
+
+# Get only elligible beaver dams; those outside the potential impact of anthro impoundments
+
+#Determine 500m buffers up and down from each anthro cluster; NO 'undammed' within this zone
+
+lrb21_anthro_influence_500 <- unique(unlist(
+  lapply(lrb21_damIDs_anthro,
+         function(x) seq(x - 50, x + 50))  
+))
+
+lrb21_damIDs_bvEligible <- lrb21_damIDs_bvAll[!lrb21_damIDs_bvAll %in% lrb21_anthro_influence_500]
+
+
+# 2. Convert to matrix (dbscan requires matrix input)
+lrb21_dam_mat <- matrix(lrb21_damIDs_bvEligible, ncol = 1)
+
+# 3. Run DBSCAN
+lrb21_db <- dbscan(
+  lrb21_dam_mat,
+  eps = 25,        #Test with 25 and with 10; bidirectional
+  minPts = 1       #min(cluster) = 1 dam; this ensures that isolated dams are still included
+)
+
+# 3b. Build a dataframe of dammed rows + cluster IDs
+lrb21_dammed_df <- lrb21_SWmax %>%
+  filter(TP_ID %in% lrb21_damIDs_bvEligible) %>%   # only eligible BV dams
+  arrange(TP_ID) %>%                              # ensure same order as DBSCAN input
+  mutate(clusterID_dbscan = lrb21_db$cluster)
+
+# 5. Compute # of dams per cluster
+lrb21_damClusterCount <- lrb21_dammed_df %>%
+  filter(dam_count_beav_all == 1) %>%
+  count(clusterID_dbscan, name = "cluster_dam_count")
+
+lrb21_dammed_df <- lrb21_dammed_df %>%
+  left_join(lrb21_damClusterCount, by = "clusterID_dbscan")
+
+# 6. Compute Stream Length per Cluster
+lrb_streamPerCluster <- lrb21_dammed_df %>%
+  filter(dam_count_beav_all == 1) %>%
+  group_by(clusterID_dbscan) %>%
+  summarise(cluster_start = min(TP_ID),
+            cluster_end   = max(TP_ID+5),
+            cluster_length_TPID = ((cluster_end - cluster_start))*10,
+            .groups = "drop"
+            ) %>% 
+  arrange(cluster_start)  %>%        # downstream → upstream
+  mutate(clusterID_seq = row_number()) # make sure that clusterID is in order from downstream to upstream
+
+
+lrb21_dammed_df <- lrb21_dammed_df %>%
+  left_join(lrb_streamPerCluster %>% select(clusterID_dbscan, 
+                                           clusterID_seq,
+                                           cluster_start,
+                                           cluster_end),
+    by = "clusterID_dbscan")
+```
+
+----
+
+
+VISUALIZE RAW DAM CLUSTERS:
+----
+
+5. Plot sample regions for Brazil Creek 2021 on a map:
+----
+
+```{r, echo=FALSE, warning=FALSE, fig.width=10, fig.height=10}  
+# Join geometries to polygons with data
+lrb_dam_map_21 <- lrb21_dammed_df %>%
+  left_join(lrbRiparianGeometries, by = "TP_ID") %>% 
+  st_as_sf()
+
+lrb_points_21 <- st_centroid(lrb_dam_map_21)
+
+
+#ggplot(lrb_points_21) +
+#  geom_sf(aes(color = factor(clusterID_seq))) +
+#  theme_minimal() 
+
+
+
+pal <- colorFactor(
+  palette = colorRampPalette(RColorBrewer::brewer.pal(12, "Paired"))(length(unique(lrb_points_21$clusterID_seq))),
+  domain = lrb_points_21$clusterID_seq
+)
+
+leaflet(lrb_points_21) %>%
+  addProviderTiles(providers$USGS.USImageryTopo) %>%
+  addCircleMarkers(
+    radius = 5,
+    color = ~pal(clusterID_seq),
+    fillOpacity = 0.9,
+    stroke = FALSE,
+    popup = ~paste0(
+      "<b>TP_ID:</b> ", TP_ID, "<br>",
+      "<b>Cluster:</b> ", clusterID_seq)
+  ) %>%
+  addLegend("bottomright", pal = pal, values = lrb_points_21$clusterID_seq, title = "Cluster") %>%
+  addScaleBar(
+    position = "bottomleft",
+    options = scaleBarOptions(
+      maxWidth = 200,
+      metric = TRUE,
+      imperial = FALSE,
+      updateWhenIdle = TRUE
+    )
+  )
+```
+
+color: cluster;
+----
+--->
+
+----
+
+DEFINE PAIRED UNDAMMED REACHES:
+----
+
+    - Undammed sample reaches must be:
+      - interspersed between dammed reaches
+      - (>=) 500m from nearest dam
+      - 'paired' with a nearby dam cluster
+      - (>=) 250m from nearest undammed (forced thinning post-pairing)
+
+```{r,echo=FALSE}
+lrb21_dam_min <- min(lrb21_dammed_df$TP_ID) #Find min/max dammed TP_ID to intersperse undammed among
+lrb21_dam_max <- max(lrb21_dammed_df$TP_ID)
+
+
+
+#Determine 500m buffers up and down from each dammed cluster; NO 'undammed' within this zone
+lrb21_dam_influence_500 <- unique(unlist(
+  apply(lrb21_dammed_df[, c("cluster_start", "cluster_end")], 1, function(row) {
+    seq(row["cluster_start"] - 50,
+        row["cluster_end"]   + 50)
+  })
+))    
+
+#Get all available Riparian Polygons (excludes reservoir-affected)
+lrb21_all_tpids <- sort(unique(lrb21_SWmax$TP_ID))  
+
+#Ensure interspersion of undammed within dammed sites
+lrb21_inRange_tpids <- lrb21_all_tpids[lrb21_all_tpids >= lrb21_dam_min & lrb21_all_tpids <= lrb21_dam_max]
+
+#Get only riparian polygons that are not inside the dam or anthro influence zone (cluster+-500m)
+lrb21_eligible_undammed_tpids <- lrb21_inRange_tpids[(!lrb21_inRange_tpids %in% lrb21_dam_influence_500) &
+                                                     (!lrb21_inRange_tpids %in% lrb21_anthro_influence_500)]
+
+#Get cluster start point for each dammed cluster
+lrb21_dam_clusters <- lrb21_dammed_df %>%
+  distinct(clusterID_seq, 
+           cluster_start, 
+           cluster_end, 
+           cluster_dam_count) %>%
+  arrange(clusterID_seq)
+
+
+#PROXIMITY BASED PAIRING
+#Define available undammed reaches to sample
+lrb21_remaining_undammed <- lrb21_eligible_undammed_tpids
+
+#Define undammed reaches that have been matched with dammed clusters
+lrb21_assigned_matches <- integer(nrow(lrb21_dam_clusters)) #get 1 undammed for each dammed
+
+# Iterate through dammed clusters
+for (i in seq_len(nrow(lrb21_dam_clusters))) {
+  # find cluster start
+  cs <- lrb21_dam_clusters$cluster_start[i]
+  
+  # find nearest remaining undammed site
+  idx <- which.min(abs(lrb21_remaining_undammed - cs))
+  match <- lrb21_remaining_undammed[idx]
+  
+  lrb21_assigned_matches[i] <- match
+  
+  # remove it so it cannot be reused
+  lrb21_remaining_undammed <- lrb21_remaining_undammed[-idx]
+}
+
+#Create table to visualize and gut check matches
+lrb21_pairings <- lrb21_dam_clusters %>%
+  mutate(undam_match = lrb21_assigned_matches) %>%
+  left_join(lrb21_dammed_df %>%
+              group_by(clusterID_seq) %>%
+              summarise(dam_window_length_tpid = max(cluster_end) - min(cluster_start),
+                        .groups = "drop"),
+            by = "clusterID_seq") %>%
+  mutate(undam_window_start = undam_match,
+         undam_window_end   = undam_match + dam_window_length_tpid
+  )
+
+# THIN UNDAMMED WINDOWS *AFTER* WINDOW LENGTH IS KNOWN ---------------
+
+lrb21_pairings <- lrb21_pairings %>% arrange(undam_window_start)
+
+thinned <- list()
+last_end <- -Inf
+
+for (i in seq_len(nrow(lrb21_pairings))) {
+  start_i <- lrb21_pairings$undam_window_start[i]
+  end_i   <- lrb21_pairings$undam_window_end[i]
+  
+  if (start_i >= last_end + 25) {   # enforce 250-m spacing
+    thinned <- append(thinned, i)   # NOTE: ^ no diff. than 100-m on lrb21
+    last_end <- end_i
+  }
+}
+
+lrb21_pairings <- lrb21_pairings[unlist(thinned), ]
+
+# Now combine dammed and undammed windows into a unified table and select only those windows from the main dataframe
+lrb21_dammed_windows <- lrb21_pairings %>%
+  transmute(
+    clusterID_seq,
+    window_type = "dammed",
+    window_start = cluster_start,
+    window_end   = cluster_end,
+    window_length = (window_end - window_start)*10,
+    dam_intensity = cluster_dam_count
+  )
+
+lrb21_undammed_windows <- lrb21_pairings %>% 
+  transmute(
+    clusterID_seq,
+    window_type = "undammed",
+    window_start = undam_match,
+    window_end   = undam_match + dam_window_length_tpid,
+    window_length = dam_window_length_tpid * 10,
+    dam_intensity = 0
+  )
+
+lrb21_all_windows <- bind_rows(
+  lrb21_dammed_windows,
+  lrb21_undammed_windows
+)
+
+lrb21_sampled <- lrb21_SWmax %>%
+  cross_join(lrb21_all_windows) %>%   # explicit Cartesian join
+  filter(
+    TP_ID >= window_start,
+    TP_ID <= window_end
+  )
+```
+
+Double check even sampling between dammed and undammed windows from thinned data frame:
+
+    29 DAMMED
+
+    29 UNDAMMED
+
+```{r,echo=FALSE}
+length(lrb21_pairings$clusterID_seq)
+```
+
+
+
+Plot sample regions for Brazil Creek 2021 on a map:
+----
+
+```{r, echo=FALSE,warning=FALSE,fig.width=10, fig.height=10}
+# Join geometries to polygons with data
+lrb_samples_21 <- lrb21_sampled %>%
+  left_join(lrbRiparianGeometries, by = "TP_ID") %>% 
+  st_as_sf() #restore sf class for mapping
+
+lrb_SampleReaches_21 <- st_centroid(lrb_samples_21)
+
+
+# Color palette for clusters
+cluster_palette <- colorFactor(
+  palette = colorRampPalette(RColorBrewer::brewer.pal(12, "Paired"))(43),
+  domain = lrb_SampleReaches_21$clusterID_seq
+)
+
+
+leaflet(lrb_SampleReaches_21) %>%
+  addProviderTiles(providers$USGS.USImageryTopo) %>%
+
+  #Undammed (black)
+  addCircleMarkers(
+    data = subset(lrb_SampleReaches_21, window_type == "undammed"),
+    radius = 6,
+    fillColor = "black",
+    fillOpacity = 0.9,
+    color = "black",
+    weight = 1,
+    popup = ~paste0(
+      "<b>TP_ID:</b> ", TP_ID, "<br>",
+      "<b>Cluster:</b> ", clusterID_seq, "<br>",
+      "<b>Type:</b> Undammed"
+    )
+  ) %>%
+
+  #Dammed (colored by cluster ID)
+  addCircleMarkers(
+    data = subset(lrb_SampleReaches_21, 
+                  window_type == "dammed"),
+    radius = 6,
+    fillColor = ~cluster_palette(clusterID_seq),
+    fillOpacity = 0.9,
+    color = "black",
+    weight = 1,
+    popup = ~paste0(
+      "<b>TP_ID:</b> ", TP_ID, "<br>",
+      "<b>Cluster:</b> ", clusterID_seq, "<br>",
+      "<b>Type:</b> Dammed"
+    )
+  ) %>%
+# Legend for dammed clusters only
+  addLegend(
+    "bottomleft",
+    pal = cluster_palette,
+    values = subset(lrb_SampleReaches_21, window_type == "dammed")$clusterID_seq,
+    title = "Dammed Cluster ID"
+  ) %>%
+
+  addScaleBar(
+    position = "bottomright",
+    options = scaleBarOptions(
+      maxWidth = 200,
+      metric = TRUE,
+      imperial = FALSE,
+      updateWhenIdle = TRUE
+    )
+  )
+
+```
+
+
+Finalize df by computing Nhat, TO, RIPA, SWA for each sample window:
+----
+<!---
+NOTE:
+
+    "Nhat" is the estimated dam count w/in sample window
+
+    Computed as:
+    
+  $$\hat{N} = \displaystyle \frac{\sum(C)}{\mu(p)*(1-\mu(f))} $$
+
+    Where:
+    
+    - $\hat{N}$ is the estimated dam count, given det. and fp det. probabilities
+    - $\sum(C)$ is the sum of raw dam counts for all Thiessen polygons in a given sample window
+    - $\mu(p)$ is the average detection probability for a given sample window
+    - $\mu(f)$ is the average false positive probability for a given sample window
+    
+    [adapted from McCallum 2005; *Equation 1:* $\hat{N} = \displaystyle \frac{C}{\hat{p}}$; included term to consider false positive detection probability, and iterate across window[w]]
+    
+--->
+
+```{r,echo=FALSE,warning=FALSE}
+lrb21_sampled$clusterID_seq <- as.factor(lrb21_sampled$clusterID_seq)
+lrb21_sampled$window_type <- as.factor(lrb21_sampled$window_type)
+
+lrb21_final <- lrb21_sampled %>%
+  select(clusterID_seq, 
+         window_type,
+         dam_count_beav_all,
+         dam_count_beav_conf,
+         dam_count_anthro,
+         p,
+         f, 
+         TO,
+         riparian_area_m2,
+         starts_with("SWA_t"),
+         starts_with("containsNull")
+  ) %>%
+  group_by(clusterID_seq, window_type) %>%
+  summarize(
+    # Nhat components
+    sum_c = sum(dam_count_beav_all, na.rm = TRUE),
+    mean_p = mean(p, na.rm = TRUE),
+    mean_f = mean(f, na.rm = TRUE),
+    Nhat = sum_c / (mean_p * (1 - mean_f)),
+
+    # TO
+    TO_mean = mean(TO, na.rm = TRUE),
+
+    # Riparian area
+    riparian_area_sum = sum(riparian_area_m2, na.rm = TRUE),
+
+    # SWA across time periods
+    across(starts_with("SWA_t"), ~ sum(.x, na.rm = TRUE), .names = "sum_{.col}"),
+
+    # Null flag across ANY time period
+    contains_null = any(c_across(starts_with("containsNull")) == 1),
+
+    .groups = "drop"
+  )
+
+
+#hist(unique(lrb21_final$Nhat))
+
+# MAKE LONG FORMAT for plotting and such
+lrb21_final_long <- lrb21_final %>%
+  pivot_longer(
+    cols = starts_with("sum_SWA_t"),
+    names_to = "time_period",
+    values_to = "SWA"
+  ) %>%
+  mutate(
+    t = as.factor(gsub("sum_SWA_t", "", time_period))
+  )
+
+```
+
+
+```{r,echo=FALSE,warning=FALSE, fig.width=8, fig.height=4, fig.align='center'}
+lrb21_damcounts <- lrb21_final %>%
+  filter(window_type == "dammed") %>%
+  select(clusterID_seq, sum_c)
+
+lrb21_damcounts <- lrb21_damcounts %>%
+  mutate(sum_c = factor(sum_c),
+         clusterID_seq = factor(clusterID_seq))
+
+ggplot(lrb21_damcounts,
+       aes(x = sum_c,
+           fill = factor(clusterID_seq))) +
+  geom_bar(color = "black", width = 0.8) +
+  scale_fill_manual(
+    values = colorRampPalette(RColorBrewer::brewer.pal(12, "Paired"))(29),
+    name = "Cluster ID"
+  ) +
+  labs(
+    x = "Dam Count per Cluster Window",
+    y = "Number of Dammed Clusters",
+    title = "Distribution of Dam Counts Across Sampled Dammed Clusters",
+    subtitle = "n = 29 Dammed clusters"
+  ) +
+  theme_bw(base_size = 14) +
+  theme(
+    legend.position = "right",
+    panel.grid.minor = element_blank()
+  )
+
+```
+
+
+
+Compare SWA across time periods for undammed,  and dammed windows:
+----
+
+```{r,echo=FALSE,warning=FALSE, fig.width=8, fig.height=4, fig.align='center'}
+#Plot boxplot:
+
+ggplot(lrb21_final_long,
+       aes(x = t,
+           y = SWA,
+           fill = window_type)) +
+  geom_boxplot(outlier.size = 0.4, alpha = 0.8) + 
+  scale_fill_manual(values = c("undammed" = "steelblue",
+                               "dammed"   = "brown")) +
+  labs(
+    x = "Time period (t)",
+    y = "Surface Water Area (SWA) (m^2)",
+    fill = "Sample Window Type",
+    title = "Surface Water Area by Dam Status",
+    subtitle = "Larb Creek 2021"
+  ) +
+  theme_bw(base_size = 14)
+```
+
+
+**Adjust y-scale: (0,1000)**
+
+```{r,echo=FALSE,warning=FALSE, fig.width=8, fig.height=4, fig.align='center'}
+#Plot boxplot:
+
+ggplot(lrb21_final_long,
+       aes(x = t,
+           y = SWA,
+           fill = window_type)) +
+  geom_boxplot(outlier.size = 0.4, alpha = 0.8) + 
+  scale_fill_manual(values = c("undammed" = "steelblue",
+                               "dammed"   = "brown")) +
+  ylim(0,1000) +
+  labs(
+    x = "Time period (t)",
+    y = "Surface Water Area (SWA) (m^2)",
+    fill = "Sample Window Type",
+    title = "Surface Water Area by Dam Status",
+    subtitle = "Larb Creek 2021"
+  ) +
+  theme_bw(base_size = 14)
+```
+
+----
+
+Ensure that dam categories span relatively similar riparian areas:
+----
+
+Riparian Area (m^2) ~ Dam Status
+
+```{r, echo=FALSE, fig.width=8, fig.height=4, fig.align='center'}
+ggplot(lrb21_final_long,
+       aes(x = window_type,
+           y = riparian_area_sum,
+           fill = window_type)) +
+  geom_boxplot(outlier.size = 0.4, alpha = 0.8) + 
+  scale_fill_manual(values = c("undammed" = "steelblue",
+                               "dammed"   = "brown")) +
+  labs(
+    x = "Time period (t)",
+    y = "Riparian Area (m^2)",
+    fill = "Sample Window Type",
+    title = "Riparian Area by Dam Status",
+    subtitle = "Larb Creek 2021"
+  ) +
+  theme_bw(base_size = 14)
+```
+
+----
+
+Ensure that dam categories span relatively similar TO:
+----
+
+TO ~ Dam Status
+
+```{r, echo=FALSE, fig.width=8, fig.height=4, fig.align='center'}
+ggplot(lrb21_final_long,
+       aes(x = window_type,
+           y = TO_mean,
+           fill = window_type)) +
+  geom_boxplot(outlier.size = 0.4, alpha = 0.8) + 
+  scale_fill_manual(values = c("undammed" = "steelblue",
+                               "dammed"   = "brown")) +
+  labs(
+    x = "Time period (t)",
+    y = "Topographic Openness",
+    fill = "Sample Window Type",
+    title = "TO by Dam Status",
+    subtitle = "Larb Creek 2021"
+  ) +
+  theme_bw(base_size = 14)
+```
+
+
+
+```{r,include=FALSE}
+write.csv(lrb21_final_long, "C:\\Users\\mattw\\OneDrive\\Desktop\\UMT\\Data\\GEE\\Paired_SWA_Sampling_AOI_2021\\LRB_2021_DF_Final_Long.csv", row.names=FALSE)
+```
+
+----
+  
+----
+
+----
+
+----
+
+----
+
+
+
+----  
+
+5) LOWER BEAVER CREEK; 2021
+----
+
+----
+
+```{r, echo=FALSE}
+lbv_swData21 <- read.csv("lbv_SW_21_031626.csv")
+
+lbv_SW_21 <- lbv_swData21[,c(2:20)]
+colnames(lbv_SW_21)[1] <- "TP_ID"
+
+# Collapse duplicate rows caused by TP overlap:
+lbv_SW_21_collapsed <- lbv_SW_21 %>%
+  group_by(TP_ID) %>%
+  summarise(
+    # sum all SWA_t columns
+    across(starts_with("SWA_t"), ~ sum(.x, na.rm = TRUE)),
+    
+    # sum all containsNull_t columns
+    across(starts_with("containsNull_t"), ~ sum(.x, na.rm = TRUE)),
+    
+    # sum riparian area
+    riparian_area_m2 = sum(riparian_area_m2, na.rm = TRUE),
+    
+    .groups = "drop"
+  )
+
+lbvRiparianGeometries <- st_read("LBV_RIP_GEOMS.shp") %>% 
+  st_make_valid() %>% 
+  select(Input_FID,
+         geometry) %>%
+  rename(TP_ID = Input_FID) %>% 
+  st_transform(4326)
+
+```
+
+```{r,echo=FALSE}
+################################################################################
+# Visualize spread of SWA across riparian polygons (n=10892)
+lbvsw21 <- lbv_SW_21_collapsed[,2:9]
+colnames(lbvsw21) <- c("t1","t2","t3","t4","t5","t6","t7","t8")
+                 
+boxplot(lbvsw21,
+        xlab = "Time Period (t)",
+        ylab = "Surface Water Area (m^2)")
+
+title(main = "2021 Surface Water Area (m^2) in riparian polygons",
+        sub = "n = 4200 riparian polygons")
+#str(lbv_SW_21)
+```
+
+----
+
+    - Combine TP derived data with dynOcc data
+
+    - Get detection and false positive data
+
+```{r,echo=FALSE}
+# Read in detection and false positive data
+# This data will be used to estimate damIntensity within a given dammed cluster
+# Nhat = sum(rawDams)/mean(p)*(1-mean(f))
+aoi_detData21 <- read.csv("site_year_detection_falsepositive_probs.csv") %>%
+filter(year=="2021")
+
+colnames(aoi_detData21) <- c("unique_ID",
+                  "Year",
+                 "p",
+                "f")
+
+lbv_detData21 <- aoi_detData21 %>% 
+  filter(str_detect(unique_ID,"LBV"))
+
+#hist(lbv2021$p,
+#     xlab = "Detection Probability (p)")
+
+#title(sub = "n = 1401 Grid Cells from CP DynOcc Analysis")
+
+##############################
+
+#hist(lbv2021$f,
+#     xlab = "Detection Probability (f)")
+
+#title(sub = "n = 1401 Grid Cells from CP DynOcc Analysis")
+
+```
+
+    - Get UDA from dynOcc gridcells; Combine with detection data & dam count data
+
+```{r, echo=FALSE}
+# Read in csv of thiessen polygons representing the riparian corridor with dam count data, and attach data from lbv21, re: detection and false positives from dynOcc
+
+lbv_dynOccGC_UDA <- read.csv("dynOccData_2021_oct7.csv") %>% 
+  filter(Stream == "LBV") %>% 
+  select(unique_ID,
+         catchment_km2) #Get contributing drainage area for each dynOcc grid cell
+
+lbv_TP_Dams_21 <- read.csv("lbv_wGCID_wDamCount_2021.csv") 
+colnames(lbv_TP_Dams_21) <- c("systemIndex",
+                             "TP_ID",
+                             "unique_ID",
+                             "dam_count_beav_all",
+                             "dam_count_anthro",
+                             "dam_count_beav_conf",
+                             ".geo") 
+lbv_TP_Dams_21 <- lbv_TP_Dams_21 %>%
+  mutate(unique_ID = str_replace(unique_ID, "lbv", "LBV"))
+                             
+#'unique_ID' refers to the id of the dynOcc grid cell that a particular tPoly is closest to
+lbv_newPolys_21 <- lbv_TP_Dams_21 %>% 
+  left_join(lbv_detData21, by = "unique_ID") %>%  #add detection data
+  left_join(lbv_dynOccGC_UDA, by = "unique_ID") %>%  #add grid cell level data
+  select(Year,        #2021
+         unique_ID,   #Nearest GridCell ID (DynOcc)
+         TP_ID,       #RiparianPolygon ID
+         dam_count_beav_all,   #Beaver dam count per TP_ID; all confidence scores
+         dam_count_beav_conf,  #Beaver dam count per TP_ID; ONLY confident (2)
+         dam_count_anthro,     #Anthro dam count per TP_ID; all
+         p,           #Detection Prob for nearest GC
+         f,           #False Positive Prob for nearest GC
+         catchment_km2) #RiparianPolygon geometry
+  
+
+#Condense duplicated rows created by TP overlap
+lbv_newPolys_21_collapsed <- lbv_newPolys_21 %>%
+  group_by(TP_ID) %>%
+  summarise(Year = first(Year),
+            unique_ID = first(unique_ID),
+            
+            # sum dam counts
+            dam_count_beav_all  = sum(dam_count_beav_all, na.rm = TRUE),
+            dam_count_beav_conf = sum(dam_count_beav_conf, na.rm = TRUE),
+            dam_count_anthro    = sum(dam_count_anthro, na.rm = TRUE),
+           
+             # mean geomorphic / hydrologic variables
+            p = mean(p, na.rm = TRUE),
+            f = mean(f, na.rm = TRUE),
+            catchment_km2  = mean(catchment_km2, na.rm = TRUE),
+            
+            .groups = "drop"
+  ) 
+
+
+#Trim down ^
+lbv_riparianSampleAreas_21 <- lbv_newPolys_21_collapsed %>% 
+  select(Year,
+         unique_ID,
+         TP_ID,
+         dam_count_beav_all,
+         dam_count_beav_conf,
+         dam_count_anthro,
+         p,
+         f,
+         catchment_km2) 
+
+#head(lbv_riparianSampleAreas_21)
+#str(lbv_riparianSampleAreas_21)
+```
+
+    - Add Topographic Openness data
+      - TO (positive) is the mean() of azimuth angles from each of 8 intercardinal directions
+  
+
+```{r, echo=FALSE}
+# Bring Topographic Openness into the mix:
+#### TO is an approximate measure of stream channel confinement
+#### TO has been computed for each riparian polygon (thiessen 10m) along Willow Ck
+
+lbv_data_TO <- read.csv("lbv_riparian_wTO.csv") %>% 
+  distinct(TP_ID, .keep_all = TRUE)
+
+lbv_data_meanTO <- lbv_data_TO %>% 
+  mutate(meanTO = rowMeans(select(.,     #Compute mean(TO) for each RipPoly
+                                  E,     #mean() TO of all 8 intercardinal 
+                                  N,     #directions
+                                  NE,
+                                  NW,
+                                  S,
+                                  SE,
+                                  SW,
+                                  W))) 
+
+lbv_meanTO_trim <- lbv_data_meanTO %>% 
+  select(TP_ID,E,N,NE,NW,S,SE,SW,W,meanTO)
+
+colnames(lbv_meanTO_trim) <- c("TP_ID","E","N","NE","NW","S","SE","SW","W","TO")
+```
+
+```{r, echo=FALSE}
+# Join TO data to riparian polygon data (w/ p, f, damCount)
+lbv_ripAreas_wTO_21 <- lbv_riparianSampleAreas_21 %>% 
+  left_join(lbv_meanTO_trim, by = "TP_ID") %>% 
+  select(Year,
+         unique_ID,
+         TP_ID,
+         dam_count_beav_all,
+         dam_count_beav_conf,
+         dam_count_anthro,
+         p,
+         f,
+         catchment_km2,
+         TO)
+
+```
+
+    - Add riparian area, surface water data, and null pixel data for each polygon:
+
+```{r,echo=FALSE}
+# RIPARIAN AREA (m^2) for each thiessen polygon
+lbv_TP_wRIPA <- lbv_SW_21_collapsed %>% 
+  select(TP_ID,
+         riparian_area_m2)
+# WATER
+lbv_SWdata_2021 <- lbv_SW_21_collapsed[,1:9]
+
+# NULL PIXELS
+lbv_Nulldata_2021 <- lbv_SW_21_collapsed[,c(1,10:17)] 
+
+# Add them to the dataFrame
+lbv_2021 <- lbv_ripAreas_wTO_21 %>% 
+  left_join(lbv_TP_wRIPA, by="TP_ID") %>% 
+  left_join(lbv_SWdata_2021, by="TP_ID") %>% 
+  left_join(lbv_Nulldata_2021, by="TP_ID")
+```
+
+    - Data frame structure:
+
+    - Year = year
+    - unique_ID = ID of the nearest dynOcc grid cell to each riparian polygon
+    - TP_ID = ID of the current riparian polygon ('tp' = 'thiessen polygon')
+    - dam_count = raw count of unique dams in each riparian polygon
+    - p = P(dam detection) for nearest grid cell to current riparian polygon
+    - f = P(false positive dam detection) for nearest grid cell to current riparian polygon
+    - catchment_km2 = upstream drainage area for nearest dynOcc grid cell to current riparian polygon
+    - TO = topographic openness for current riparian polygon
+    - riparian_area_m2 = area in m^2 of the current riparian polygon
+    - SWA_t : surface water area of polygon at time t
+    - containsNull_t : 0,1 contains null pixels at time t
+    - geometry: 
+
+```{r, echo=FALSE}
+#str(lbv_2021)
+```
+
+----
+
+NOTE: where hasNull = '1', SWA = 'NA'
+
+```{r,echo=FALSE}
+lbv21_nulls <- lbv_2021 %>%
+  mutate(across(
+    .cols = starts_with("SWA_t"),
+    .fns  = ~ ifelse(
+      lbv_2021[[str_replace(cur_column(), "SWA", "containsNull")]] == 1,
+      NA,
+      .
+    )
+  ))
+
+
+#str(lbv21_nulls)
+```
+
+Time period 5 is the only one in 2021 that has issues with masked/null pixels:
+
+----
+
+
+```{r, echo=FALSE}
+# Assess the max SWA for each row/window across time periods in 2021:
+
+lbv21_SWmax <- lbv21_nulls %>% 
+  mutate(SWmax = NA) 
+
+lbv21_SWmax$SWmax <- apply(
+  lbv21_SWmax[, paste0("SWA_t", 1:8)],
+  1,
+  max,
+  na.rm = TRUE
+)
+
+#hist(lbv21_SWmax$SWmax,
+ #    xlab = "SurfaceWaterMax of window[w]")
+
+#title(sub = "n = 10892 windows")
+
+
+#summary(lbv21_SWmax$SWmax)
+```
+
+<!---
+----
+
+Time[t] at which max SWA was achieved in 2021
+----
+```{r, echo=FALSE}
+# Identify the SWA columns
+lbv21_swa_cols <- paste0("SWA_t", 1:8) 
+
+# Compute t_MAX for each row
+lbv21_SWmax$t_MAX <- apply(
+  lbv21_SWmax[, lbv21_swa_cols],
+  1,
+  function(x) which.max(x)   # returns 1..8
+)
+
+####
+
+#hist(lbv21_SWmax$t_MAX,
+ #    xlab = "TimePeriod [t] at SWmax for riparianPolygon [r]")
+
+#title(sub = "n = 12748 polygons")
+```
+
+
+----
+
+Visualize data relationships:
+----
+
+----
+
+SWmax[w] ~ TO[w] 2021
+----
+
+SWmax does seem to be positively correlated with TO, though considerably weaker than 2019
+```{r, echo=FALSE}
+plot(lbv21_SWmax$SWmax ~ lbv21_SWmax$TO,
+     xlab = "mean(TO) of riparianPolygon[r]",
+     ylab = "SWmax of riparianPolygon[r]")
+title(main = "2021 Willow Creek (SWmax ~ TO)")
+```
+
+SWmax[w] ~ RiparianArea[w] 2021
+----
+
+SWmax is positively correlated with, and capped by riparian Area, though weaker than 2019
+```{r, echo=FALSE}
+plot(lbv21_SWmax$SWmax ~ lbv21_SWmax$riparian_area_m2,
+     xlab = "mean(RiparianArea) of riparianPolygon[r]",
+     ylab = "SWmax of riparianPolygon[r]")
+title(main = "2021 Willow Creek (SWmax ~ Area)")
+```
+--->
+
+----
+
+----
+
+----
+
+now dams..
+
+----
+
+----
+
+----
+  
+IDENTIFY Anthro Dams/Reservoirs
+----
+<!---
+    Reservoirs confound the potential effect of beaver dams on surface water by creating artificially flat open floodplains which allows LARGE amounts of water to pond. Additionally, active reservoirs are managed such that there is very little variation in SWA. Conditions experienced in these zones are not topographically or hydrologically consistent with the 'natural' stream conditions experienced in our study area. We want to compare beaver dammed to undammed **without** the potential influence of anthropogenic reservoirs.
+
+    Reservoirs were identified using the National Wetland Inventory data in ArcGIS Pro. "Attribute" codes that end with 'h' are categorized as "dyked/impounded". If a riparian polygon was within 50m of a dyked/impounded NWI polygon, it is deemed 'affected' by the anthropogenic impoundment.
+    
+    All affected polygons are assigned "isAnthro = 1". This designation will be builbv into the dam clustering / sample reach delineation
+--->
+
+Lone Tree Ck: ~ 7% of riparian polygons are/were anthropogenically impounded
+
+NWI IS NOT PERFECT
+
+```{r, echo=FALSE}
+lbv_anthroDammed <- read.csv("lbv_RIP_isAnthro.csv")
+
+colnames(lbv_anthroDammed) <- c("TP_ID", "isAnthro")
+
+lbv_anthroDammed <- lbv_anthroDammed %>%
+  group_by(TP_ID) %>% 
+  summarise(isAnthro = first(isAnthro))
+```
+
+```{r,echo=FALSE}
+# 1. Mask SWA_t* where AnthroDammed = 1
+lbv21_SWmax <- lbv21_SWmax %>%
+  left_join(lbv_anthroDammed,
+            by = "TP_ID")
+```
+
+
+
+DETERMINE DAM CLUSTERS
+----
+
+
+```{r,echo=FALSE}
+# 1. Extract dammed TP_IDs as a numeric vector
+lbv21_damIDs_bvAll <- lbv21_SWmax %>% 
+  filter(dam_count_beav_all == 1) %>% 
+  pull(TP_ID)
+
+lbv21_damIDs_bvConf <- lbv21_SWmax %>% 
+  filter(dam_count_beav_conf == 1) %>% 
+  pull(TP_ID)
+
+lbv21_damIDs_anthro <- lbv21_SWmax %>% 
+  filter(dam_count_anthro == 1 |
+           isAnthro == 1) %>% 
+  pull(TP_ID)
+```
+
+<!---
+
+```{r,include=FALSE}
+# ~~~~ 1-D K-Dist EPSILON OPTIMIZATION ~~~~~~~ #
+# Rahmah and Sitanggang (2016)
+
+# Function to compute 1-D k-distance (k = 2 recommended for minPts = 1)
+lbv_compute_kdist_1d <- function(tp_ids, k = 2) {
+  tp_ids <- sort(tp_ids)
+  n <- length(tp_ids)
+  kdist <- numeric(n)
+  
+  for (i in seq_len(n)) {
+    dists <- abs(tp_ids[i] - tp_ids[-i])  # bidirectional 1-D distance
+    dists <- sort(dists)
+    kdist[i] <- dists[k]                  # k-th nearest neighbor
+  }
+  
+  sort(kdist)
+}
+
+tp_sorted   <- sort(lbv21_damIDs_bvAll)
+spacing     <- diff(tp_sorted)
+
+eps_opt_TPID <- median(spacing)  # or 2 * median(spacing)
+
+eps_opt_TPID
+
+
+# ---------------------------------------------------------------------------
+
+kdist_sorted <- lbv_compute_kdist_1d(lbv21_damIDs_bvAll, k = 2)
+
+kdist_df <- tibble(
+  index = seq_along(kdist_sorted),
+  kdist = kdist_sorted
+)
+
+ggplot(kdist_df, aes(x = index, y = kdist)) +
+  geom_line(color = "steelblue", linewidth = 1) +
+  geom_point(size = 1.2, color = "steelblue") +
+  geom_hline(yintercept = eps_opt_TPID, 
+             color = "red", linetype = "dashed", linewidth = 1) +
+  annotate("text", 
+           x = max(kdist_df$index) * 0.8, 
+           y = eps_opt_TPID, 
+           label = paste0("eps_opt (median) = ", round(eps_opt_TPID, 2)),
+           vjust = -0.5, color = "red") +
+  labs(
+    title = "1-D k-Distance Curve (k = 2)",
+    x = "Sorted Point Index",
+    y = "k-Distance"
+  ) +
+  theme_minimal(base_size = 14)
+
+```
+--->
+
+
+```{r,echo=FALSE}
+
+# Get only elligible beaver dams; those outside the potential impact of anthro impoundments
+
+#Determine 500m buffers up and down from each anthro cluster; NO 'undammed' within this zone
+
+lbv21_anthro_influence_500 <- unique(unlist(
+  lapply(lbv21_damIDs_anthro,
+         function(x) seq(x - 50, x + 50))  
+))
+
+lbv21_damIDs_bvEligible <- lbv21_damIDs_bvAll[!lbv21_damIDs_bvAll %in% lbv21_anthro_influence_500]
+
+
+# 2. Convert to matrix (dbscan requires matrix input)
+lbv21_dam_mat <- matrix(lbv21_damIDs_bvEligible, ncol = 1)
+
+# 3. Run DBSCAN
+lbv21_db <- dbscan(
+  lbv21_dam_mat,
+  eps = 25,        #Test with 25 and with 10; bidirectional
+  minPts = 1       #min(cluster) = 1 dam; this ensures that isolated dams are still included
+)
+
+# 3b. Build a dataframe of dammed rows + cluster IDs
+lbv21_dammed_df <- lbv21_SWmax %>%
+  filter(TP_ID %in% lbv21_damIDs_bvEligible) %>%   # only eligible BV dams
+  arrange(TP_ID) %>%                              # ensure same order as DBSCAN input
+  mutate(clusterID_dbscan = lbv21_db$cluster)
+
+# 5. Compute # of dams per cluster
+lbv21_damClusterCount <- lbv21_dammed_df %>%
+  filter(dam_count_beav_all == 1) %>%
+  count(clusterID_dbscan, name = "cluster_dam_count")
+
+lbv21_dammed_df <- lbv21_dammed_df %>%
+  left_join(lbv21_damClusterCount, by = "clusterID_dbscan")
+
+# 6. Compute Stream Length per Cluster
+lbv_streamPerCluster <- lbv21_dammed_df %>%
+  filter(dam_count_beav_all == 1) %>%
+  group_by(clusterID_dbscan) %>%
+  summarise(cluster_start = min(TP_ID),
+            cluster_end   = max(TP_ID+5),
+            cluster_length_TPID = ((cluster_end - cluster_start))*10,
+            .groups = "drop"
+            ) %>% 
+  arrange(cluster_start)  %>%        # downstream → upstream
+  mutate(clusterID_seq = row_number()) # make sure that clusterID is in order from downstream to upstream
+
+
+lbv21_dammed_df <- lbv21_dammed_df %>%
+  left_join(lbv_streamPerCluster %>% select(clusterID_dbscan, 
+                                           clusterID_seq,
+                                           cluster_start,
+                                           cluster_end),
+    by = "clusterID_dbscan")
+```
+
+----
+
+
+VISUALIZE RAW DAM CLUSTERS:
+----
+
+5. Plot sample regions for Brazil Creek 2021 on a map:
+----
+
+```{r, echo=FALSE, warning=FALSE, fig.width=10, fig.height=10}  
+# Join geometries to polygons with data
+lbv_dam_map_21 <- lbv21_dammed_df %>%
+  left_join(lbvRiparianGeometries, by = "TP_ID") %>%
+  st_as_sf() 
+
+lbv_points21 <- st_centroid(lbv_dam_map_21)
+
+
+pal <- colorFactor(
+  palette = colorRampPalette(RColorBrewer::brewer.pal(12, "Paired"))(length(unique(lbv_points21$clusterID_seq))),
+  domain = lbv_points21$clusterID_seq
+)
+
+leaflet(lbv_points21) %>%
+  addProviderTiles(providers$USGS.USImageryTopo) %>%
+  addCircleMarkers(
+    radius = 5,
+    color = ~pal(clusterID_seq),
+    fillOpacity = 0.9,
+    stroke = FALSE,
+    popup = ~paste0(
+      "<b>TP_ID:</b> ", TP_ID, "<br>",
+      "<b>Cluster:</b> ", clusterID_seq)
+  ) %>%
+  addLegend("bottomright", pal = pal, values = lbv_points21$clusterID_seq, title = "Cluster") %>%
+  addScaleBar(
+    position = "bottomleft",
+    options = scaleBarOptions(
+      maxWidth = 200,
+      metric = TRUE,
+      imperial = FALSE,
+      updateWhenIdle = TRUE
+    )
+  )
+```
+
+color: cluster;
+----
+--->
+
+----
+
+DEFINE PAIRED UNDAMMED REACHES:
+----
+
+    - Undammed sample reaches must be:
+      - interspersed between dammed reaches
+      - (>=) 500m from nearest dam
+      - 'paired' with a nearby dam cluster
+      - (>=) 250m from nearest undammed (forced thinning post-pairing)
+
+```{r,echo=FALSE}
+lbv21_dam_min <- min(lbv21_dammed_df$TP_ID) #Find min/max dammed TP_ID to intersperse undammed among
+lbv21_dam_max <- max(lbv21_dammed_df$TP_ID)
+
+
+
+#Determine 500m buffers up and down from each dammed cluster; NO 'undammed' within this zone
+lbv21_dam_influence_500 <- unique(unlist(
+  apply(lbv21_dammed_df[, c("cluster_start", "cluster_end")], 1, function(row) {
+    seq(row["cluster_start"] - 50,
+        row["cluster_end"]   + 50)
+  })
+))    
+
+#Get all available Riparian Polygons (excludes reservoir-affected)
+lbv21_all_tpids <- sort(unique(lbv21_SWmax$TP_ID))  
+
+#Ensure interspersion of undammed within dammed sites
+lbv21_inRange_tpids <- lbv21_all_tpids[lbv21_all_tpids >= lbv21_dam_min & lbv21_all_tpids <= lbv21_dam_max]
+
+#Get only riparian polygons that are not inside the dam or anthro influence zone (cluster+-500m)
+lbv21_eligible_undammed_tpids <- lbv21_inRange_tpids[(!lbv21_inRange_tpids %in% lbv21_dam_influence_500) &
+                                                     (!lbv21_inRange_tpids %in% lbv21_anthro_influence_500)]
+
+#Get cluster start point for each dammed cluster
+lbv21_dam_clusters <- lbv21_dammed_df %>%
+  distinct(clusterID_seq, 
+           cluster_start, 
+           cluster_end, 
+           cluster_dam_count) %>%
+  arrange(clusterID_seq)
+
+
+#PROXIMITY BASED PAIRING
+#Define available undammed reaches to sample
+lbv21_remaining_undammed <- lbv21_eligible_undammed_tpids
+
+#Define undammed reaches that have been matched with dammed clusters
+lbv21_assigned_matches <- integer(nrow(lbv21_dam_clusters)) #get 1 undammed for each dammed
+
+# Iterate through dammed clusters
+for (i in seq_len(nrow(lbv21_dam_clusters))) {
+  # find cluster start
+  cs <- lbv21_dam_clusters$cluster_start[i]
+  
+  # find nearest remaining undammed site
+  idx <- which.min(abs(lbv21_remaining_undammed - cs))
+  match <- lbv21_remaining_undammed[idx]
+  
+  lbv21_assigned_matches[i] <- match
+  
+  # remove it so it cannot be reused
+  lbv21_remaining_undammed <- lbv21_remaining_undammed[-idx]
+}
+
+#Create table to visualize and gut check matches
+lbv21_pairings <- lbv21_dam_clusters %>%
+  mutate(undam_match = lbv21_assigned_matches) %>%
+  left_join(lbv21_dammed_df %>%
+              group_by(clusterID_seq) %>%
+              summarise(dam_window_length_tpid = max(cluster_end) - min(cluster_start),
+                        .groups = "drop"),
+            by = "clusterID_seq") %>%
+  mutate(undam_window_start = undam_match,
+         undam_window_end   = undam_match + dam_window_length_tpid
+  )
+
+# THIN UNDAMMED WINDOWS *AFTER* WINDOW LENGTH IS KNOWN ---------------
+
+lbv21_pairings <- lbv21_pairings %>% arrange(undam_window_start)
+
+thinned <- list()
+last_end <- -Inf
+
+for (i in seq_len(nrow(lbv21_pairings))) {
+  start_i <- lbv21_pairings$undam_window_start[i]
+  end_i   <- lbv21_pairings$undam_window_end[i]
+  
+  if (start_i >= last_end + 25) {   # enforce 250-m spacing
+    thinned <- append(thinned, i)   # NOTE: ^ no diff. than 100-m on lbv21
+    last_end <- end_i
+  }
+}
+
+lbv21_pairings <- lbv21_pairings[unlist(thinned), ]
+
+# Now combine dammed and undammed windows into a unified table and select only those windows from the main dataframe
+lbv21_dammed_windows <- lbv21_pairings %>%
+  transmute(
+    clusterID_seq,
+    window_type = "dammed",
+    window_start = cluster_start,
+    window_end   = cluster_end,
+    window_length = (window_end - window_start)*10,
+    dam_intensity = cluster_dam_count
+  )
+
+lbv21_undammed_windows <- lbv21_pairings %>% 
+  transmute(
+    clusterID_seq,
+    window_type = "undammed",
+    window_start = undam_match,
+    window_end   = undam_match + dam_window_length_tpid,
+    window_length = dam_window_length_tpid * 10,
+    dam_intensity = 0
+  )
+
+lbv21_all_windows <- bind_rows(
+  lbv21_dammed_windows,
+  lbv21_undammed_windows
+)
+
+lbv21_sampled <- lbv21_SWmax %>%
+  cross_join(lbv21_all_windows) %>%   # explicit Cartesian join
+  filter(
+    TP_ID >= window_start,
+    TP_ID <= window_end
+  )
+```
+
+Double check even sampling between dammed and undammed windows from thinned data frame:
+
+    12 DAMMED
+
+    12 UNDAMMED
+
+```{r,echo=FALSE}
+length(lbv21_pairings$clusterID_seq)
+```
+
+
+
+Plot sample regions for Brazil Creek 2021 on a map:
+----
+
+```{r, echo=FALSE,warning=FALSE,fig.width=10, fig.height=10}
+# Join geometries to polygons with data
+lbv_samples_21 <- lbv21_sampled %>%
+  left_join(lbvRiparianGeometries, by = "TP_ID") %>%
+  st_as_sf()   # restore sf class
+
+lbv_SampleReaches_21 <- st_centroid(lbv_samples_21)
+
+
+# Color palette for clusters
+cluster_palette <- colorFactor(
+  palette = colorRampPalette(RColorBrewer::brewer.pal(12, "Paired"))(12),
+  domain = lbv_SampleReaches_21$clusterID_seq
+)
+
+
+leaflet(lbv_SampleReaches_21) %>%
+  addProviderTiles(providers$USGS.USImageryTopo) %>%
+
+  #Undammed (black)
+  addCircleMarkers(
+    data = subset(lbv_SampleReaches_21, window_type == "undammed"),
+    radius = 6,
+    fillColor = "black",
+    fillOpacity = 0.9,
+    color = "black",
+    weight = 1,
+    popup = ~paste0(
+      "<b>TP_ID:</b> ", TP_ID, "<br>",
+      "<b>Cluster:</b> ", clusterID_seq, "<br>",
+      "<b>Type:</b> Undammed"
+    )
+  ) %>%
+
+  #Dammed (colored by cluster ID)
+  addCircleMarkers(
+    data = subset(lbv_SampleReaches_21, 
+                  window_type == "dammed"),
+    radius = 6,
+    fillColor = ~cluster_palette(clusterID_seq),
+    fillOpacity = 0.9,
+    color = "black",
+    weight = 1,
+    popup = ~paste0(
+      "<b>TP_ID:</b> ", TP_ID, "<br>",
+      "<b>Cluster:</b> ", clusterID_seq, "<br>",
+      "<b>Type:</b> Dammed"
+    )
+  ) %>%
+# Legend for dammed clusters only
+  addLegend(
+    "bottomleft",
+    pal = cluster_palette,
+    values = subset(lbv_SampleReaches_21, window_type == "dammed")$clusterID_seq,
+    title = "Dammed Cluster ID"
+  ) %>%
+
+  addScaleBar(
+    position = "bottomright",
+    options = scaleBarOptions(
+      maxWidth = 200,
+      metric = TRUE,
+      imperial = FALSE,
+      updateWhenIdle = TRUE
+    )
+  )
+
+```
+
+
+Finalize df by computing Nhat, TO, RIPA, SWA for each sample window:
+----
+<!---
+NOTE:
+
+    "Nhat" is the estimated dam count w/in sample window
+
+    Computed as:
+    
+  $$\hat{N} = \displaystyle \frac{\sum(C)}{\mu(p)*(1-\mu(f))} $$
+
+    Where:
+    
+    - $\hat{N}$ is the estimated dam count, given det. and fp det. probabilities
+    - $\sum(C)$ is the sum of raw dam counts for all Thiessen polygons in a given sample window
+    - $\mu(p)$ is the average detection probability for a given sample window
+    - $\mu(f)$ is the average false positive probability for a given sample window
+    
+    [adapted from McCallum 2005; *Equation 1:* $\hat{N} = \displaystyle \frac{C}{\hat{p}}$; included term to consider false positive detection probability, and iterate across window[w]]
+    
+--->
+
+```{r,echo=FALSE,warning=FALSE}
+lbv21_sampled$clusterID_seq <- as.factor(lbv21_sampled$clusterID_seq)
+lbv21_sampled$window_type <- as.factor(lbv21_sampled$window_type)
+
+lbv21_final <- lbv21_sampled %>%
+  select(clusterID_seq, 
+         window_type,
+         dam_count_beav_all,
+         dam_count_beav_conf,
+         dam_count_anthro,
+         p,
+         f, 
+         TO,
+         riparian_area_m2,
+         starts_with("SWA_t"),
+         starts_with("containsNull")
+  ) %>%
+  group_by(clusterID_seq, window_type) %>%
+  summarize(
+    # Nhat components
+    sum_c = sum(dam_count_beav_all, na.rm = TRUE),
+    mean_p = mean(p, na.rm = TRUE),
+    mean_f = mean(f, na.rm = TRUE),
+    Nhat = sum_c / (mean_p * (1 - mean_f)),
+
+    # TO
+    TO_mean = mean(TO, na.rm = TRUE),
+
+    # Riparian area
+    riparian_area_sum = sum(riparian_area_m2, na.rm = TRUE),
+
+    # SWA across time periods
+    across(starts_with("SWA_t"), ~ sum(.x, na.rm = TRUE), .names = "sum_{.col}"),
+
+    # Null flag across ANY time period
+    contains_null = any(c_across(starts_with("containsNull")) == 1),
+
+    .groups = "drop"
+  )
+
+
+#hist(unique(lbv21_final$Nhat))
+
+# MAKE LONG FORMAT for plotting and such
+lbv21_final_long <- lbv21_final %>%
+  pivot_longer(
+    cols = starts_with("sum_SWA_t"),
+    names_to = "time_period",
+    values_to = "SWA"
+  ) %>%
+  mutate(
+    t = as.factor(gsub("sum_SWA_t", "", time_period))
+  )
+
+```
+
+
+```{r,echo=FALSE,warning=FALSE, fig.width=8, fig.height=4, fig.align='center'}
+lbv21_damcounts <- lbv21_final %>%
+  filter(window_type == "dammed") %>%
+  select(clusterID_seq, sum_c)
+
+lbv21_damcounts <- lbv21_damcounts %>%
+  mutate(sum_c = factor(sum_c),
+         clusterID_seq = factor(clusterID_seq))
+
+ggplot(lbv21_damcounts,
+       aes(x = sum_c,
+           fill = factor(clusterID_seq))) +
+  geom_bar(color = "black", width = 0.8) +
+  scale_fill_manual(
+    values = colorRampPalette(RColorBrewer::brewer.pal(12, "Paired"))(29),
+    name = "Cluster ID"
+  ) +
+  labs(
+    x = "Dam Count per Cluster Window",
+    y = "Number of Dammed Clusters",
+    title = "Distribution of Dam Counts Across Sampled Dammed Clusters",
+    subtitle = "n = 12 Dammed clusters"
+  ) +
+  theme_bw(base_size = 14) +
+  theme(
+    legend.position = "right",
+    panel.grid.minor = element_blank()
+  )
+
+```
+
+
+
+Compare SWA across time periods for undammed,  and dammed windows:
+----
+
+```{r,echo=FALSE,warning=FALSE, fig.width=8, fig.height=4, fig.align='center'}
+#Plot boxplot:
+
+ggplot(lbv21_final_long,
+       aes(x = t,
+           y = SWA,
+           fill = window_type)) +
+  geom_boxplot(outlier.size = 0.4, alpha = 0.8) + 
+  scale_fill_manual(values = c("undammed" = "steelblue",
+                               "dammed"   = "brown")) +
+  labs(
+    x = "Time period (t)",
+    y = "Surface Water Area (SWA) (m^2)",
+    fill = "Sample Window Type",
+    title = "Surface Water Area by Dam Status",
+    subtitle = "Lower Beaver Creek 2021"
+  ) +
+  theme_bw(base_size = 14)
+```
+
+----
+
+Ensure that dam categories span relatively similar riparian areas:
+----
+
+Riparian Area (m^2) ~ Dam Status
+
+```{r, echo=FALSE, fig.width=8, fig.height=4, fig.align='center'}
+ggplot(lbv21_final_long,
+       aes(x = window_type,
+           y = riparian_area_sum,
+           fill = window_type)) +
+  geom_boxplot(outlier.size = 0.4, alpha = 0.8) + 
+  scale_fill_manual(values = c("undammed" = "steelblue",
+                               "dammed"   = "brown")) +
+  labs(
+    x = "Time period (t)",
+    y = "Riparian Area (m^2)",
+    fill = "Sample Window Type",
+    title = "Riparian Area by Dam Status",
+    subtitle = "Lower Beaver Creek 2021"
+  ) +
+  theme_bw(base_size = 14)
+```
+
+----
+
+Ensure that dam categories span relatively similar TO:
+----
+
+TO ~ Dam Status
+
+```{r, echo=FALSE, fig.width=8, fig.height=4, fig.align='center'}
+ggplot(lbv21_final_long,
+       aes(x = window_type,
+           y = TO_mean,
+           fill = window_type)) +
+  geom_boxplot(outlier.size = 0.4, alpha = 0.8) + 
+  scale_fill_manual(values = c("undammed" = "steelblue",
+                               "dammed"   = "brown")) +
+  labs(
+    x = "Time period (t)",
+    y = "Topographic Openness",
+    fill = "Sample Window Type",
+    title = "TO by Dam Status",
+    subtitle = "Lower Beaver Creek 2021"
+  ) +
+  theme_bw(base_size = 14)
+```
+
+
+```{r,include=FALSE}
+write.csv(lbv21_final_long, "C:\\Users\\mattw\\OneDrive\\Desktop\\UMT\\Data\\GEE\\Paired_SWA_Sampling_AOI_2021\\LBV_2021_DF_Final_Long.csv", row.names=FALSE)
+```
+
+----
+  
+----
+
+----
+
+----
+
+----
+
+
+
+----  
+
+6) UPPER BEAVER CREEK; 2021
+----
+
+----
+
+```{r, echo=FALSE}
+ubv_swData21 <- read.csv("ubv_SW_21_031626.csv")
+
+ubv_SW_21 <- ubv_swData21[,c(2:20)]
+colnames(ubv_SW_21)[1] <- "TP_ID"
+
+# Collapse duplicate rows caused by TP overlap:
+ubv_SW_21_collapsed <- ubv_SW_21 %>%
+  group_by(TP_ID) %>%
+  summarise(
+    # sum all SWA_t columns
+    across(starts_with("SWA_t"), ~ sum(.x, na.rm = TRUE)),
+    
+    # sum all containsNull_t columns
+    across(starts_with("containsNull_t"), ~ sum(.x, na.rm = TRUE)),
+    
+    # sum riparian area
+    riparian_area_m2 = sum(riparian_area_m2, na.rm = TRUE),
+    
+    .groups = "drop"
+  )
+
+ubvRiparianGeometries <- st_read("ubv_RIP_GEOMS.shp") %>% 
+  st_make_valid() %>% 
+  select(Input_FID,
+         geometry) %>%
+  rename(TP_ID = Input_FID) %>% 
+  st_transform(4326)
+
+```
+
+```{r,echo=FALSE}
+################################################################################
+# Visualize spread of SWA across riparian polygons (n=10892)
+ubvsw21 <- ubv_SW_21_collapsed[,2:9]
+colnames(ubvsw21) <- c("t1","t2","t3","t4","t5","t6","t7","t8")
+                 
+boxplot(ubvsw21,
+        xlab = "Time Period (t)",
+        ylab = "Surface Water Area (m^2)")
+
+title(main = "2021 Surface Water Area (m^2) in riparian polygons",
+        sub = "n = 4200 riparian polygons")
+#str(ubv_SW_21)
+```
+
+----
+
+    - Combine TP derived data with dynOcc data
+
+    - Get detection and false positive data
+
+```{r,echo=FALSE}
+# Read in detection and false positive data
+# This data will be used to estimate damIntensity within a given dammed cluster
+# Nhat = sum(rawDams)/mean(p)*(1-mean(f))
+aoi_detData21 <- read.csv("site_year_detection_falsepositive_probs.csv") %>%
+filter(year=="2021")
+
+colnames(aoi_detData21) <- c("unique_ID",
+                  "Year",
+                 "p",
+                "f")
+
+ubv_detData21 <- aoi_detData21 %>% 
+  filter(str_detect(unique_ID,"UBV"))
+
+#hist(ubv2021$p,
+#     xlab = "Detection Probability (p)")
+
+#title(sub = "n = 1401 Grid Cells from CP DynOcc Analysis")
+
+##############################
+
+#hist(ubv2021$f,
+#     xlab = "Detection Probability (f)")
+
+#title(sub = "n = 1401 Grid Cells from CP DynOcc Analysis")
+
+```
+
+    - Get UDA from dynOcc gridcells; Combine with detection data & dam count data
+
+```{r, echo=FALSE}
+# Read in csv of thiessen polygons representing the riparian corridor with dam count data, and attach data from ubv21, re: detection and false positives from dynOcc
+
+ubv_dynOccGC_UDA <- read.csv("dynOccData_2021_oct7.csv") %>% 
+  filter(Stream == "UBV") %>% 
+  select(unique_ID,
+         catchment_km2) #Get contributing drainage area for each dynOcc grid cell
+
+ubv_TP_Dams_21 <- read.csv("ubv_wGCID_wDamCount_2021.csv") 
+colnames(ubv_TP_Dams_21) <- c("systemIndex",
+                             "TP_ID",
+                             "unique_ID",
+                             "dam_count_beav_all",
+                             "dam_count_anthro",
+                             "dam_count_beav_conf",
+                             ".geo") 
+ubv_TP_Dams_21 <- ubv_TP_Dams_21 %>%
+  mutate(unique_ID = str_replace(unique_ID, "ubv", "UBV"))
+                             
+#'unique_ID' refers to the id of the dynOcc grid cell that a particular tPoly is closest to
+ubv_newPolys_21 <- ubv_TP_Dams_21 %>% 
+  left_join(ubv_detData21, by = "unique_ID") %>%  #add detection data
+  left_join(ubv_dynOccGC_UDA, by = "unique_ID") %>%  #add grid cell level data
+  select(Year,        #2021
+         unique_ID,   #Nearest GridCell ID (DynOcc)
+         TP_ID,       #RiparianPolygon ID
+         dam_count_beav_all,   #Beaver dam count per TP_ID; all confidence scores
+         dam_count_beav_conf,  #Beaver dam count per TP_ID; ONLY confident (2)
+         dam_count_anthro,     #Anthro dam count per TP_ID; all
+         p,           #Detection Prob for nearest GC
+         f,           #False Positive Prob for nearest GC
+         catchment_km2) #RiparianPolygon geometry
+  
+
+#Condense duplicated rows created by TP overlap
+ubv_newPolys_21_collapsed <- ubv_newPolys_21 %>%
+  group_by(TP_ID) %>%
+  summarise(Year = first(Year),
+            unique_ID = first(unique_ID),
+            
+            # sum dam counts
+            dam_count_beav_all  = sum(dam_count_beav_all, na.rm = TRUE),
+            dam_count_beav_conf = sum(dam_count_beav_conf, na.rm = TRUE),
+            dam_count_anthro    = sum(dam_count_anthro, na.rm = TRUE),
+           
+             # mean geomorphic / hydrologic variables
+            p = mean(p, na.rm = TRUE),
+            f = mean(f, na.rm = TRUE),
+            catchment_km2  = mean(catchment_km2, na.rm = TRUE),
+            
+            .groups = "drop"
+  ) 
+
+
+#Trim down ^
+ubv_riparianSampleAreas_21 <- ubv_newPolys_21_collapsed %>% 
+  select(Year,
+         unique_ID,
+         TP_ID,
+         dam_count_beav_all,
+         dam_count_beav_conf,
+         dam_count_anthro,
+         p,
+         f,
+         catchment_km2) 
+
+#head(ubv_riparianSampleAreas_21)
+#str(ubv_riparianSampleAreas_21)
+```
+
+    - Add Topographic Openness data
+      - TO (positive) is the mean() of azimuth angles from each of 8 intercardinal directions
+  
+
+```{r, echo=FALSE}
+# Bring Topographic Openness into the mix:
+#### TO is an approximate measure of stream channel confinement
+#### TO has been computed for each riparian polygon (thiessen 10m) along Willow Ck
+
+ubv_data_TO <- read.csv("ubv_riparian_wTO.csv") %>% 
+  distinct(TP_ID, .keep_all = TRUE)
+
+ubv_data_meanTO <- ubv_data_TO %>% 
+  mutate(meanTO = rowMeans(select(.,     #Compute mean(TO) for each RipPoly
+                                  E,     #mean() TO of all 8 intercardinal 
+                                  N,     #directions
+                                  NE,
+                                  NW,
+                                  S,
+                                  SE,
+                                  SW,
+                                  W))) 
+
+ubv_meanTO_trim <- ubv_data_meanTO %>% 
+  select(TP_ID,E,N,NE,NW,S,SE,SW,W,meanTO)
+
+colnames(ubv_meanTO_trim) <- c("TP_ID","E","N","NE","NW","S","SE","SW","W","TO")
+```
+
+```{r, echo=FALSE}
+# Join TO data to riparian polygon data (w/ p, f, damCount)
+ubv_ripAreas_wTO_21 <- ubv_riparianSampleAreas_21 %>% 
+  left_join(ubv_meanTO_trim, by = "TP_ID") %>% 
+  select(Year,
+         unique_ID,
+         TP_ID,
+         dam_count_beav_all,
+         dam_count_beav_conf,
+         dam_count_anthro,
+         p,
+         f,
+         catchment_km2,
+         TO)
+
+```
+
+    - Add riparian area, surface water data, and null pixel data for each polygon:
+
+```{r,echo=FALSE}
+# RIPARIAN AREA (m^2) for each thiessen polygon
+ubv_TP_wRIPA <- ubv_SW_21_collapsed %>% 
+  select(TP_ID,
+         riparian_area_m2)
+# WATER
+ubv_SWdata_2021 <- ubv_SW_21_collapsed[,1:9]
+
+# NULL PIXELS
+ubv_Nulldata_2021 <- ubv_SW_21_collapsed[,c(1,10:17)] 
+
+# Add them to the dataFrame
+ubv_2021 <- ubv_ripAreas_wTO_21 %>% 
+  left_join(ubv_TP_wRIPA, by="TP_ID") %>% 
+  left_join(ubv_SWdata_2021, by="TP_ID") %>% 
+  left_join(ubv_Nulldata_2021, by="TP_ID")
+```
+
+    - Data frame structure:
+
+    - Year = year
+    - unique_ID = ID of the nearest dynOcc grid cell to each riparian polygon
+    - TP_ID = ID of the current riparian polygon ('tp' = 'thiessen polygon')
+    - dam_count = raw count of unique dams in each riparian polygon
+    - p = P(dam detection) for nearest grid cell to current riparian polygon
+    - f = P(false positive dam detection) for nearest grid cell to current riparian polygon
+    - catchment_km2 = upstream drainage area for nearest dynOcc grid cell to current riparian polygon
+    - TO = topographic openness for current riparian polygon
+    - riparian_area_m2 = area in m^2 of the current riparian polygon
+    - SWA_t : surface water area of polygon at time t
+    - containsNull_t : 0,1 contains null pixels at time t
+    - geometry: 
+
+```{r, echo=FALSE}
+#str(ubv_2021)
+```
+
+----
+
+NOTE: where hasNull = '1', SWA = 'NA'
+
+```{r,echo=FALSE}
+ubv21_nulls <- ubv_2021 %>%
+  mutate(across(
+    .cols = starts_with("SWA_t"),
+    .fns  = ~ ifelse(
+      ubv_2021[[str_replace(cur_column(), "SWA", "containsNull")]] == 1,
+      NA,
+      .
+    )
+  ))
+
+
+#str(ubv21_nulls)
+```
+
+Time period 5 is the only one in 2021 that has issues with masked/null pixels:
+
+----
+
+
+```{r, echo=FALSE}
+# Assess the max SWA for each row/window across time periods in 2021:
+
+ubv21_SWmax <- ubv21_nulls %>% 
+  mutate(SWmax = NA) 
+
+ubv21_SWmax$SWmax <- apply(
+  ubv21_SWmax[, paste0("SWA_t", 1:8)],
+  1,
+  max,
+  na.rm = TRUE
+)
+
+#hist(ubv21_SWmax$SWmax,
+ #    xlab = "SurfaceWaterMax of window[w]")
+
+#title(sub = "n = 10892 windows")
+
+
+#summary(ubv21_SWmax$SWmax)
+```
+
+<!---
+----
+
+Time[t] at which max SWA was achieved in 2021
+----
+```{r, echo=FALSE}
+# Identify the SWA columns
+ubv21_swa_cols <- paste0("SWA_t", 1:8) 
+
+# Compute t_MAX for each row
+ubv21_SWmax$t_MAX <- apply(
+  ubv21_SWmax[, ubv21_swa_cols],
+  1,
+  function(x) which.max(x)   # returns 1..8
+)
+
+####
+
+#hist(ubv21_SWmax$t_MAX,
+ #    xlab = "TimePeriod [t] at SWmax for riparianPolygon [r]")
+
+#title(sub = "n = 12748 polygons")
+```
+
+
+----
+
+Visualize data relationships:
+----
+
+----
+
+SWmax[w] ~ TO[w] 2021
+----
+
+SWmax does seem to be positively correlated with TO, though considerably weaker than 2019
+```{r, echo=FALSE}
+plot(ubv21_SWmax$SWmax ~ ubv21_SWmax$TO,
+     xlab = "mean(TO) of riparianPolygon[r]",
+     ylab = "SWmax of riparianPolygon[r]")
+title(main = "2021 Willow Creek (SWmax ~ TO)")
+```
+
+SWmax[w] ~ RiparianArea[w] 2021
+----
+
+SWmax is positively correlated with, and capped by riparian Area, though weaker than 2019
+```{r, echo=FALSE}
+plot(ubv21_SWmax$SWmax ~ ubv21_SWmax$riparian_area_m2,
+     xlab = "mean(RiparianArea) of riparianPolygon[r]",
+     ylab = "SWmax of riparianPolygon[r]")
+title(main = "2021 Willow Creek (SWmax ~ Area)")
+```
+--->
+
+----
+
+----
+
+----
+
+now dams..
+
+----
+
+----
+
+----
+  
+IDENTIFY Anthro Dams/Reservoirs
+----
+<!---
+    Reservoirs confound the potential effect of beaver dams on surface water by creating artificially flat open floodplains which allows LARGE amounts of water to pond. Additionally, active reservoirs are managed such that there is very little variation in SWA. Conditions experienced in these zones are not topographically or hydrologically consistent with the 'natural' stream conditions experienced in our study area. We want to compare beaver dammed to undammed **without** the potential influence of anthropogenic reservoirs.
+
+    Reservoirs were identified using the National Wetland Inventory data in ArcGIS Pro. "Attribute" codes that end with 'h' are categorized as "dyked/impounded". If a riparian polygon was within 50m of a dyked/impounded NWI polygon, it is deemed 'affected' by the anthropogenic impoundment.
+    
+    All affected polygons are assigned "isAnthro = 1". This designation will be buiubv into the dam clustering / sample reach delineation
+--->
+
+Lone Tree Ck: ~ 7% of riparian polygons are/were anthropogenically impounded
+
+NWI IS NOT PERFECT
+
+```{r, echo=FALSE}
+ubv_anthroDammed <- read.csv("ubv_RIP_isAnthro.csv")
+
+colnames(ubv_anthroDammed) <- c("TP_ID", "isAnthro")
+
+ubv_anthroDammed <- ubv_anthroDammed %>%
+  group_by(TP_ID) %>% 
+  summarise(isAnthro = first(isAnthro))
+```
+
+```{r,echo=FALSE}
+# 1. add AnthroDammed
+ubv21_SWmax <- ubv21_SWmax %>%
+  left_join(ubv_anthroDammed,
+            by = "TP_ID")
+```
+
+
+
+DETERMINE DAM CLUSTERS
+----
+
+
+```{r,echo=FALSE}
+# 1. Extract dammed TP_IDs as a numeric vector
+ubv21_damIDs_bvAll <- ubv21_SWmax %>% 
+  filter(dam_count_beav_all == 1) %>% 
+  pull(TP_ID)
+
+ubv21_damIDs_bvConf <- ubv21_SWmax %>% 
+  filter(dam_count_beav_conf == 1) %>% 
+  pull(TP_ID)
+
+ubv21_damIDs_anthro <- ubv21_SWmax %>% 
+  filter(dam_count_anthro == 1 |
+           isAnthro == 1) %>% 
+  pull(TP_ID)
+```
+
+<!---
+
+```{r,include=FALSE}
+# ~~~~ 1-D K-Dist EPSILON OPTIMIZATION ~~~~~~~ #
+# Rahmah and Sitanggang (2016)
+
+# Function to compute 1-D k-distance (k = 2 recommended for minPts = 1)
+ubv_compute_kdist_1d <- function(tp_ids, k = 2) {
+  tp_ids <- sort(tp_ids)
+  n <- length(tp_ids)
+  kdist <- numeric(n)
+  
+  for (i in seq_len(n)) {
+    dists <- abs(tp_ids[i] - tp_ids[-i])  # bidirectional 1-D distance
+    dists <- sort(dists)
+    kdist[i] <- dists[k]                  # k-th nearest neighbor
+  }
+  
+  sort(kdist)
+}
+
+tp_sorted   <- sort(ubv21_damIDs_bvAll)
+spacing     <- diff(tp_sorted)
+
+eps_opt_TPID <- median(spacing)  # or 2 * median(spacing)
+
+eps_opt_TPID
+
+
+# ---------------------------------------------------------------------------
+
+kdist_sorted <- ubv_compute_kdist_1d(ubv21_damIDs_bvAll, k = 2)
+
+kdist_df <- tibble(
+  index = seq_along(kdist_sorted),
+  kdist = kdist_sorted
+)
+
+ggplot(kdist_df, aes(x = index, y = kdist)) +
+  geom_line(color = "steelblue", linewidth = 1) +
+  geom_point(size = 1.2, color = "steelblue") +
+  geom_hline(yintercept = eps_opt_TPID, 
+             color = "red", linetype = "dashed", linewidth = 1) +
+  annotate("text", 
+           x = max(kdist_df$index) * 0.8, 
+           y = eps_opt_TPID, 
+           label = paste0("eps_opt (median) = ", round(eps_opt_TPID, 2)),
+           vjust = -0.5, color = "red") +
+  labs(
+    title = "1-D k-Distance Curve (k = 2)",
+    x = "Sorted Point Index",
+    y = "k-Distance"
+  ) +
+  theme_minimal(base_size = 14)
+
+```
+--->
+
+
+```{r,echo=FALSE}
+
+# Get only elligible beaver dams; those outside the potential impact of anthro impoundments
+
+#Determine 500m buffers up and down from each anthro cluster; NO 'undammed' within this zone
+
+ubv21_anthro_influence_500 <- unique(unlist(
+  lapply(ubv21_damIDs_anthro,
+         function(x) seq(x - 50, x + 50))  
+))
+
+ubv21_damIDs_bvEligible <- ubv21_damIDs_bvAll[!ubv21_damIDs_bvAll %in% ubv21_anthro_influence_500]
+
+
+# 2. Convert to matrix (dbscan requires matrix input)
+ubv21_dam_mat <- matrix(ubv21_damIDs_bvEligible, ncol = 1)
+
+# 3. Run DBSCAN
+ubv21_db <- dbscan(
+  ubv21_dam_mat,
+  eps = 25,        #Test with 25 and with 10; bidirectional
+  minPts = 1       #min(cluster) = 1 dam; this ensures that isolated dams are still included
+)
+
+# 3b. Build a dataframe of dammed rows + cluster IDs
+ubv21_dammed_df <- ubv21_SWmax %>%
+  filter(TP_ID %in% ubv21_damIDs_bvEligible) %>%   # only eligible BV dams
+  arrange(TP_ID) %>%                              # ensure same order as DBSCAN input
+  mutate(clusterID_dbscan = ubv21_db$cluster)
+
+# 5. Compute # of dams per cluster
+ubv21_damClusterCount <- ubv21_dammed_df %>%
+  filter(dam_count_beav_all == 1) %>%
+  count(clusterID_dbscan, name = "cluster_dam_count")
+
+ubv21_dammed_df <- ubv21_dammed_df %>%
+  left_join(ubv21_damClusterCount, by = "clusterID_dbscan")
+
+# 6. Compute Stream Length per Cluster
+ubv_streamPerCluster <- ubv21_dammed_df %>%
+  filter(dam_count_beav_all == 1) %>%
+  group_by(clusterID_dbscan) %>%
+  summarise(cluster_start = min(TP_ID),
+            cluster_end   = max(TP_ID+5),
+            cluster_length_TPID = ((cluster_end - cluster_start))*10,
+            .groups = "drop"
+            ) %>% 
+  arrange(cluster_start)  %>%        # downstream → upstream
+  mutate(clusterID_seq = row_number()) # make sure that clusterID is in order from downstream to upstream
+
+
+ubv21_dammed_df <- ubv21_dammed_df %>%
+  left_join(ubv_streamPerCluster %>% select(clusterID_dbscan, 
+                                           clusterID_seq,
+                                           cluster_start,
+                                           cluster_end),
+    by = "clusterID_dbscan")
+```
+
+----
+
+
+VISUALIZE RAW DAM CLUSTERS:
+----
+
+5. Plot sample regions for Brazil Creek 2021 on a map:
+----
+
+```{r, echo=FALSE, warning=FALSE, fig.width=10, fig.height=10}  
+# Join geometries to polygons with data
+ubv_dam_map_21 <- ubv21_dammed_df %>%
+  left_join(ubvRiparianGeometries, by = "TP_ID") %>%
+  st_as_sf() 
+
+ubv_points21 <- st_centroid(ubv_dam_map_21)
+
+
+pal <- colorFactor(
+  palette = colorRampPalette(RColorBrewer::brewer.pal(12, "Paired"))(length(unique(ubv_points21$clusterID_seq))),
+  domain = ubv_points21$clusterID_seq
+)
+
+leaflet(ubv_points21) %>%
+  addProviderTiles(providers$USGS.USImageryTopo) %>%
+  addCircleMarkers(
+    radius = 5,
+    color = ~pal(clusterID_seq),
+    fillOpacity = 0.9,
+    stroke = FALSE,
+    popup = ~paste0(
+      "<b>TP_ID:</b> ", TP_ID, "<br>",
+      "<b>Cluster:</b> ", clusterID_seq)
+  ) %>%
+  addLegend("bottomright", pal = pal, values = ubv_points21$clusterID_seq, title = "Cluster") %>%
+  addScaleBar(
+    position = "bottomleft",
+    options = scaleBarOptions(
+      maxWidth = 200,
+      metric = TRUE,
+      imperial = FALSE,
+      updateWhenIdle = TRUE
+    )
+  )
+```
+
+color: cluster;
+----
+--->
+
+----
+
+DEFINE PAIRED UNDAMMED REACHES:
+----
+
+    - Undammed sample reaches must be:
+      - interspersed between dammed reaches
+      - (>=) 500m from nearest dam
+      - 'paired' with a nearby dam cluster
+      - (>=) 250m from nearest undammed (forced thinning post-pairing)
+
+```{r,echo=FALSE}
+ubv21_dam_min <- min(ubv21_dammed_df$TP_ID) #Find min/max dammed TP_ID to intersperse undammed among
+ubv21_dam_max <- max(ubv21_dammed_df$TP_ID)
+
+
+
+#Determine 500m buffers up and down from each dammed cluster; NO 'undammed' within this zone
+ubv21_dam_influence_500 <- unique(unlist(
+  apply(ubv21_dammed_df[, c("cluster_start", "cluster_end")], 1, function(row) {
+    seq(row["cluster_start"] - 50,
+        row["cluster_end"]   + 50)
+  })
+))    
+
+#Get all available Riparian Polygons (excludes reservoir-affected)
+ubv21_all_tpids <- sort(unique(ubv21_SWmax$TP_ID))  
+
+#Ensure interspersion of undammed within dammed sites
+ubv21_inRange_tpids <- ubv21_all_tpids[ubv21_all_tpids >= ubv21_dam_min & ubv21_all_tpids <= ubv21_dam_max]
+
+#Get only riparian polygons that are not inside the dam or anthro influence zone (cluster+-500m)
+ubv21_eligible_undammed_tpids <- ubv21_inRange_tpids[(!ubv21_inRange_tpids %in% ubv21_dam_influence_500) &
+                                                     (!ubv21_inRange_tpids %in% ubv21_anthro_influence_500)]
+
+#Get cluster start point for each dammed cluster
+ubv21_dam_clusters <- ubv21_dammed_df %>%
+  distinct(clusterID_seq, 
+           cluster_start, 
+           cluster_end, 
+           cluster_dam_count) %>%
+  arrange(clusterID_seq)
+
+
+#PROXIMITY BASED PAIRING
+#Define available undammed reaches to sample
+ubv21_remaining_undammed <- ubv21_eligible_undammed_tpids
+
+#Define undammed reaches that have been matched with dammed clusters
+ubv21_assigned_matches <- integer(nrow(ubv21_dam_clusters)) #get 1 undammed for each dammed
+
+# Iterate through dammed clusters
+for (i in seq_len(nrow(ubv21_dam_clusters))) {
+  # find cluster start
+  cs <- ubv21_dam_clusters$cluster_start[i]
+  
+  # find nearest remaining undammed site
+  idx <- which.min(abs(ubv21_remaining_undammed - cs))
+  match <- ubv21_remaining_undammed[idx]
+  
+  ubv21_assigned_matches[i] <- match
+  
+  # remove it so it cannot be reused
+  ubv21_remaining_undammed <- ubv21_remaining_undammed[-idx]
+}
+
+#Create table to visualize and gut check matches
+ubv21_pairings <- ubv21_dam_clusters %>%
+  mutate(undam_match = ubv21_assigned_matches) %>%
+  left_join(ubv21_dammed_df %>%
+              group_by(clusterID_seq) %>%
+              summarise(dam_window_length_tpid = max(cluster_end) - min(cluster_start),
+                        .groups = "drop"),
+            by = "clusterID_seq") %>%
+  mutate(undam_window_start = undam_match,
+         undam_window_end   = undam_match + dam_window_length_tpid
+  )
+
+# THIN UNDAMMED WINDOWS *AFTER* WINDOW LENGTH IS KNOWN ---------------
+
+ubv21_pairings <- ubv21_pairings %>% arrange(undam_window_start)
+
+thinned <- list()
+last_end <- -Inf
+
+for (i in seq_len(nrow(ubv21_pairings))) {
+  start_i <- ubv21_pairings$undam_window_start[i]
+  end_i   <- ubv21_pairings$undam_window_end[i]
+  
+  if (start_i >= last_end + 25) {   # enforce 250-m spacing
+    thinned <- append(thinned, i)   # NOTE: ^ no diff. than 100-m on ubv21
+    last_end <- end_i
+  }
+}
+
+ubv21_pairings <- ubv21_pairings[unlist(thinned), ]
+
+# Now combine dammed and undammed windows into a unified table and select only those windows from the main dataframe
+ubv21_dammed_windows <- ubv21_pairings %>%
+  transmute(
+    clusterID_seq,
+    window_type = "dammed",
+    window_start = cluster_start,
+    window_end   = cluster_end,
+    window_length = (window_end - window_start)*10,
+    dam_intensity = cluster_dam_count
+  )
+
+ubv21_undammed_windows <- ubv21_pairings %>% 
+  transmute(
+    clusterID_seq,
+    window_type = "undammed",
+    window_start = undam_match,
+    window_end   = undam_match + dam_window_length_tpid,
+    window_length = dam_window_length_tpid * 10,
+    dam_intensity = 0
+  )
+
+ubv21_all_windows <- bind_rows(
+  ubv21_dammed_windows,
+  ubv21_undammed_windows
+)
+
+ubv21_sampled <- ubv21_SWmax %>%
+  cross_join(ubv21_all_windows) %>%   # explicit Cartesian join
+  filter(
+    TP_ID >= window_start,
+    TP_ID <= window_end
+  )
+```
+
+Double check even sampling between dammed and undammed windows from thinned data frame:
+
+    44 DAMMED
+
+    44 UNDAMMED
+
+```{r,echo=FALSE}
+length(ubv21_pairings$clusterID_seq)
+```
+
+
+
+Plot sample regions for Brazil Creek 2021 on a map:
+----
+
+```{r, echo=FALSE,warning=FALSE,fig.width=10, fig.height=10}
+# Join geometries to polygons with data
+ubv_samples_21 <- ubv21_sampled %>%
+  left_join(ubvRiparianGeometries, by = "TP_ID") %>%
+  st_as_sf()   # restore sf class
+
+ubv_SampleReaches_21 <- st_centroid(ubv_samples_21)
+
+
+# Color palette for clusters
+cluster_palette <- colorFactor(
+  palette = colorRampPalette(RColorBrewer::brewer.pal(12, "Paired"))(12),
+  domain = ubv_SampleReaches_21$clusterID_seq
+)
+
+
+leaflet(ubv_SampleReaches_21) %>%
+  addProviderTiles(providers$USGS.USImageryTopo) %>%
+
+  #Undammed (black)
+  addCircleMarkers(
+    data = subset(ubv_SampleReaches_21, window_type == "undammed"),
+    radius = 6,
+    fillColor = "black",
+    fillOpacity = 0.9,
+    color = "black",
+    weight = 1,
+    popup = ~paste0(
+      "<b>TP_ID:</b> ", TP_ID, "<br>",
+      "<b>Cluster:</b> ", clusterID_seq, "<br>",
+      "<b>Type:</b> Undammed"
+    )
+  ) %>%
+
+  #Dammed (colored by cluster ID)
+  addCircleMarkers(
+    data = subset(ubv_SampleReaches_21, 
+                  window_type == "dammed"),
+    radius = 6,
+    fillColor = ~cluster_palette(clusterID_seq),
+    fillOpacity = 0.9,
+    color = "black",
+    weight = 1,
+    popup = ~paste0(
+      "<b>TP_ID:</b> ", TP_ID, "<br>",
+      "<b>Cluster:</b> ", clusterID_seq, "<br>",
+      "<b>Type:</b> Dammed"
+    )
+  ) %>%
+# Legend for dammed clusters only
+  addLegend(
+    "bottomleft",
+    pal = cluster_palette,
+    values = subset(ubv_SampleReaches_21, window_type == "dammed")$clusterID_seq,
+    title = "Dammed Cluster ID"
+  ) %>%
+
+  addScaleBar(
+    position = "bottomright",
+    options = scaleBarOptions(
+      maxWidth = 200,
+      metric = TRUE,
+      imperial = FALSE,
+      updateWhenIdle = TRUE
+    )
+  )
+
+```
+
+
+Finalize df by computing Nhat, TO, RIPA, SWA for each sample window:
+----
+<!---
+NOTE:
+
+    "Nhat" is the estimated dam count w/in sample window
+
+    Computed as:
+    
+  $$\hat{N} = \displaystyle \frac{\sum(C)}{\mu(p)*(1-\mu(f))} $$
+
+    Where:
+    
+    - $\hat{N}$ is the estimated dam count, given det. and fp det. probabilities
+    - $\sum(C)$ is the sum of raw dam counts for all Thiessen polygons in a given sample window
+    - $\mu(p)$ is the average detection probability for a given sample window
+    - $\mu(f)$ is the average false positive probability for a given sample window
+    
+    [adapted from McCallum 2005; *Equation 1:* $\hat{N} = \displaystyle \frac{C}{\hat{p}}$; included term to consider false positive detection probability, and iterate across window[w]]
+    
+--->
+
+```{r,echo=FALSE,warning=FALSE}
+ubv21_sampled$clusterID_seq <- as.factor(ubv21_sampled$clusterID_seq)
+ubv21_sampled$window_type <- as.factor(ubv21_sampled$window_type)
+
+ubv21_final <- ubv21_sampled %>%
+  select(clusterID_seq, 
+         window_type,
+         dam_count_beav_all,
+         dam_count_beav_conf,
+         dam_count_anthro,
+         p,
+         f, 
+         TO,
+         riparian_area_m2,
+         starts_with("SWA_t"),
+         starts_with("containsNull")
+  ) %>%
+  group_by(clusterID_seq, window_type) %>%
+  summarize(
+    # Nhat components
+    sum_c = sum(dam_count_beav_all, na.rm = TRUE),
+    mean_p = mean(p, na.rm = TRUE),
+    mean_f = mean(f, na.rm = TRUE),
+    Nhat = sum_c / (mean_p * (1 - mean_f)),
+
+    # TO
+    TO_mean = mean(TO, na.rm = TRUE),
+
+    # Riparian area
+    riparian_area_sum = sum(riparian_area_m2, na.rm = TRUE),
+
+    # SWA across time periods
+    across(starts_with("SWA_t"), ~ sum(.x, na.rm = TRUE), .names = "sum_{.col}"),
+
+    # Null flag across ANY time period
+    contains_null = any(c_across(starts_with("containsNull")) == 1),
+
+    .groups = "drop"
+  )
+
+
+#hist(unique(ubv21_final$Nhat))
+
+# MAKE LONG FORMAT for plotting and such
+ubv21_final_long <- ubv21_final %>%
+  pivot_longer(
+    cols = starts_with("sum_SWA_t"),
+    names_to = "time_period",
+    values_to = "SWA"
+  ) %>%
+  mutate(
+    t = as.factor(gsub("sum_SWA_t", "", time_period))
+  )
+
+```
+
+
+```{r,echo=FALSE,warning=FALSE, fig.width=8, fig.height=4, fig.align='center'}
+ubv21_damcounts <- ubv21_final %>%
+  filter(window_type == "dammed") %>%
+  select(clusterID_seq, sum_c)
+
+ubv21_damcounts <- ubv21_damcounts %>%
+  mutate(sum_c = factor(sum_c),
+         clusterID_seq = factor(clusterID_seq))
+
+ggplot(ubv21_damcounts,
+       aes(x = sum_c,
+           fill = factor(clusterID_seq))) +
+  geom_bar(color = "black", width = 0.8) +
+  scale_fill_manual(
+    values = colorRampPalette(RColorBrewer::brewer.pal(12, "Paired"))(44),
+    name = "Cluster ID"
+  ) +
+  labs(
+    x = "Dam Count per Cluster Window",
+    y = "Number of Dammed Clusters",
+    title = "Distribution of Dam Counts Across Sampled Dammed Clusters",
+    subtitle = "n = 12 Dammed clusters"
+  ) +
+  theme_bw(base_size = 14) +
+  theme(
+    legend.position = "right",
+    panel.grid.minor = element_blank()
+  )
+
+```
+
+
+
+Compare SWA across time periods for undammed,  and dammed windows:
+----
+
+```{r,echo=FALSE,warning=FALSE, fig.width=8, fig.height=4, fig.align='center'}
+#Plot boxplot:
+
+ggplot(ubv21_final_long,
+       aes(x = t,
+           y = SWA,
+           fill = window_type)) +
+  geom_boxplot(outlier.size = 0.4, alpha = 0.8) + 
+  scale_fill_manual(values = c("undammed" = "steelblue",
+                               "dammed"   = "brown")) +
+  labs(
+    x = "Time period (t)",
+    y = "Surface Water Area (SWA) (m^2)",
+    fill = "Sample Window Type",
+    title = "Surface Water Area by Dam Status",
+    subtitle = "Lower Beaver Creek 2021"
+  ) +
+  theme_bw(base_size = 14)
+```
+
+
+**Rescale y-axis**
+
+```{r,echo=FALSE,warning=FALSE, fig.width=8, fig.height=4, fig.align='center'}
+#Plot boxplot:
+
+ggplot(ubv21_final_long,
+       aes(x = t,
+           y = SWA,
+           fill = window_type)) +
+  geom_boxplot(outlier.size = 0.4, alpha = 0.8) + 
+  scale_fill_manual(values = c("undammed" = "steelblue",
+                               "dammed"   = "brown")) +
+  ylim(0,1000) +
+  labs(
+    x = "Time period (t)",
+    y = "Surface Water Area (SWA) (m^2)",
+    fill = "Sample Window Type",
+    title = "Surface Water Area by Dam Status",
+    subtitle = "Lower Beaver Creek 2021"
+  ) +
+  theme_bw(base_size = 14)
+```
+
+----
+
+Ensure that dam categories span relatively similar riparian areas:
+----
+
+Riparian Area (m^2) ~ Dam Status
+
+```{r, echo=FALSE, fig.width=8, fig.height=4, fig.align='center'}
+ggplot(ubv21_final_long,
+       aes(x = window_type,
+           y = riparian_area_sum,
+           fill = window_type)) +
+  geom_boxplot(outlier.size = 0.4, alpha = 0.8) + 
+  scale_fill_manual(values = c("undammed" = "steelblue",
+                               "dammed"   = "brown")) +
+  labs(
+    x = "Time period (t)",
+    y = "Riparian Area (m^2)",
+    fill = "Sample Window Type",
+    title = "Riparian Area by Dam Status",
+    subtitle = "Lower Beaver Creek 2021"
+  ) +
+  theme_bw(base_size = 14)
+```
+
+----
+
+Ensure that dam categories span relatively similar TO:
+----
+
+TO ~ Dam Status
+
+```{r, echo=FALSE, fig.width=8, fig.height=4, fig.align='center'}
+ggplot(ubv21_final_long,
+       aes(x = window_type,
+           y = TO_mean,
+           fill = window_type)) +
+  geom_boxplot(outlier.size = 0.4, alpha = 0.8) + 
+  scale_fill_manual(values = c("undammed" = "steelblue",
+                               "dammed"   = "brown")) +
+  labs(
+    x = "Time period (t)",
+    y = "Topographic Openness",
+    fill = "Sample Window Type",
+    title = "TO by Dam Status",
+    subtitle = "Lower Beaver Creek 2021"
+  ) +
+  theme_bw(base_size = 14)
+```
+
+
+```{r,include=FALSE}
+write.csv(ubv21_final_long, "C:\\Users\\mattw\\OneDrive\\Desktop\\UMT\\Data\\GEE\\Paired_SWA_Sampling_AOI_2021\\UBV_2021_DF_Final_Long.csv", row.names=FALSE)
+```
+
+
