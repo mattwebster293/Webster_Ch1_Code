@@ -32,7 +32,7 @@
       
       # Event-level dam effect nested within year
       for (k in 1:n_event) {
-        b_event[k] ~ dnorm(b_year[event_year[k]],tau_b_event)       # nested random slope
+        b_event[k] ~ dnorm(b_year[event_year[k]],tau_b_event)   # nested random slope
         eta_event[k] ~ dnorm(0, tau_event)       # random intercept for event
       }
       
@@ -48,13 +48,13 @@
       sigma_stream ~ dnorm(0,1) T(0,)
       tau_stream <- pow(sigma_stream, -2)
     
-      sigma_b_stream ~ dnorm(0,0.5) T(0,)
+      sigma_b_stream ~ dnorm(0,0.7) T(0,)
       tau_b_stream <- pow(sigma_b_stream, -2)
       
-      sigma_b_year ~ dnorm(0,0.5) T(0,)
+      sigma_b_year ~ dnorm(0,0.7) T(0,)
       tau_b_year <- pow(sigma_b_year, -2)
     
-      sigma_b_event ~ dnorm(0,0.5) T(0,)
+      sigma_b_event ~ dnorm(0,0.7) T(0,)
       tau_b_event <- pow(sigma_b_event, -2)
       
       sigma_event ~ dnorm(0,1) T(0,)
