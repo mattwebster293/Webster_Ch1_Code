@@ -60,30 +60,26 @@ editor_options:
 ----
 
 ```{r, include=FALSE}
-options(download.file.method = "wininet")
-options(repos = c(CRAN = "https://cloud.r-project.org"))
-install.packages("tidyverse") #the all mighty tidy
-install.packages("knitr") #knitting complex shit
-install.packages("ggplot2") #plotting
-install.packages("zoo") #for moving window
-install.packages("stringr") #knitting complex shit
-install.packages("vioplot") #plotting
-install.packages("purrr") #plotting?
-install.packages("leaflet") #for interactive maps
-install.packages("sf") #geospatial coordinate reference systems stuff
-install.packages("jsonlite") #ditto
-install.packages("dbscan") #for dam cluster analysis
-install.packages("dataRetrieval") #for USGS flow data
-install.packages("plotly")
+#library("tidyverse") #the all mighty tidy; 
+                     #includes dplyr, tidyr, readr, purrr, tibble, stringr, forcats, lubridate
+#library("knitr") #knitting complex shit
+##library("zoo") #for moving window
+#library("vioplot") #plotting
+#library("leaflet") #for interactive maps
+#library("sf") #geospatial coordinate reference systems stuff
+#library("jsonlite") #ditto
+#library("dbscan") #for dam cluster analysis
+#library("dataRetrieval") #for USGS flow data
+#library("plotly")
 ```
 
 
 ```{r,echo=FALSE}
-  knitr::opts_chunk$set(
-  echo = FALSE,
-  message = FALSE,
-  warning = FALSE
-)
+#  knitr::opts_chunk$set(
+#  echo = FALSE,
+#  message = FALSE,
+#  warning = FALSE
+#)
 ```
 
 
@@ -160,8 +156,7 @@ usgs_df <- usgsGage_06166000 %>%
                                 between(date, as.Date("2023-09-01"), as.Date("2023-09-14")) ~ 237,
                                 between(date, as.Date("2023-09-15"), as.Date("2023-09-30")) ~ 238,
                                 TRUE ~ NA_real_)) %>% 
-  filter(surveyPeriod > 0) |> 
-  filter(suveyPeriod =)
+  filter(surveyPeriod > 0)
 
 usgs_df$surveyPeriod <- as.factor(usgs_df$surveyPeriod)
 
@@ -9808,29 +9803,432 @@ par(mfrow = c(1,1))
 ```{r,echo=FALSE}
 # IMPORT AND ORGANIZE VEGEATION DATA
 
-wc19_veg <- read.csv("wc_vegREsults19.csv")
-wc21_veg <- read.csv("wc_vegREsults21.csv")
-wc23_veg <- read.csv("wc_vegREsults23.csv")
+wc19_veg <- read.csv("wc_veg_19.csv") |> 
+  mutate(TP_ID = Input_FID) |> 
+  select(TP_ID,
+         NDVI_mean_veg19_5,
+         NDVI_mean_veg19_6,
+         NDVI_mean_veg19_7,
+         NDVI_mean_veg19_8,
+         Veg_area_m2_veg19_5,
+         Veg_area_m2_veg19_6,
+         Veg_area_m2_veg19_7,
+         Veg_area_m2_veg19_8)
 
-lt19_veg <- read.csv("lt_vegREsults19.csv")
-lt21_veg <- read.csv("lt_vegREsults21.csv")
-lt23_veg <- read.csv("lt_vegREsults23.csv")
+colnames(wc19_veg) <- c("TP_ID",
+                        "mNDVI_t5",
+                        "mNDVI_t6",
+                        "mNDVI_t7",
+                        "mNDVI_t8",
+                        "vegArea_t5",
+                        "vegArea_t6",
+                        "vegArea_t7",
+                        "vegArea_t8"
+                        )
 
-brz19_veg <- read.csv("brz_vegREsults19.csv")
-brz21_veg <- read.csv("brz_vegREsults21.csv")
-brz23_veg <- read.csv("brz_vegREsults23.csv")
+wc21_veg <- read.csv("wc_veg_21.csv") |> 
+  mutate(TP_ID = Input_FID) |> 
+  select(TP_ID,
+         NDVI_mean_veg21_5,
+         NDVI_mean_veg21_6,
+         NDVI_mean_veg21_7,
+         NDVI_mean_veg21_8,
+         Veg_area_m2_veg21_5,
+         Veg_area_m2_veg21_6,
+         Veg_area_m2_veg21_7,
+         Veg_area_m2_veg21_8)
 
-lrb19_veg <- read.csv("lrb_vegREsults19.csv")
-lrb21_veg <- read.csv("lrb_vegREsults21.csv")
-lrb23_veg <- read.csv("lrb_vegREsults23.csv")
+colnames(wc21_veg) <- c("TP_ID",
+                        "mNDVI_t5",
+                        "mNDVI_t6",
+                        "mNDVI_t7",
+                        "mNDVI_t8",
+                        "vegArea_t5",
+                        "vegArea_t6",
+                        "vegArea_t7",
+                        "vegArea_t8"
+                        )
 
-lbv19_veg <- read.csv("lbv_vegREsults19.csv")
-lbv21_veg <- read.csv("lbv_vegREsults21.csv")
-lbv23_veg <- read.csv("lbv_vegREsults23.csv")
+wc23_veg <- read.csv("wc_veg_23.csv") |> 
+  mutate(TP_ID = Input_FID) |> 
+  select(TP_ID,
+         NDVI_mean_veg23_5,
+         NDVI_mean_veg23_6,
+         NDVI_mean_veg23_7,
+         NDVI_mean_veg23_8,
+         Veg_area_m2_veg23_5,
+         Veg_area_m2_veg23_6,
+         Veg_area_m2_veg23_7,
+         Veg_area_m2_veg23_8)
 
-ubv19_veg <- read.csv("ubv_vegREsults19.csv")
-ubv21_veg <- read.csv("ubv_vegREsults21.csv")
-ubv23_veg <- read.csv("ubv_vegREsults23.csv")
+colnames(wc23_veg) <- c("TP_ID",
+                        "mNDVI_t5",
+                        "mNDVI_t6",
+                        "mNDVI_t7",
+                        "mNDVI_t8",
+                        "vegArea_t5",
+                        "vegArea_t6",
+                        "vegArea_t7",
+                        "vegArea_t8"
+                        )
+
+#############################################
+
+lt19_veg <- read.csv("lt_veg_19.csv") |> 
+  mutate(TP_ID = Input_FID) |> 
+  select(TP_ID,
+         NDVI_mean_veg19_5,
+         NDVI_mean_veg19_6,
+         NDVI_mean_veg19_7,
+         NDVI_mean_veg19_8,
+         Veg_area_m2_veg19_5,
+         Veg_area_m2_veg19_6,
+         Veg_area_m2_veg19_7,
+         Veg_area_m2_veg19_8)
+
+colnames(lt19_veg) <- c("TP_ID",
+                        "mNDVI_t5",
+                        "mNDVI_t6",
+                        "mNDVI_t7",
+                        "mNDVI_t8",
+                        "vegArea_t5",
+                        "vegArea_t6",
+                        "vegArea_t7",
+                        "vegArea_t8"
+                        )
+
+lt21_veg <- read.csv("lt_veg_21.csv") |> 
+  mutate(TP_ID = Input_FID) |> 
+  select(TP_ID,
+         NDVI_mean_veg21_5,
+         NDVI_mean_veg21_6,
+         NDVI_mean_veg21_7,
+         NDVI_mean_veg21_8,
+         Veg_area_m2_veg21_5,
+         Veg_area_m2_veg21_6,
+         Veg_area_m2_veg21_7,
+         Veg_area_m2_veg21_8)
+
+colnames(lt21_veg) <- c("TP_ID",
+                        "mNDVI_t5",
+                        "mNDVI_t6",
+                        "mNDVI_t7",
+                        "mNDVI_t8",
+                        "vegArea_t5",
+                        "vegArea_t6",
+                        "vegArea_t7",
+                        "vegArea_t8"
+                        )
+
+lt23_veg <- read.csv("lt_veg_23.csv") |> 
+  mutate(TP_ID = Input_FID) |> 
+  select(TP_ID,
+         NDVI_mean_veg23_5,
+         NDVI_mean_veg23_6,
+         NDVI_mean_veg23_7,
+         NDVI_mean_veg23_8,
+         Veg_area_m2_veg23_5,
+         Veg_area_m2_veg23_6,
+         Veg_area_m2_veg23_7,
+         Veg_area_m2_veg23_8)
+
+colnames(lt23_veg) <- c("TP_ID",
+                        "mNDVI_t5",
+                        "mNDVI_t6",
+                        "mNDVI_t7",
+                        "mNDVI_t8",
+                        "vegArea_t5",
+                        "vegArea_t6",
+                        "vegArea_t7",
+                        "vegArea_t8"
+                        )
+
+################################################
+
+brz19_veg <- read.csv("brz_veg_19.csv") |> 
+  mutate(TP_ID = Input_FID) |> 
+  select(TP_ID,
+         NDVI_mean_veg19_5,
+         NDVI_mean_veg19_6,
+         NDVI_mean_veg19_7,
+         NDVI_mean_veg19_8,
+         Veg_area_m2_veg19_5,
+         Veg_area_m2_veg19_6,
+         Veg_area_m2_veg19_7,
+         Veg_area_m2_veg19_8)
+
+colnames(brz19_veg) <- c("TP_ID",
+                        "mNDVI_t5",
+                        "mNDVI_t6",
+                        "mNDVI_t7",
+                        "mNDVI_t8",
+                        "vegArea_t5",
+                        "vegArea_t6",
+                        "vegArea_t7",
+                        "vegArea_t8"
+                        )
+
+brz21_veg <- read.csv("brz_veg_21.csv") |> 
+  mutate(TP_ID = Input_FID) |> 
+  select(TP_ID,
+         NDVI_mean_veg21_5,
+         NDVI_mean_veg21_6,
+         NDVI_mean_veg21_7,
+         NDVI_mean_veg21_8,
+         Veg_area_m2_veg21_5,
+         Veg_area_m2_veg21_6,
+         Veg_area_m2_veg21_7,
+         Veg_area_m2_veg21_8)
+
+colnames(brz21_veg) <- c("TP_ID",
+                        "mNDVI_t5",
+                        "mNDVI_t6",
+                        "mNDVI_t7",
+                        "mNDVI_t8",
+                        "vegArea_t5",
+                        "vegArea_t6",
+                        "vegArea_t7",
+                        "vegArea_t8"
+                        )
+
+brz23_veg <- read.csv("brz_veg_23.csv") |> 
+  mutate(TP_ID = Input_FID) |> 
+  select(TP_ID,
+         NDVI_mean_veg23_5,
+         NDVI_mean_veg23_6,
+         NDVI_mean_veg23_7,
+         NDVI_mean_veg23_8,
+         Veg_area_m2_veg23_5,
+         Veg_area_m2_veg23_6,
+         Veg_area_m2_veg23_7,
+         Veg_area_m2_veg23_8)
+
+colnames(brz23_veg) <- c("TP_ID",
+                        "mNDVI_t5",
+                        "mNDVI_t6",
+                        "mNDVI_t7",
+                        "mNDVI_t8",
+                        "vegArea_t5",
+                        "vegArea_t6",
+                        "vegArea_t7",
+                        "vegArea_t8"
+                        )
+
+#################################################
+
+lrb19_veg <- read.csv("lrb_veg_19.csv") |> 
+  mutate(TP_ID = Input_FID) |> 
+  select(TP_ID,
+         NDVI_mean_veg19_5,
+         NDVI_mean_veg19_6,
+         NDVI_mean_veg19_7,
+         NDVI_mean_veg19_8,
+         Veg_area_m2_veg19_5,
+         Veg_area_m2_veg19_6,
+         Veg_area_m2_veg19_7,
+         Veg_area_m2_veg19_8)
+
+colnames(lrb19_veg) <- c("TP_ID",
+                        "mNDVI_t5",
+                        "mNDVI_t6",
+                        "mNDVI_t7",
+                        "mNDVI_t8",
+                        "vegArea_t5",
+                        "vegArea_t6",
+                        "vegArea_t7",
+                        "vegArea_t8"
+                        )
+
+lrb21_veg <- read.csv("lrb_veg_21.csv") |> 
+  mutate(TP_ID = Input_FID) |> 
+  select(TP_ID,
+         NDVI_mean_veg21_5,
+         NDVI_mean_veg21_6,
+         NDVI_mean_veg21_7,
+         NDVI_mean_veg21_8,
+         Veg_area_m2_veg21_5,
+         Veg_area_m2_veg21_6,
+         Veg_area_m2_veg21_7,
+         Veg_area_m2_veg21_8)
+
+colnames(lrb21_veg) <- c("TP_ID",
+                        "mNDVI_t5",
+                        "mNDVI_t6",
+                        "mNDVI_t7",
+                        "mNDVI_t8",
+                        "vegArea_t5",
+                        "vegArea_t6",
+                        "vegArea_t7",
+                        "vegArea_t8"
+                        )
+
+lrb23_veg <- read.csv("lrb_veg_23.csv") |> 
+  mutate(TP_ID = Input_FID) |> 
+  select(TP_ID,
+         NDVI_mean_veg23_5,
+         NDVI_mean_veg23_6,
+         NDVI_mean_veg23_7,
+         NDVI_mean_veg23_8,
+         Veg_area_m2_veg23_5,
+         Veg_area_m2_veg23_6,
+         Veg_area_m2_veg23_7,
+         Veg_area_m2_veg23_8)
+
+colnames(lrb23_veg) <- c("TP_ID",
+                        "mNDVI_t5",
+                        "mNDVI_t6",
+                        "mNDVI_t7",
+                        "mNDVI_t8",
+                        "vegArea_t5",
+                        "vegArea_t6",
+                        "vegArea_t7",
+                        "vegArea_t8"
+                        )
+
+
+###########################################3
+
+
+lbv19_veg <- read.csv("lbv_veg_19.csv") |> 
+  mutate(TP_ID = Input_FID) |> 
+  select(TP_ID,
+         NDVI_mean_veg19_5,
+         NDVI_mean_veg19_6,
+         NDVI_mean_veg19_7,
+         NDVI_mean_veg19_8,
+         Veg_area_m2_veg19_5,
+         Veg_area_m2_veg19_6,
+         Veg_area_m2_veg19_7,
+         Veg_area_m2_veg19_8)
+
+colnames(lbv19_veg) <- c("TP_ID",
+                        "mNDVI_t5",
+                        "mNDVI_t6",
+                        "mNDVI_t7",
+                        "mNDVI_t8",
+                        "vegArea_t5",
+                        "vegArea_t6",
+                        "vegArea_t7",
+                        "vegArea_t8"
+                        )
+
+lbv21_veg <- read.csv("lbv_veg_21.csv") |> 
+  mutate(TP_ID = Input_FID) |> 
+  select(TP_ID,
+         NDVI_mean_veg21_5,
+         NDVI_mean_veg21_6,
+         NDVI_mean_veg21_7,
+         NDVI_mean_veg21_8,
+         Veg_area_m2_veg21_5,
+         Veg_area_m2_veg21_6,
+         Veg_area_m2_veg21_7,
+         Veg_area_m2_veg21_8)
+
+colnames(lbv21_veg) <- c("TP_ID",
+                        "mNDVI_t5",
+                        "mNDVI_t6",
+                        "mNDVI_t7",
+                        "mNDVI_t8",
+                        "vegArea_t5",
+                        "vegArea_t6",
+                        "vegArea_t7",
+                        "vegArea_t8"
+                        )
+
+lbv23_veg <- read.csv("lbv_veg_23.csv") |> 
+  mutate(TP_ID = Input_FID) |> 
+  select(TP_ID,
+         NDVI_mean_veg23_5,
+         NDVI_mean_veg23_6,
+         NDVI_mean_veg23_7,
+         NDVI_mean_veg23_8,
+         Veg_area_m2_veg23_5,
+         Veg_area_m2_veg23_6,
+         Veg_area_m2_veg23_7,
+         Veg_area_m2_veg23_8)
+
+colnames(lbv23_veg) <- c("TP_ID",
+                        "mNDVI_t5",
+                        "mNDVI_t6",
+                        "mNDVI_t7",
+                        "mNDVI_t8",
+                        "vegArea_t5",
+                        "vegArea_t6",
+                        "vegArea_t7",
+                        "vegArea_t8"
+                        )
+
+##############################################
+
+ubv19_veg <- read.csv("ubv_veg_19.csv") |> 
+  mutate(TP_ID = Input_FID) |> 
+  select(TP_ID,
+         NDVI_mean_veg19_5,
+         NDVI_mean_veg19_6,
+         NDVI_mean_veg19_7,
+         NDVI_mean_veg19_8,
+         Veg_area_m2_veg19_5,
+         Veg_area_m2_veg19_6,
+         Veg_area_m2_veg19_7,
+         Veg_area_m2_veg19_8)
+
+colnames(ubv19_veg) <- c("TP_ID",
+                        "mNDVI_t5",
+                        "mNDVI_t6",
+                        "mNDVI_t7",
+                        "mNDVI_t8",
+                        "vegArea_t5",
+                        "vegArea_t6",
+                        "vegArea_t7",
+                        "vegArea_t8"
+                        )
+
+ubv21_veg <- read.csv("ubv_veg_21.csv") |> 
+  mutate(TP_ID = Input_FID) |> 
+  select(TP_ID,
+         NDVI_mean_veg21_5,
+         NDVI_mean_veg21_6,
+         NDVI_mean_veg21_7,
+         NDVI_mean_veg21_8,
+         Veg_area_m2_veg21_5,
+         Veg_area_m2_veg21_6,
+         Veg_area_m2_veg21_7,
+         Veg_area_m2_veg21_8)
+
+colnames(ubv21_veg) <- c("TP_ID",
+                        "mNDVI_t5",
+                        "mNDVI_t6",
+                        "mNDVI_t7",
+                        "mNDVI_t8",
+                        "vegArea_t5",
+                        "vegArea_t6",
+                        "vegArea_t7",
+                        "vegArea_t8"
+                        )
+
+ubv23_veg <- read.csv("ubv_veg_23.csv") |> 
+  mutate(TP_ID = Input_FID) |> 
+  select(TP_ID,
+         NDVI_mean_veg23_5,
+         NDVI_mean_veg23_6,
+         NDVI_mean_veg23_7,
+         NDVI_mean_veg23_8,
+         Veg_area_m2_veg23_5,
+         Veg_area_m2_veg23_6,
+         Veg_area_m2_veg23_7,
+         Veg_area_m2_veg23_8)
+
+colnames(ubv23_veg) <- c("TP_ID",
+                        "mNDVI_t5",
+                        "mNDVI_t6",
+                        "mNDVI_t7",
+                        "mNDVI_t8",
+                        "vegArea_t5",
+                        "vegArea_t6",
+                        "vegArea_t7",
+                        "vegArea_t8"
+                        )
+
 
 ```
 
@@ -9868,9 +10266,11 @@ Now sample SWA for dammed and undammed clusters, and finalize data frames for su
 # WILLOW
 
 # 2019
-wc19_sampledSW <- wc19_sampled %>% 
+wc19_sampledSW_Veg <- wc19_sampled %>% 
   left_join(wc_SW_19_collapsed,
             by = "TP_ID") %>% 
+  left_join(wc19_veg,
+            by = "TP_ID") |> 
   select(watershed,
          year,
          clusterID_seq,
@@ -9894,6 +10294,14 @@ wc19_sampledSW <- wc19_sampled %>%
          SWA_t6,
          SWA_t7,
          SWA_t8,
+         vegArea_t5,
+         vegArea_t6,
+         vegArea_t7,
+         vegArea_t8,
+         mNDVI_t5,
+         mNDVI_t6,
+         mNDVI_t7,
+         mNDVI_t8,
          containsNull_t1,
          containsNull_t2,
          containsNull_t3,
@@ -9905,7 +10313,7 @@ wc19_sampledSW <- wc19_sampled %>%
          window_start,
          window_end,
          window_length
-         ) %>% 
+         ) |> 
   group_by(clusterID_seq,
            window_type) %>%
   summarise(watershed = first(watershed),
@@ -9934,17 +10342,32 @@ wc19_sampledSW <- wc19_sampled %>%
             # compute Nhat:
             Nhat = beav_count_all / (p_window * (1 - f_window)),
   
-            
             # sum total surface water area for window
-            SWA_t1 = sum(SWA_t1),
-            SWA_t2 = sum(SWA_t2),
-            SWA_t3 = sum(SWA_t3),
-            SWA_t4 = sum(SWA_t4),
-            SWA_t5 = sum(SWA_t5),
-            SWA_t6 = sum(SWA_t6),
-            SWA_t7 = sum(SWA_t7),
-            SWA_t8 = sum(SWA_t8),
+            SWA_t1 = sum(SWA_t1, na.rm = T),
+            SWA_t2 = sum(SWA_t2, na.rm = T),
+            SWA_t3 = sum(SWA_t3, na.rm = T),
+            SWA_t4 = sum(SWA_t4, na.rm = T),
+            SWA_t5 = sum(SWA_t5, na.rm = T),
+            SWA_t6 = sum(SWA_t6, na.rm = T),
+            SWA_t7 = sum(SWA_t7, na.rm = T),
+            SWA_t8 = sum(SWA_t8, na.rm = T),
             
+            # sum total veg area for window
+            VA_t5 = sum(vegArea_t5, na.rm = T),
+            VA_t6 = sum(vegArea_t6, na.rm = T),
+            VA_t7 = sum(vegArea_t7, na.rm = T),
+            VA_t8 = sum(vegArea_t8, na.rm = T),
+            
+            # mean & sd NDVI for window
+            NDVI_t5 = mean(mNDVI_t5,na.rm=T),
+            NDVI_t6 = mean(mNDVI_t6,na.rm=T),
+            NDVI_t7 = mean(mNDVI_t7,na.rm=T),
+            NDVI_t8 = mean(mNDVI_t8,na.rm=T),
+            NDVI_sd_t5 = sd(mNDVI_t5,na.rm=T),
+            NDVI_sd_t6 = sd(mNDVI_t6,na.rm=T),
+            NDVI_sd_t7 = sd(mNDVI_t7,na.rm=T),
+            NDVI_sd_t8 = sd(mNDVI_t8,na.rm=T),
+
             # take max isNull. if 1, then SWA should = NA due to satellite obfuscation;
             containsNull_t1 = max(containsNull_t1),
             containsNull_t2 = max(containsNull_t2),
@@ -9958,11 +10381,11 @@ wc19_sampledSW <- wc19_sampled %>%
             .groups = "drop"
   )
 
-wc19_sampledSW_wNull <- wc19_sampledSW %>% 
+wc19_sampledSW_wNull <- wc19_sampledSW_Veg %>% 
   mutate(across(
     .cols = starts_with("SWA_t"),
     .fns  = ~ ifelse(
-      wc19_sampledSW[[str_replace(cur_column(), "SWA", "containsNull")]] >= 1,
+      wc19_sampledSW_Veg[[str_replace(cur_column(), "SWA", "containsNull")]] >= 1,
       NA,
       .
     )
@@ -9970,13 +10393,21 @@ wc19_sampledSW_wNull <- wc19_sampledSW %>%
 
 wc19_sampledSW_Long <- wc19_sampledSW_wNull %>%
   pivot_longer(
-    cols = starts_with("SWA_t"),
-    names_to = "time_period",
-    values_to = "SWA"
+    cols = c(starts_with("SWA_t"), 
+             starts_with("NDVI_t"), 
+             starts_with("VA_t"),
+             starts_with("NDVI_sd_t"),
+             starts_with("containsNull_t")),
+    names_to = c(".value", "t"),
+    names_pattern = "(.*)_t(\\d+)"
   ) %>%
   mutate(
-    t = as.factor(gsub("SWA_t", "", time_period))
+    t = as.factor(t)
   )
+
+wc19_lateSummer_Sample_Long <- wc19_sampledSW_Long |> 
+  filter(t %in% c(5,6,7,8))
+
 ###################################
 ####################################
 ######################################
@@ -9985,13 +10416,15 @@ wc19_sampledSW_Long <- wc19_sampledSW_wNull %>%
 
 #PLOTS!
 #Compare dam counts per sample window
-wc19_damcounts <- wc19_sampledSW_wNull %>%
+wc19_damcounts <- wc19_lateSummer_Sample_Long %>%
   filter(window_type == "dammed") %>%
   select(clusterID_seq, beav_count_all)
 
 wc19_damcounts <- wc19_damcounts %>%
-  mutate(beav_count_all = factor(beav_count_all),
-         clusterID_seq = factor(clusterID_seq))
+  mutate(beav_count_all = beav_count_all,
+         clusterID_seq = factor(clusterID_seq)) |> 
+  group_by(clusterID_seq) |> 
+  summarise(beav_count_all = max(beav_count_all))
 
 ggplot(wc19_damcounts,
        aes(x = beav_count_all,
@@ -10014,11 +10447,10 @@ ggplot(wc19_damcounts,
   )
 
 
-
 # Compare SWA across time periods for undammed,  and dammed windows:
 #Plot boxplot:
 
-ggplot(wc19_sampledSW_Long,
+ggplot(wc19_lateSummer_Sample_Long,
        aes(x = t,
            y = SWA,
            fill = window_type)) +
@@ -10037,7 +10469,7 @@ ggplot(wc19_sampledSW_Long,
 
 # Ensure that samples span relatively similar riparian area and TO
 # RiparianArea_m2
-ggplot(wc19_sampledSW_Long,
+ggplot(wc19_lateSummer_Sample_Long,
        aes(x = window_type,
            y = riparian_area_m2,
            fill = window_type)) +
@@ -10057,7 +10489,7 @@ ggplot(wc19_sampledSW_Long,
 #####
 # TO
 
-ggplot(wc19_sampledSW_Long,
+ggplot(wc19_lateSummer_Sample_Long,
        aes(x = window_type,
            y = TO,
            fill = window_type)) +
@@ -10072,12 +10504,51 @@ ggplot(wc19_sampledSW_Long,
     subtitle = "Willow Creek 2019"
   ) +
   theme_bw(base_size = 14)
+
+
+#####
+# vegArea
+
+ggplot(wc19_lateSummer_Sample_Long,
+       aes(x = window_type,
+           y = VA,
+           fill = window_type)) +
+  geom_boxplot(outlier.size = 0.4, alpha = 0.8) + 
+  scale_fill_manual(values = c("undammed" = "steelblue",
+                               "dammed"   = "brown")) +
+  labs(
+    x = "Time period (t)",
+    y = "Vegetation Area m^2",
+    fill = "Sample Window Type",
+    title = "vegArea by Dam Status",
+    subtitle = "Willow Creek 2019"
+  ) +
+  theme_bw(base_size = 14)
+
+#####
+# NDVI
+
+ggplot(wc19_lateSummer_Sample_Long,
+       aes(x = window_type,
+           y = NDVI,
+           fill = window_type)) +
+  geom_boxplot(outlier.size = 0.4, alpha = 0.8) + 
+  scale_fill_manual(values = c("undammed" = "steelblue",
+                               "dammed"   = "brown")) +
+  labs(
+    x = "Time period (t)",
+    y = "NDVI",
+    fill = "Sample Window Type",
+    title = "Veg NDVI by Dam Status",
+    subtitle = "Willow Creek 2019"
+  ) +
+  theme_bw(base_size = 14)
 ```
 
 
 ```{r,include=FALSE}
 
-wc19_sampledSW_Long_Export <- wc19_sampledSW_Long %>% 
+wc19_sampled_Long_Export <- wc19_sampledSW_Long %>% 
   st_drop_geometry() %>% 
   select(clusterID_seq,
          window_type,
@@ -10094,9 +10565,12 @@ wc19_sampledSW_Long_Export <- wc19_sampledSW_Long %>%
          anthro_count,
          isAnthro,
          Nhat,
-         time_period,
+         t,
          SWA,
-         t)
+         VA,
+         NDVI,
+         NDVI_sd,
+         containsNull)
 
 #write.csv(wc19_sampledSW_Long_Export, "C:\\Users\\mattw\\OneDrive\\Desktop\\UMT\\Data\\GEE\\Paired_SWA_Sampling_AOI_AllYears\\WC_2019_DF_Final_Long_0427Update_250Spacing.csv", row.names=FALSE)
 ```
@@ -10260,7 +10734,7 @@ ggplot(wc21_damcounts,
 # Compare SWA across time periods for undammed,  and dammed windows:
 #Plot boxplot:
 
-ggplot(wc21_sampledSW_Long,
+ggplot(wc19_lateSummer_Sample_Long,
        aes(x = t,
            y = SWA,
            fill = window_type)) +
@@ -10279,7 +10753,7 @@ ggplot(wc21_sampledSW_Long,
 
 # Ensure that samples span relatively similar riparian area and TO
 # RiparianArea_m2
-ggplot(wc21_sampledSW_Long,
+ggplot(wc19_lateSummer_Sample_Long,
        aes(x = window_type,
            y = riparian_area_m2,
            fill = window_type)) +
@@ -10299,7 +10773,7 @@ ggplot(wc21_sampledSW_Long,
 #####
 # TO
 
-ggplot(wc21_sampledSW_Long,
+ggplot(wc19_lateSummer_Sample_Long,
        aes(x = window_type,
            y = TO,
            fill = window_type)) +
@@ -10314,6 +10788,47 @@ ggplot(wc21_sampledSW_Long,
     subtitle = "Willow Creek 2021"
   ) +
   theme_bw(base_size = 14)
+
+
+
+#####
+# VegArea
+
+ggplot(wc19_lateSummer_Sample_Long,
+       aes(x = window_type,
+           y = vegArea,
+           fill = window_type)) +
+  geom_boxplot(outlier.size = 0.4, alpha = 0.8) + 
+  scale_fill_manual(values = c("undammed" = "steelblue",
+                               "dammed"   = "brown")) +
+  labs(
+    x = "Time period (t)",
+    y = "Vegetation Area m^2",
+    fill = "Sample Window Type",
+    title = "vegArea by Dam Status",
+    subtitle = "Willow Creek 2021"
+  ) +
+  theme_bw(base_size = 14)
+
+#####
+# NDVI
+
+ggplot(wc19_lateSummer_Sample_Long,
+       aes(x = window_type,
+           y = mNDVI,
+           fill = window_type)) +
+  geom_boxplot(outlier.size = 0.4, alpha = 0.8) + 
+  scale_fill_manual(values = c("undammed" = "steelblue",
+                               "dammed"   = "brown")) +
+  labs(
+    x = "Time period (t)",
+    y = "meanNDVI",
+    fill = "Sample Window Type",
+    title = "NDVI by Dam Status",
+    subtitle = "Willow Creek 2021"
+  ) +
+  theme_bw(base_size = 14)
+
 ```
 
 
