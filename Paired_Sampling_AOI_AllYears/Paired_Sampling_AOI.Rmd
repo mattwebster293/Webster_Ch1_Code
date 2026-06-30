@@ -10532,7 +10532,7 @@ ggplot(wc19_lateSummer_Sample_Long,
        aes(x = window_type,
            y = NDVI,
            fill = window_type)) +
-  geom_boxplot(outlier.size = 0.4, alpha = 0.8) + 
+  geom_violin() +
   scale_fill_manual(values = c("undammed" = "steelblue",
                                "dammed"   = "brown")) +
   labs(
