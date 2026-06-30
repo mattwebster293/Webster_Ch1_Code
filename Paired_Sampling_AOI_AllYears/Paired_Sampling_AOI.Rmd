@@ -10700,17 +10700,7 @@ wc21_sampledSW_Veg <- wc21_sampled %>%
             .groups = "drop"
   )
 
-wc21_sampledSW_wNull <- wc21_sampledSW_Veg %>% 
-  mutate(across(
-    .cols = starts_with("SWA_t"),
-    .fns  = ~ ifelse(
-      wc21_sampledSW_Veg[[str_replace(cur_column(), "SWA", "containsNull")]] >= 1,
-      NA,
-      .
-    )
-  ))
-
-wc21_sampledSW_Long <- wc21_sampledSW_wNull %>%
+wc21_sampledSW_Long <- wc21_sampledSW_Veg %>%
   pivot_longer(
     cols = c(starts_with("SWA_t"), 
              starts_with("NDVI_t"), 
@@ -10726,6 +10716,17 @@ wc21_sampledSW_Long <- wc21_sampledSW_wNull %>%
 
 wc21_lateSummer_Sample_Long <- wc21_sampledSW_Long |> 
   filter(t %in% c(5,6,7,8))
+
+
+# Mask SW/VEG data from windows with Null pixels for time t:
+
+wc21_lateSummer_Sample_Long <- wc21_lateSummer_Sample_Long |> 
+  mutate(
+    SWA     = ifelse(containsNull >= 1, NA, SWA),
+    VA      = ifelse(containsNull >= 1, NA, VA),
+    NDVI   = ifelse(containsNull >= 1, NA, NDVI),
+    NDVI_sd = ifelse(containsNull >= 1, NA, NDVI_sd)
+  )
 
 ###################################
 ####################################
@@ -10867,7 +10868,7 @@ ggplot(wc21_lateSummer_Sample_Long,
 
 ```{r,include=FALSE}
 
-wc21_sampled_Long_Export <- wc21_sampledSW_Long %>% 
+wc21_sampled_Long_Export <- wc21_lateSummer_Sample_Long %>% 
   st_drop_geometry() %>% 
   select(clusterID_seq,
          window_type,
@@ -10894,7 +10895,6 @@ wc21_sampled_Long_Export <- wc21_sampledSW_Long %>%
 #write.csv(wc21_sampled_Long_Export, "C:\\Users\\mattw\\OneDrive\\Desktop\\UMT\\Data\\GEE\\Paired_SWA_Sampling_AOI_AllYears\\WC_2021_DF_Final_Long_0630Update.csv", row.names=FALSE)
 ```
 
-
 **2023**
 ----
 
@@ -10904,9 +10904,11 @@ wc21_sampled_Long_Export <- wc21_sampledSW_Long %>%
 # WILLOW
 
 # 2023
-wc23_sampledSW <- wc23_sampled %>% 
+wc23_sampledSW_Veg <- wc23_sampled %>% 
   left_join(wc_SW_23_collapsed,
             by = "TP_ID") %>% 
+  left_join(wc23_veg,
+            by = "TP_ID") |> 
   select(watershed,
          year,
          clusterID_seq,
@@ -10930,6 +10932,14 @@ wc23_sampledSW <- wc23_sampled %>%
          SWA_t6,
          SWA_t7,
          SWA_t8,
+         vegArea_t5,
+         vegArea_t6,
+         vegArea_t7,
+         vegArea_t8,
+         mNDVI_t5,
+         mNDVI_t6,
+         mNDVI_t7,
+         mNDVI_t8,
          containsNull_t1,
          containsNull_t2,
          containsNull_t3,
@@ -10941,7 +10951,7 @@ wc23_sampledSW <- wc23_sampled %>%
          window_start,
          window_end,
          window_length
-         ) %>% 
+         ) |> 
   group_by(clusterID_seq,
            window_type) %>%
   summarise(watershed = first(watershed),
@@ -10970,17 +10980,32 @@ wc23_sampledSW <- wc23_sampled %>%
             # compute Nhat:
             Nhat = beav_count_all / (p_window * (1 - f_window)),
   
-            
             # sum total surface water area for window
-            SWA_t1 = sum(SWA_t1),
-            SWA_t2 = sum(SWA_t2),
-            SWA_t3 = sum(SWA_t3),
-            SWA_t4 = sum(SWA_t4),
-            SWA_t5 = sum(SWA_t5),
-            SWA_t6 = sum(SWA_t6),
-            SWA_t7 = sum(SWA_t7),
-            SWA_t8 = sum(SWA_t8),
+            SWA_t1 = sum(SWA_t1, na.rm = T),
+            SWA_t2 = sum(SWA_t2, na.rm = T),
+            SWA_t3 = sum(SWA_t3, na.rm = T),
+            SWA_t4 = sum(SWA_t4, na.rm = T),
+            SWA_t5 = sum(SWA_t5, na.rm = T),
+            SWA_t6 = sum(SWA_t6, na.rm = T),
+            SWA_t7 = sum(SWA_t7, na.rm = T),
+            SWA_t8 = sum(SWA_t8, na.rm = T),
             
+            # sum total veg area for window
+            VA_t5 = sum(vegArea_t5, na.rm = T),
+            VA_t6 = sum(vegArea_t6, na.rm = T),
+            VA_t7 = sum(vegArea_t7, na.rm = T),
+            VA_t8 = sum(vegArea_t8, na.rm = T),
+            
+            # mean & sd NDVI for window
+            NDVI_t5 = mean(mNDVI_t5,na.rm=T),
+            NDVI_t6 = mean(mNDVI_t6,na.rm=T),
+            NDVI_t7 = mean(mNDVI_t7,na.rm=T),
+            NDVI_t8 = mean(mNDVI_t8,na.rm=T),
+            NDVI_sd_t5 = sd(mNDVI_t5,na.rm=T),
+            NDVI_sd_t6 = sd(mNDVI_t6,na.rm=T),
+            NDVI_sd_t7 = sd(mNDVI_t7,na.rm=T),
+            NDVI_sd_t8 = sd(mNDVI_t8,na.rm=T),
+
             # take max isNull. if 1, then SWA should = NA due to satellite obfuscation;
             containsNull_t1 = max(containsNull_t1),
             containsNull_t2 = max(containsNull_t2),
@@ -10994,25 +11019,34 @@ wc23_sampledSW <- wc23_sampled %>%
             .groups = "drop"
   )
 
-wc23_sampledSW_wNull <- wc23_sampledSW %>% 
-  mutate(across(
-    .cols = starts_with("SWA_t"),
-    .fns  = ~ ifelse(
-      wc23_sampledSW[[str_replace(cur_column(), "SWA", "containsNull")]] >= 1,
-      NA,
-      .
-    )
-  ))
-
-wc23_sampledSW_Long <- wc23_sampledSW_wNull %>%
+wc23_sampledSW_Long <- wc23_sampledSW_Veg %>%
   pivot_longer(
-    cols = starts_with("SWA_t"),
-    names_to = "time_period",
-    values_to = "SWA"
+    cols = c(starts_with("SWA_t"), 
+             starts_with("NDVI_t"), 
+             starts_with("VA_t"),
+             starts_with("NDVI_sd_t"),
+             starts_with("containsNull_t")),
+    names_to = c(".value", "t"),
+    names_pattern = "(.*)_t(\\d+)"
   ) %>%
   mutate(
-    t = as.factor(gsub("SWA_t", "", time_period))
+    t = as.factor(t)
   )
+
+wc23_lateSummer_Sample_Long <- wc23_sampledSW_Long |> 
+  filter(t %in% c(5,6,7,8))
+
+
+# Mask SW/VEG data from windows with Null pixels for time t:
+
+wc23_lateSummer_Sample_Long <- wc23_lateSummer_Sample_Long |> 
+  mutate(
+    SWA     = ifelse(containsNull >= 1, NA, SWA),
+    VA      = ifelse(containsNull >= 1, NA, VA),
+    NDVI   = ifelse(containsNull >= 1, NA, NDVI),
+    NDVI_sd = ifelse(containsNull >= 1, NA, NDVI_sd)
+  )
+
 ###################################
 ####################################
 ######################################
@@ -11021,13 +11055,15 @@ wc23_sampledSW_Long <- wc23_sampledSW_wNull %>%
 
 #PLOTS!
 #Compare dam counts per sample window
-wc23_damcounts <- wc23_sampledSW_wNull %>%
+wc23_damcounts <- wc23_lateSummer_Sample_Long %>%
   filter(window_type == "dammed") %>%
   select(clusterID_seq, beav_count_all)
 
 wc23_damcounts <- wc23_damcounts %>%
-  mutate(beav_count_all = factor(beav_count_all),
-         clusterID_seq = factor(clusterID_seq))
+  mutate(beav_count_all = beav_count_all,
+         clusterID_seq = factor(clusterID_seq)) |> 
+  group_by(clusterID_seq) |> 
+  summarise(beav_count_all = max(beav_count_all))
 
 ggplot(wc23_damcounts,
        aes(x = beav_count_all,
@@ -11050,15 +11086,14 @@ ggplot(wc23_damcounts,
   )
 
 
-
 # Compare SWA across time periods for undammed,  and dammed windows:
 #Plot boxplot:
 
-ggplot(wc23_sampledSW_Long,
+ggplot(wc23_lateSummer_Sample_Long,
        aes(x = t,
            y = SWA,
            fill = window_type)) +
-  geom_boxplot(outlier.size = 0.4, alpha = 0.8) + 
+  geom_violin() + 
   scale_fill_manual(values = c("undammed" = "steelblue",
                                "dammed"   = "brown")) +
   labs(
@@ -11073,11 +11108,11 @@ ggplot(wc23_sampledSW_Long,
 
 # Ensure that samples span relatively similar riparian area and TO
 # RiparianArea_m2
-ggplot(wc23_sampledSW_Long,
+ggplot(wc23_lateSummer_Sample_Long,
        aes(x = window_type,
            y = riparian_area_m2,
            fill = window_type)) +
-  geom_boxplot(outlier.size = 0.4, alpha = 0.8) + 
+  geom_violin() + 
   scale_fill_manual(values = c("undammed" = "steelblue",
                                "dammed"   = "brown")) +
   labs(
@@ -11093,11 +11128,11 @@ ggplot(wc23_sampledSW_Long,
 #####
 # TO
 
-ggplot(wc23_sampledSW_Long,
+ggplot(wc23_lateSummer_Sample_Long,
        aes(x = window_type,
            y = TO,
            fill = window_type)) +
-  geom_boxplot(outlier.size = 0.4, alpha = 0.8) + 
+  geom_violin() + 
   scale_fill_manual(values = c("undammed" = "steelblue",
                                "dammed"   = "brown")) +
   labs(
@@ -11108,12 +11143,51 @@ ggplot(wc23_sampledSW_Long,
     subtitle = "Willow Creek 2023"
   ) +
   theme_bw(base_size = 14)
+
+
+#####
+# vegArea
+
+ggplot(wc23_lateSummer_Sample_Long,
+       aes(x = window_type,
+           y = VA,
+           fill = window_type)) +
+  geom_violin() + 
+  scale_fill_manual(values = c("undammed" = "steelblue",
+                               "dammed"   = "brown")) +
+  labs(
+    x = "Time period (t)",
+    y = "Vegetation Area m^2",
+    fill = "Sample Window Type",
+    title = "vegArea by Dam Status",
+    subtitle = "Willow Creek 2023"
+  ) +
+  theme_bw(base_size = 14)
+
+#####
+# NDVI
+
+ggplot(wc23_lateSummer_Sample_Long,
+       aes(x = window_type,
+           y = NDVI,
+           fill = window_type)) +
+  geom_violin() +
+  scale_fill_manual(values = c("undammed" = "steelblue",
+                               "dammed"   = "brown")) +
+  labs(
+    x = "Time period (t)",
+    y = "NDVI",
+    fill = "Sample Window Type",
+    title = "Veg NDVI by Dam Status",
+    subtitle = "Willow Creek 2023"
+  ) +
+  theme_bw(base_size = 14)
 ```
 
 
 ```{r,include=FALSE}
 
-wc23_sampledSW_Long_Export <- wc23_sampledSW_Long %>% 
+wc23_sampled_Long_Export <- wc23_lateSummer_Sample_Long %>% 
   st_drop_geometry() %>% 
   select(clusterID_seq,
          window_type,
@@ -11130,16 +11204,15 @@ wc23_sampledSW_Long_Export <- wc23_sampledSW_Long %>%
          anthro_count,
          isAnthro,
          Nhat,
-         time_period,
+         t,
          SWA,
-         t)
+         VA,
+         NDVI,
+         NDVI_sd,
+         containsNull)
 
-
-
-#write.csv(wc23_sampledSW_Long_Export, "C:\\Users\\mattw\\OneDrive\\Desktop\\UMT\\Data\\GEE\\Paired_SWA_Sampling_AOI_AllYears\\WC_2023_DF_Final_Long_0630Update.csv", row.names=FALSE)
+#write.csv(wc23_sampled_Long_Export, "C:\\Users\\mattw\\OneDrive\\Desktop\\UMT\\Data\\GEE\\Paired_SWA_Sampling_AOI_AllYears\\WC_2023_DF_Final_Long_0630Update.csv", row.names=FALSE)
 ```
-
-
 
 
 
