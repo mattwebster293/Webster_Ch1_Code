@@ -60,26 +60,26 @@ editor_options:
 ----
 
 ```{r, include=FALSE}
-#library("tidyverse") #the all mighty tidy; 
+library("tidyverse") #the all mighty tidy; 
                      #includes dplyr, tidyr, readr, purrr, tibble, stringr, forcats, lubridate
-#library("knitr") #knitting complex shit
-##library("zoo") #for moving window
-#library("vioplot") #plotting
-#library("leaflet") #for interactive maps
-#library("sf") #geospatial coordinate reference systems stuff
-#library("jsonlite") #ditto
-#library("dbscan") #for dam cluster analysis
-#library("dataRetrieval") #for USGS flow data
-#library("plotly")
+library("knitr") #knitting complex shit
+library("zoo") #for moving window
+library("vioplot") #plotting
+library("leaflet") #for interactive maps
+library("sf") #geospatial coordinate reference systems stuff
+library("jsonlite") #ditto
+library("dbscan") #for dam cluster analysis
+library("dataRetrieval") #for USGS flow data
+library("plotly")
 ```
 
 
 ```{r,echo=FALSE}
-#  knitr::opts_chunk$set(
-#  echo = FALSE,
-#  message = FALSE,
-#  warning = FALSE
-#)
+  knitr::opts_chunk$set(
+  echo = FALSE,
+  message = FALSE,
+  warning = FALSE
+)
 ```
 
 
@@ -10254,6 +10254,26 @@ Now sample SWA for dammed and undammed clusters, and finalize data frames for su
       - SWA: summed surface water area of window
       
       
+      
+      
+      
+```{r,echo=FALSE}
+## HELPER FUNCTION TO CONVERT "NaN" TO "NA"
+
+fix_nan <- function(df) {
+  df[] <- lapply(df, function(x) {
+    if (is.numeric(x)) {
+      x[is.nan(x)] <- NA
+    }
+    x
+  })
+  df
+}
+
+```
+      
+      
+      
 **WILLOW**
 ----
 
@@ -10381,7 +10401,7 @@ wc19_sampledSW_Veg <- wc19_sampled %>%
             .groups = "drop"
   )
 
-wc19_sampledSW_Long <- wc19_sampledSW_Veg %>%
+wc19_sampled_Long <- wc19_sampledSW_Veg %>%
   pivot_longer(
     cols = c(starts_with("SWA_t"), 
              starts_with("NDVI_t"), 
@@ -10395,7 +10415,7 @@ wc19_sampledSW_Long <- wc19_sampledSW_Veg %>%
     t = as.factor(t)
   )
 
-wc19_lateSummer_Sample_Long <- wc19_sampledSW_Long |> 
+wc19_lateSummer_Sample_Long <- wc19_sampled_Long |> 
   filter(t %in% c(5,6,7,8))
 
 
@@ -10571,7 +10591,8 @@ wc19_sampled_Long_Export <- wc19_lateSummer_Sample_Long %>%
          VA,
          NDVI,
          NDVI_sd,
-         containsNull)
+         containsNull) %>%
+  fix_nan()
 
 #write.csv(wc19_sampled_Long_Export, "C:\\Users\\mattw\\OneDrive\\Desktop\\UMT\\Data\\GEE\\Paired_SWA_Sampling_AOI_AllYears\\WC_2019_DF_Final_Long_0630Update.csv", row.names=FALSE)
 ```
@@ -10700,7 +10721,7 @@ wc21_sampledSW_Veg <- wc21_sampled %>%
             .groups = "drop"
   )
 
-wc21_sampledSW_Long <- wc21_sampledSW_Veg %>%
+wc21_sampled_Long <- wc21_sampledSW_Veg %>%
   pivot_longer(
     cols = c(starts_with("SWA_t"), 
              starts_with("NDVI_t"), 
@@ -10714,7 +10735,7 @@ wc21_sampledSW_Long <- wc21_sampledSW_Veg %>%
     t = as.factor(t)
   )
 
-wc21_lateSummer_Sample_Long <- wc21_sampledSW_Long |> 
+wc21_lateSummer_Sample_Long <- wc21_sampled_Long |> 
   filter(t %in% c(5,6,7,8))
 
 
@@ -10890,7 +10911,8 @@ wc21_sampled_Long_Export <- wc21_lateSummer_Sample_Long %>%
          VA,
          NDVI,
          NDVI_sd,
-         containsNull)
+         containsNull) %>%
+  fix_nan()
 
 #write.csv(wc21_sampled_Long_Export, "C:\\Users\\mattw\\OneDrive\\Desktop\\UMT\\Data\\GEE\\Paired_SWA_Sampling_AOI_AllYears\\WC_2021_DF_Final_Long_0630Update.csv", row.names=FALSE)
 ```
@@ -11019,7 +11041,7 @@ wc23_sampledSW_Veg <- wc23_sampled %>%
             .groups = "drop"
   )
 
-wc23_sampledSW_Long <- wc23_sampledSW_Veg %>%
+wc23_sampled_Long <- wc23_sampledSW_Veg %>%
   pivot_longer(
     cols = c(starts_with("SWA_t"), 
              starts_with("NDVI_t"), 
@@ -11033,7 +11055,7 @@ wc23_sampledSW_Long <- wc23_sampledSW_Veg %>%
     t = as.factor(t)
   )
 
-wc23_lateSummer_Sample_Long <- wc23_sampledSW_Long |> 
+wc23_lateSummer_Sample_Long <- wc23_sampled_Long |> 
   filter(t %in% c(5,6,7,8))
 
 
@@ -11209,7 +11231,8 @@ wc23_sampled_Long_Export <- wc23_lateSummer_Sample_Long %>%
          VA,
          NDVI,
          NDVI_sd,
-         containsNull)
+         containsNull) %>%
+  fix_nan()
 
 #write.csv(wc23_sampled_Long_Export, "C:\\Users\\mattw\\OneDrive\\Desktop\\UMT\\Data\\GEE\\Paired_SWA_Sampling_AOI_AllYears\\WC_2023_DF_Final_Long_0630Update.csv", row.names=FALSE)
 ```
@@ -11352,7 +11375,7 @@ lt19_sampledSW_Veg <- lt19_sampled %>%
             .groups = "drop"
   )
 
-lt19_sampledSW_Long <- lt19_sampledSW_Veg %>%
+lt19_sampled_Long <- lt19_sampledSW_Veg %>%
   pivot_longer(
     cols = c(starts_with("SWA_t"), 
              starts_with("NDVI_t"), 
@@ -11366,7 +11389,7 @@ lt19_sampledSW_Long <- lt19_sampledSW_Veg %>%
     t = as.factor(t)
   )
 
-lt19_lateSummer_Sample_Long <- lt19_sampledSW_Long |> 
+lt19_lateSummer_Sample_Long <- lt19_sampled_Long |> 
   filter(t %in% c(5,6,7,8))
 
 
@@ -11542,7 +11565,8 @@ lt19_sampled_Long_Export <- lt19_lateSummer_Sample_Long %>%
          VA,
          NDVI,
          NDVI_sd,
-         containsNull)
+         containsNull) %>%
+  fix_nan()
 
 #write.csv(lt19_sampled_Long_Export, "C:\\Users\\mattw\\OneDrive\\Desktop\\UMT\\Data\\GEE\\Paired_SWA_Sampling_AOI_AllYears\\lt_2019_DF_Final_Long_0630Update.csv", row.names=FALSE)
 ```
@@ -11671,7 +11695,7 @@ lt21_sampledSW_Veg <- lt21_sampled %>%
             .groups = "drop"
   )
 
-lt21_sampledSW_Long <- lt21_sampledSW_Veg %>%
+lt21_sampled_Long <- lt21_sampledSW_Veg %>%
   pivot_longer(
     cols = c(starts_with("SWA_t"), 
              starts_with("NDVI_t"), 
@@ -11685,7 +11709,7 @@ lt21_sampledSW_Long <- lt21_sampledSW_Veg %>%
     t = as.factor(t)
   )
 
-lt21_lateSummer_Sample_Long <- lt21_sampledSW_Long |> 
+lt21_lateSummer_Sample_Long <- lt21_sampled_Long |> 
   filter(t %in% c(5,6,7,8))
 
 
@@ -11861,7 +11885,8 @@ lt21_sampled_Long_Export <- lt21_lateSummer_Sample_Long %>%
          VA,
          NDVI,
          NDVI_sd,
-         containsNull)
+         containsNull) %>%
+  fix_nan()
 
 #write.csv(lt21_sampled_Long_Export, "C:\\Users\\mattw\\OneDrive\\Desktop\\UMT\\Data\\GEE\\Paired_SWA_Sampling_AOI_AllYears\\lt_2021_DF_Final_Long_0630Update.csv", row.names=FALSE)
 ```
@@ -11990,7 +12015,7 @@ lt23_sampledSW_Veg <- lt23_sampled %>%
             .groups = "drop"
   )
 
-lt23_sampledSW_Long <- lt23_sampledSW_Veg %>%
+lt23_sampled_Long <- lt23_sampledSW_Veg %>%
   pivot_longer(
     cols = c(starts_with("SWA_t"), 
              starts_with("NDVI_t"), 
@@ -12004,7 +12029,7 @@ lt23_sampledSW_Long <- lt23_sampledSW_Veg %>%
     t = as.factor(t)
   )
 
-lt23_lateSummer_Sample_Long <- lt23_sampledSW_Long |> 
+lt23_lateSummer_Sample_Long <- lt23_sampled_Long |> 
   filter(t %in% c(5,6,7,8))
 
 
@@ -12180,7 +12205,8 @@ lt23_sampled_Long_Export <- lt23_lateSummer_Sample_Long %>%
          VA,
          NDVI,
          NDVI_sd,
-         containsNull)
+         containsNull) %>%
+  fix_nan()
 
 #write.csv(lt23_sampled_Long_Export, "C:\\Users\\mattw\\OneDrive\\Desktop\\UMT\\Data\\GEE\\Paired_SWA_Sampling_AOI_AllYears\\lt_2023_DF_Final_Long_0630Update.csv", row.names=FALSE)
 ```
@@ -12318,7 +12344,7 @@ brz19_sampledSW_Veg <- brz19_sampled %>%
             .groups = "drop"
   )
 
-brz19_sampledSW_Long <- brz19_sampledSW_Veg %>%
+brz19_sampled_Long <- brz19_sampledSW_Veg %>%
   pivot_longer(
     cols = c(starts_with("SWA_t"), 
              starts_with("NDVI_t"), 
@@ -12332,7 +12358,7 @@ brz19_sampledSW_Long <- brz19_sampledSW_Veg %>%
     t = as.factor(t)
   )
 
-brz19_lateSummer_Sample_Long <- brz19_sampledSW_Long |> 
+brz19_lateSummer_Sample_Long <- brz19_sampled_Long |> 
   filter(t %in% c(5,6,7,8))
 
 
@@ -12508,7 +12534,8 @@ brz19_sampled_Long_Export <- brz19_lateSummer_Sample_Long %>%
          VA,
          NDVI,
          NDVI_sd,
-         containsNull)
+         containsNull) %>%
+  fix_nan()
 
 #write.csv(brz19_sampled_Long_Export, "C:\\Users\\mattw\\OneDrive\\Desktop\\UMT\\Data\\GEE\\Paired_SWA_Sampling_AOI_AllYears\\brz_2019_DF_Final_Long_0630Update.csv", row.names=FALSE)
 ```
@@ -12637,7 +12664,7 @@ brz21_sampledSW_Veg <- brz21_sampled %>%
             .groups = "drop"
   )
 
-brz21_sampledSW_Long <- brz21_sampledSW_Veg %>%
+brz21_sampled_Long <- brz21_sampledSW_Veg %>%
   pivot_longer(
     cols = c(starts_with("SWA_t"), 
              starts_with("NDVI_t"), 
@@ -12651,7 +12678,7 @@ brz21_sampledSW_Long <- brz21_sampledSW_Veg %>%
     t = as.factor(t)
   )
 
-brz21_lateSummer_Sample_Long <- brz21_sampledSW_Long |> 
+brz21_lateSummer_Sample_Long <- brz21_sampled_Long |> 
   filter(t %in% c(5,6,7,8))
 
 
@@ -12827,7 +12854,8 @@ brz21_sampled_Long_Export <- brz21_lateSummer_Sample_Long %>%
          VA,
          NDVI,
          NDVI_sd,
-         containsNull)
+         containsNull) %>%
+  fix_nan()
 
 #write.csv(brz21_sampled_Long_Export, "C:\\Users\\mattw\\OneDrive\\Desktop\\UMT\\Data\\GEE\\Paired_SWA_Sampling_AOI_AllYears\\brz_2021_DF_Final_Long_0630Update.csv", row.names=FALSE)
 ```
@@ -12956,7 +12984,7 @@ brz23_sampledSW_Veg <- brz23_sampled %>%
             .groups = "drop"
   )
 
-brz23_sampledSW_Long <- brz23_sampledSW_Veg %>%
+brz23_sampled_Long <- brz23_sampledSW_Veg %>%
   pivot_longer(
     cols = c(starts_with("SWA_t"), 
              starts_with("NDVI_t"), 
@@ -12970,7 +12998,7 @@ brz23_sampledSW_Long <- brz23_sampledSW_Veg %>%
     t = as.factor(t)
   )
 
-brz23_lateSummer_Sample_Long <- brz23_sampledSW_Long |> 
+brz23_lateSummer_Sample_Long <- brz23_sampled_Long |> 
   filter(t %in% c(5,6,7,8))
 
 
@@ -13146,7 +13174,8 @@ brz23_sampled_Long_Export <- brz23_lateSummer_Sample_Long %>%
          VA,
          NDVI,
          NDVI_sd,
-         containsNull)
+         containsNull) %>%
+  fix_nan()
 
 #write.csv(brz23_sampled_Long_Export, "C:\\Users\\mattw\\OneDrive\\Desktop\\UMT\\Data\\GEE\\Paired_SWA_Sampling_AOI_AllYears\\brz_2023_DF_Final_Long_0630Update.csv", row.names=FALSE)
 ```
@@ -13285,7 +13314,7 @@ lrb19_sampledSW_Veg <- lrb19_sampled %>%
             .groups = "drop"
   )
 
-lrb19_sampledSW_Long <- lrb19_sampledSW_Veg %>%
+lrb19_sampled_Long <- lrb19_sampledSW_Veg %>%
   pivot_longer(
     cols = c(starts_with("SWA_t"), 
              starts_with("NDVI_t"), 
@@ -13299,7 +13328,7 @@ lrb19_sampledSW_Long <- lrb19_sampledSW_Veg %>%
     t = as.factor(t)
   )
 
-lrb19_lateSummer_Sample_Long <- lrb19_sampledSW_Long |> 
+lrb19_lateSummer_Sample_Long <- lrb19_sampled_Long |> 
   filter(t %in% c(5,6,7,8))
 
 
@@ -13475,8 +13504,9 @@ lrb19_sampled_Long_Export <- lrb19_lateSummer_Sample_Long %>%
          VA,
          NDVI,
          NDVI_sd,
-         containsNull)
-
+         containsNull) %>%
+  fix_nan()
+ 
 #write.csv(lrb19_sampled_Long_Export, "C:\\Users\\mattw\\OneDrive\\Desktop\\UMT\\Data\\GEE\\Paired_SWA_Sampling_AOI_AllYears\\lrb_2019_DF_Final_Long_0630Update.csv", row.names=FALSE)
 ```
 
@@ -13604,7 +13634,7 @@ lrb21_sampledSW_Veg <- lrb21_sampled %>%
             .groups = "drop"
   )
 
-lrb21_sampledSW_Long <- lrb21_sampledSW_Veg %>%
+lrb21_sampled_Long <- lrb21_sampledSW_Veg %>%
   pivot_longer(
     cols = c(starts_with("SWA_t"), 
              starts_with("NDVI_t"), 
@@ -13618,7 +13648,7 @@ lrb21_sampledSW_Long <- lrb21_sampledSW_Veg %>%
     t = as.factor(t)
   )
 
-lrb21_lateSummer_Sample_Long <- lrb21_sampledSW_Long |> 
+lrb21_lateSummer_Sample_Long <- lrb21_sampled_Long |> 
   filter(t %in% c(5,6,7,8))
 
 
@@ -13794,7 +13824,8 @@ lrb21_sampled_Long_Export <- lrb21_lateSummer_Sample_Long %>%
          VA,
          NDVI,
          NDVI_sd,
-         containsNull)
+         containsNull) %>%
+  fix_nan()
 
 #write.csv(lrb21_sampled_Long_Export, "C:\\Users\\mattw\\OneDrive\\Desktop\\UMT\\Data\\GEE\\Paired_SWA_Sampling_AOI_AllYears\\lrb_2021_DF_Final_Long_0630Update.csv", row.names=FALSE)
 ```
@@ -13923,7 +13954,7 @@ lrb23_sampledSW_Veg <- lrb23_sampled %>%
             .groups = "drop"
   )
 
-lrb23_sampledSW_Long <- lrb23_sampledSW_Veg %>%
+lrb23_sampled_Long <- lrb23_sampledSW_Veg %>%
   pivot_longer(
     cols = c(starts_with("SWA_t"), 
              starts_with("NDVI_t"), 
@@ -13937,7 +13968,7 @@ lrb23_sampledSW_Long <- lrb23_sampledSW_Veg %>%
     t = as.factor(t)
   )
 
-lrb23_lateSummer_Sample_Long <- lrb23_sampledSW_Long |> 
+lrb23_lateSummer_Sample_Long <- lrb23_sampled_Long |> 
   filter(t %in% c(5,6,7,8))
 
 
@@ -14113,7 +14144,8 @@ lrb23_sampled_Long_Export <- lrb23_lateSummer_Sample_Long %>%
          VA,
          NDVI,
          NDVI_sd,
-         containsNull)
+         containsNull) %>%
+  fix_nan()
 
 #write.csv(lrb23_sampled_Long_Export, "C:\\Users\\mattw\\OneDrive\\Desktop\\UMT\\Data\\GEE\\Paired_SWA_Sampling_AOI_AllYears\\lrb_2023_DF_Final_Long_0630Update.csv", row.names=FALSE)
 ```
@@ -14252,7 +14284,7 @@ lbv19_sampledSW_Veg <- lbv19_sampled %>%
             .groups = "drop"
   )
 
-lbv19_sampledSW_Long <- lbv19_sampledSW_Veg %>%
+lbv19_sampled_Long <- lbv19_sampledSW_Veg %>%
   pivot_longer(
     cols = c(starts_with("SWA_t"), 
              starts_with("NDVI_t"), 
@@ -14266,7 +14298,7 @@ lbv19_sampledSW_Long <- lbv19_sampledSW_Veg %>%
     t = as.factor(t)
   )
 
-lbv19_lateSummer_Sample_Long <- lbv19_sampledSW_Long |> 
+lbv19_lateSummer_Sample_Long <- lbv19_sampled_Long |> 
   filter(t %in% c(5,6,7,8))
 
 
@@ -14442,7 +14474,8 @@ lbv19_sampled_Long_Export <- lbv19_lateSummer_Sample_Long %>%
          VA,
          NDVI,
          NDVI_sd,
-         containsNull)
+         containsNull) %>%
+  fix_nan()
 
 #write.csv(lbv19_sampled_Long_Export, "C:\\Users\\mattw\\OneDrive\\Desktop\\UMT\\Data\\GEE\\Paired_SWA_Sampling_AOI_AllYears\\lbv_2019_DF_Final_Long_0630Update.csv", row.names=FALSE)
 ```
@@ -14571,7 +14604,7 @@ lbv21_sampledSW_Veg <- lbv21_sampled %>%
             .groups = "drop"
   )
 
-lbv21_sampledSW_Long <- lbv21_sampledSW_Veg %>%
+lbv21_sampled_Long <- lbv21_sampledSW_Veg %>%
   pivot_longer(
     cols = c(starts_with("SWA_t"), 
              starts_with("NDVI_t"), 
@@ -14585,7 +14618,7 @@ lbv21_sampledSW_Long <- lbv21_sampledSW_Veg %>%
     t = as.factor(t)
   )
 
-lbv21_lateSummer_Sample_Long <- lbv21_sampledSW_Long |> 
+lbv21_lateSummer_Sample_Long <- lbv21_sampled_Long |> 
   filter(t %in% c(5,6,7,8))
 
 
@@ -14761,7 +14794,8 @@ lbv21_sampled_Long_Export <- lbv21_lateSummer_Sample_Long %>%
          VA,
          NDVI,
          NDVI_sd,
-         containsNull)
+         containsNull) %>%
+  fix_nan()
 
 #write.csv(lbv21_sampled_Long_Export, "C:\\Users\\mattw\\OneDrive\\Desktop\\UMT\\Data\\GEE\\Paired_SWA_Sampling_AOI_AllYears\\lbv_2021_DF_Final_Long_0630Update.csv", row.names=FALSE)
 ```
@@ -14890,7 +14924,7 @@ lbv23_sampledSW_Veg <- lbv23_sampled %>%
             .groups = "drop"
   )
 
-lbv23_sampledSW_Long <- lbv23_sampledSW_Veg %>%
+lbv23_sampled_Long <- lbv23_sampledSW_Veg %>%
   pivot_longer(
     cols = c(starts_with("SWA_t"), 
              starts_with("NDVI_t"), 
@@ -14904,7 +14938,7 @@ lbv23_sampledSW_Long <- lbv23_sampledSW_Veg %>%
     t = as.factor(t)
   )
 
-lbv23_lateSummer_Sample_Long <- lbv23_sampledSW_Long |> 
+lbv23_lateSummer_Sample_Long <- lbv23_sampled_Long |> 
   filter(t %in% c(5,6,7,8))
 
 
@@ -15080,7 +15114,8 @@ lbv23_sampled_Long_Export <- lbv23_lateSummer_Sample_Long %>%
          VA,
          NDVI,
          NDVI_sd,
-         containsNull)
+         containsNull) %>%
+  fix_nan()
 
 #write.csv(lbv23_sampled_Long_Export, "C:\\Users\\mattw\\OneDrive\\Desktop\\UMT\\Data\\GEE\\Paired_SWA_Sampling_AOI_AllYears\\lbv_2023_DF_Final_Long_0630Update.csv", row.names=FALSE)
 ```
@@ -15217,7 +15252,7 @@ ubv19_sampledSW_Veg <- ubv19_sampled %>%
             .groups = "drop"
   )
 
-ubv19_sampledSW_Long <- ubv19_sampledSW_Veg %>%
+ubv19_sampled_Long <- ubv19_sampledSW_Veg %>%
   pivot_longer(
     cols = c(starts_with("SWA_t"), 
              starts_with("NDVI_t"), 
@@ -15231,7 +15266,7 @@ ubv19_sampledSW_Long <- ubv19_sampledSW_Veg %>%
     t = as.factor(t)
   )
 
-ubv19_lateSummer_Sample_Long <- ubv19_sampledSW_Long |> 
+ubv19_lateSummer_Sample_Long <- ubv19_sampled_Long |> 
   filter(t %in% c(5,6,7,8))
 
 
@@ -15407,7 +15442,8 @@ ubv19_sampled_Long_Export <- ubv19_lateSummer_Sample_Long %>%
          VA,
          NDVI,
          NDVI_sd,
-         containsNull)
+         containsNull) %>%
+  fix_nan()
 
 #write.csv(ubv19_sampled_Long_Export, "C:\\Users\\mattw\\OneDrive\\Desktop\\UMT\\Data\\GEE\\Paired_SWA_Sampling_AOI_AllYears\\ubv_2019_DF_Final_Long_0630Update.csv", row.names=FALSE)
 ```
@@ -15536,7 +15572,7 @@ ubv21_sampledSW_Veg <- ubv21_sampled %>%
             .groups = "drop"
   )
 
-ubv21_sampledSW_Long <- ubv21_sampledSW_Veg %>%
+ubv21_sampled_Long <- ubv21_sampledSW_Veg %>%
   pivot_longer(
     cols = c(starts_with("SWA_t"), 
              starts_with("NDVI_t"), 
@@ -15550,7 +15586,7 @@ ubv21_sampledSW_Long <- ubv21_sampledSW_Veg %>%
     t = as.factor(t)
   )
 
-ubv21_lateSummer_Sample_Long <- ubv21_sampledSW_Long |> 
+ubv21_lateSummer_Sample_Long <- ubv21_sampled_Long |> 
   filter(t %in% c(5,6,7,8))
 
 
@@ -15726,7 +15762,8 @@ ubv21_sampled_Long_Export <- ubv21_lateSummer_Sample_Long %>%
          VA,
          NDVI,
          NDVI_sd,
-         containsNull)
+         containsNull) %>%
+  fix_nan()
 
 #write.csv(ubv21_sampled_Long_Export, "C:\\Users\\mattw\\OneDrive\\Desktop\\UMT\\Data\\GEE\\Paired_SWA_Sampling_AOI_AllYears\\ubv_2021_DF_Final_Long_0630Update.csv", row.names=FALSE)
 ```
@@ -15855,7 +15892,7 @@ ubv23_sampledSW_Veg <- ubv23_sampled %>%
             .groups = "drop"
   )
 
-ubv23_sampledSW_Long <- ubv23_sampledSW_Veg %>%
+ubv23_sampled_Long <- ubv23_sampledSW_Veg %>%
   pivot_longer(
     cols = c(starts_with("SWA_t"), 
              starts_with("NDVI_t"), 
@@ -15869,7 +15906,7 @@ ubv23_sampledSW_Long <- ubv23_sampledSW_Veg %>%
     t = as.factor(t)
   )
 
-ubv23_lateSummer_Sample_Long <- ubv23_sampledSW_Long |> 
+ubv23_lateSummer_Sample_Long <- ubv23_sampled_Long |> 
   filter(t %in% c(5,6,7,8))
 
 
@@ -16045,7 +16082,8 @@ ubv23_sampled_Long_Export <- ubv23_lateSummer_Sample_Long %>%
          VA,
          NDVI,
          NDVI_sd,
-         containsNull)
+         containsNull) %>%
+  fix_nan()
 
 #write.csv(ubv23_sampled_Long_Export, "C:\\Users\\mattw\\OneDrive\\Desktop\\UMT\\Data\\GEE\\Paired_SWA_Sampling_AOI_AllYears\\ubv_2023_DF_Final_Long_0630Update.csv", row.names=FALSE)
 ```
@@ -16068,991 +16106,3 @@ ubv23_sampled_Long_Export <- ubv23_lateSummer_Sample_Long %>%
 ----
 
 ----
-
-EXPLORE POTENTIAL WATERSHED LEVEL EFFECTS:
-
-DOES DAM_DENSITY[watershed] influence RI[watershed]?
-
-ONLY COMPARE t5:t8; t1:t4 for 2023 saw MASSIVE flooding that certainly wiped out dams; for comparability's sake, remove t1:t4 from consideration
-
-Compare watersheds across time:
-
-    6 watersheds
-    
-    3 years
-    
-    4 time periods (t5:t8)
-      - August & September
-      
-
-
-For each watershed/year combo, condense the "..._SW_..._collapsed" data frame to a single, summed row, with columns: watershed; SWAt1:SWAt8; riparian_area_m -- where SWA for each time period, and riparian_area_m2 are each summed across the entire watershed.
-
-Then, bind_rows, to join each watershed/year together into a single data frame & compute RI for each.
-
-
-
-```{r,echo=FALSE}
-#Bring in watershed level dam density based on counts/km from CP analysis
-
-cp_watershed_damDensity <- read.csv("ObservedDamDensity_dams_per_km_byStream_byYear.csv") %>%
-  mutate(zDamDensity = scale(dams_per_km))
-
-cp_watershed_damDensity <- cp_watershed_damDensity %>% 
-  rename(watershed = Stream) %>% 
-  select(watershed,
-         Year,
-         dams_per_km) %>% 
-  group_by(watershed,
-           Year)
-
-```
-
-
-```{r,echo=FALSE}
-#Bring in UDA for each ws/year from above
-
-# WILLOW
-wc_UDA <- wcRIP_Area_TO_UDA_uniqueID_detDat19_dam19 %>% 
-  filter(if_all(everything(), ~ .x != -Inf)) %>% 
-  select(catchment_km2) %>%  
-  mutate(watershed = "WC") %>% 
-  group_by(watershed) %>% 
-  summarise(catchment_km2 = max(catchment_km2))
-
-# LONE TREE
-lt_UDA <- ltRIP_Area_TO_UDA_uniqueID_detDat19_dam19 %>% 
-  filter(if_all(everything(), ~ .x != -Inf)) %>% 
-  select(catchment_km2) %>% 
-  mutate(watershed = "LT") %>% 
-  group_by(watershed) %>% 
-  summarise(catchment_km2 = max(catchment_km2))
-
-# BRAZIL
-brz_UDA <- brzRIP_Area_TO_UDA_uniqueID_detDat19_dam19 %>% 
-  filter(if_all(everything(), ~ .x != -Inf)) %>% 
-  select(catchment_km2) %>% 
-  mutate(watershed = "BRZ") %>% 
-  group_by(watershed) %>% 
-  summarise(catchment_km2 = max(catchment_km2))
-
-# LARB
-lrb_UDA <- lrbRIP_Area_TO_UDA_uniqueID_detDat19_dam19 %>% 
-  filter(if_all(everything(), ~ .x != -Inf)) %>% 
-  select(catchment_km2) %>%
-  mutate(watershed = "LRB") %>% 
-  group_by(watershed) %>% 
-  summarise(catchment_km2 = max(catchment_km2))
-
-# LOW BEAV
-lbv_UDA <- lbvRIP_Area_TO_UDA_uniqueID_detDat19_dam19 %>% 
-  filter(if_all(everything(), ~ .x != -Inf)) %>% 
-  select(catchment_km2) %>%
-  mutate(watershed = "LBV") %>% 
-  group_by(watershed) %>% 
-  summarise(catchment_km2 = max(catchment_km2))
-
-# UP BEAV
-ubv_UDA <- ubvRIP_Area_TO_UDA_uniqueID_detDat19_dam19 %>% 
-  filter(if_all(everything(), ~ .x != -Inf)) %>% 
-  select(catchment_km2) %>% 
-  mutate(watershed = "UBV") %>% 
-  group_by(watershed) %>% 
-  summarise(catchment_km2 = max(catchment_km2))
-
-
-aoi_UDA <- bind_rows(wc_UDA,
-                     lt_UDA,
-                     brz_UDA,
-                     lrb_UDA,
-                     lbv_UDA,
-                     ubv_UDA)
-
-```
-
-
-
-```{r,echo=FALSE}
-
-# WILLOW 
-
-# 2019
-wc_19_ws_swa <- wc_SW_19_collapsed %>% 
-  mutate(watershed = "WC",
-         Year = 2019) %>% 
-  select(watershed,
-         Year,
-         riparian_area_m2,
-         SWA_t1,
-         SWA_t2,
-         SWA_t3,
-         SWA_t4,
-         SWA_t5,
-         SWA_t6,
-         SWA_t7,
-         SWA_t8) %>% 
-  group_by(watershed,
-           Year) %>% 
-  summarise(SWA_t1 = sum(SWA_t1, na.rm = T),
-            SWA_t2 = sum(SWA_t2, na.rm = T),
-            SWA_t3 = sum(SWA_t3, na.rm = T),
-            SWA_t4 = sum(SWA_t4, na.rm = T),
-            SWA_t5 = sum(SWA_t5, na.rm = T),
-            SWA_t6 = sum(SWA_t6, na.rm = T),
-            SWA_t7 = sum(SWA_t7, na.rm = T),
-            SWA_t8 = sum(SWA_t8, na.rm = T),
-            riparian_area_m2 = sum(riparian_area_m2, na.rm = T))%>% 
-  mutate(RI_t1 = SWA_t1/riparian_area_m2,
-         RI_t2 = SWA_t2/riparian_area_m2,
-         RI_t3 = SWA_t3/riparian_area_m2,
-         RI_t4 = SWA_t4/riparian_area_m2,
-         RI_t5 = SWA_t5/riparian_area_m2,
-         RI_t6 = SWA_t6/riparian_area_m2,
-         RI_t7 = SWA_t7/riparian_area_m2,
-         RI_t8 = SWA_t8/riparian_area_m2,
-         ) %>% 
-  left_join(cp_watershed_damDensity,
-            by = c("watershed",
-                   "Year"))
-
-# 2021
-wc_21_ws_swa <- wc_SW_21_collapsed %>% 
-  mutate(watershed = "WC",
-         Year = 2021) %>% 
-  select(watershed,
-         Year,
-         riparian_area_m2,
-         SWA_t1,
-         SWA_t2,
-         SWA_t3,
-         SWA_t4,
-         SWA_t5,
-         SWA_t6,
-         SWA_t7,
-         SWA_t8) %>% 
-  group_by(watershed,
-           Year) %>% 
-  summarise(SWA_t1 = sum(SWA_t1, na.rm = T),
-            SWA_t2 = sum(SWA_t2, na.rm = T),
-            SWA_t3 = sum(SWA_t3, na.rm = T),
-            SWA_t4 = sum(SWA_t4, na.rm = T),
-            SWA_t5 = sum(SWA_t5, na.rm = T),
-            SWA_t6 = sum(SWA_t6, na.rm = T),
-            SWA_t7 = sum(SWA_t7, na.rm = T),
-            SWA_t8 = sum(SWA_t8, na.rm = T),
-            riparian_area_m2 = sum(riparian_area_m2, na.rm = T))%>% 
-  mutate(RI_t1 = SWA_t1/riparian_area_m2,
-         RI_t2 = SWA_t2/riparian_area_m2,
-         RI_t3 = SWA_t3/riparian_area_m2,
-         RI_t4 = SWA_t4/riparian_area_m2,
-         RI_t5 = SWA_t5/riparian_area_m2,
-         RI_t6 = SWA_t6/riparian_area_m2,
-         RI_t7 = SWA_t7/riparian_area_m2,
-         RI_t8 = SWA_t8/riparian_area_m2,
-         ) %>% 
-  left_join(cp_watershed_damDensity,
-            by = c("watershed",
-                   "Year"))
-
-# 2023
-wc_23_ws_swa <- wc_SW_23_collapsed %>% 
-  mutate(watershed = "WC",
-         Year = 2023) %>% 
-  select(watershed,
-         Year,
-         riparian_area_m2,
-         SWA_t1,
-         SWA_t2,
-         SWA_t3,
-         SWA_t4,
-         SWA_t5,
-         SWA_t6,
-         SWA_t7,
-         SWA_t8) %>% 
-  group_by(watershed,
-           Year) %>% 
-  summarise(SWA_t1 = sum(SWA_t1, na.rm = T),
-            SWA_t2 = sum(SWA_t2, na.rm = T),
-            SWA_t3 = sum(SWA_t3, na.rm = T),
-            SWA_t4 = sum(SWA_t4, na.rm = T),
-            SWA_t5 = sum(SWA_t5, na.rm = T),
-            SWA_t6 = sum(SWA_t6, na.rm = T),
-            SWA_t7 = sum(SWA_t7, na.rm = T),
-            SWA_t8 = sum(SWA_t8, na.rm = T),
-            riparian_area_m2 = sum(riparian_area_m2, na.rm = T))%>% 
-  mutate(RI_t1 = SWA_t1/riparian_area_m2,
-         RI_t2 = SWA_t2/riparian_area_m2,
-         RI_t3 = SWA_t3/riparian_area_m2,
-         RI_t4 = SWA_t4/riparian_area_m2,
-         RI_t5 = SWA_t5/riparian_area_m2,
-         RI_t6 = SWA_t6/riparian_area_m2,
-         RI_t7 = SWA_t7/riparian_area_m2,
-         RI_t8 = SWA_t8/riparian_area_m2,
-         ) %>% 
-  left_join(cp_watershed_damDensity,
-            by = c("watershed",
-                   "Year"))
-
-
-########################################
-
-
-# LONE TREE 
-
-# 2019
-lt_19_ws_swa <- lt_SW_19_collapsed %>% 
-  mutate(watershed = "LT",
-         Year = 2019) %>% 
-  select(watershed,
-         Year,
-         riparian_area_m2,
-         SWA_t1,
-         SWA_t2,
-         SWA_t3,
-         SWA_t4,
-         SWA_t5,
-         SWA_t6,
-         SWA_t7,
-         SWA_t8) %>% 
-  group_by(watershed,
-           Year) %>% 
-  summarise(SWA_t1 = sum(SWA_t1, na.rm = T),
-            SWA_t2 = sum(SWA_t2, na.rm = T),
-            SWA_t3 = sum(SWA_t3, na.rm = T),
-            SWA_t4 = sum(SWA_t4, na.rm = T),
-            SWA_t5 = sum(SWA_t5, na.rm = T),
-            SWA_t6 = sum(SWA_t6, na.rm = T),
-            SWA_t7 = sum(SWA_t7, na.rm = T),
-            SWA_t8 = sum(SWA_t8, na.rm = T),
-            riparian_area_m2 = sum(riparian_area_m2, na.rm = T))%>% 
-  mutate(RI_t1 = SWA_t1/riparian_area_m2,
-         RI_t2 = SWA_t2/riparian_area_m2,
-         RI_t3 = SWA_t3/riparian_area_m2,
-         RI_t4 = SWA_t4/riparian_area_m2,
-         RI_t5 = SWA_t5/riparian_area_m2,
-         RI_t6 = SWA_t6/riparian_area_m2,
-         RI_t7 = SWA_t7/riparian_area_m2,
-         RI_t8 = SWA_t8/riparian_area_m2,
-         ) %>% 
-  left_join(cp_watershed_damDensity,
-            by = c("watershed",
-                   "Year"))
-
-# 2021
-lt_21_ws_swa <- lt_SW_21_collapsed %>% 
-  mutate(watershed = "LT",
-         Year = 2021) %>% 
-  select(watershed,
-         Year,
-         riparian_area_m2,
-         SWA_t1,
-         SWA_t2,
-         SWA_t3,
-         SWA_t4,
-         SWA_t5,
-         SWA_t6,
-         SWA_t7,
-         SWA_t8) %>% 
-  group_by(watershed,
-           Year) %>% 
-  summarise(SWA_t1 = sum(SWA_t1, na.rm = T),
-            SWA_t2 = sum(SWA_t2, na.rm = T),
-            SWA_t3 = sum(SWA_t3, na.rm = T),
-            SWA_t4 = sum(SWA_t4, na.rm = T),
-            SWA_t5 = sum(SWA_t5, na.rm = T),
-            SWA_t6 = sum(SWA_t6, na.rm = T),
-            SWA_t7 = sum(SWA_t7, na.rm = T),
-            SWA_t8 = sum(SWA_t8, na.rm = T),
-            riparian_area_m2 = sum(riparian_area_m2, na.rm = T))%>% 
-  mutate(RI_t1 = SWA_t1/riparian_area_m2,
-         RI_t2 = SWA_t2/riparian_area_m2,
-         RI_t3 = SWA_t3/riparian_area_m2,
-         RI_t4 = SWA_t4/riparian_area_m2,
-         RI_t5 = SWA_t5/riparian_area_m2,
-         RI_t6 = SWA_t6/riparian_area_m2,
-         RI_t7 = SWA_t7/riparian_area_m2,
-         RI_t8 = SWA_t8/riparian_area_m2,
-         ) %>% 
-  left_join(cp_watershed_damDensity,
-            by = c("watershed",
-                   "Year"))
-
-# 2023
-lt_23_ws_swa <- lt_SW_23_collapsed %>% 
-  mutate(watershed = "LT",
-         Year = 2023) %>% 
-  select(watershed,
-         Year,
-         riparian_area_m2,
-         SWA_t1,
-         SWA_t2,
-         SWA_t3,
-         SWA_t4,
-         SWA_t5,
-         SWA_t6,
-         SWA_t7,
-         SWA_t8) %>% 
-  group_by(watershed,
-           Year) %>% 
-  summarise(SWA_t1 = sum(SWA_t1, na.rm = T),
-            SWA_t2 = sum(SWA_t2, na.rm = T),
-            SWA_t3 = sum(SWA_t3, na.rm = T),
-            SWA_t4 = sum(SWA_t4, na.rm = T),
-            SWA_t5 = sum(SWA_t5, na.rm = T),
-            SWA_t6 = sum(SWA_t6, na.rm = T),
-            SWA_t7 = sum(SWA_t7, na.rm = T),
-            SWA_t8 = sum(SWA_t8, na.rm = T),
-            riparian_area_m2 = sum(riparian_area_m2, na.rm = T))%>% 
-  mutate(RI_t1 = SWA_t1/riparian_area_m2,
-         RI_t2 = SWA_t2/riparian_area_m2,
-         RI_t3 = SWA_t3/riparian_area_m2,
-         RI_t4 = SWA_t4/riparian_area_m2,
-         RI_t5 = SWA_t5/riparian_area_m2,
-         RI_t6 = SWA_t6/riparian_area_m2,
-         RI_t7 = SWA_t7/riparian_area_m2,
-         RI_t8 = SWA_t8/riparian_area_m2,
-         ) %>% 
-  left_join(cp_watershed_damDensity,
-            by = c("watershed",
-                   "Year"))
-
-
-########################################
-
-
-
-# BRAZIL 
-
-# 2019
-brz_19_ws_swa <- brz_SW_19_collapsed %>% 
-  mutate(watershed = "BRZ",
-         Year = 2019) %>% 
-  select(watershed,
-         Year,
-         riparian_area_m2,
-         SWA_t1,
-         SWA_t2,
-         SWA_t3,
-         SWA_t4,
-         SWA_t5,
-         SWA_t6,
-         SWA_t7,
-         SWA_t8) %>% 
-  group_by(watershed,
-           Year) %>% 
-  summarise(SWA_t1 = sum(SWA_t1, na.rm = T),
-            SWA_t2 = sum(SWA_t2, na.rm = T),
-            SWA_t3 = sum(SWA_t3, na.rm = T),
-            SWA_t4 = sum(SWA_t4, na.rm = T),
-            SWA_t5 = sum(SWA_t5, na.rm = T),
-            SWA_t6 = sum(SWA_t6, na.rm = T),
-            SWA_t7 = sum(SWA_t7, na.rm = T),
-            SWA_t8 = sum(SWA_t8, na.rm = T),
-            riparian_area_m2 = sum(riparian_area_m2, na.rm = T))%>% 
-  mutate(RI_t1 = SWA_t1/riparian_area_m2,
-         RI_t2 = SWA_t2/riparian_area_m2,
-         RI_t3 = SWA_t3/riparian_area_m2,
-         RI_t4 = SWA_t4/riparian_area_m2,
-         RI_t5 = SWA_t5/riparian_area_m2,
-         RI_t6 = SWA_t6/riparian_area_m2,
-         RI_t7 = SWA_t7/riparian_area_m2,
-         RI_t8 = SWA_t8/riparian_area_m2,
-         ) %>% 
-  left_join(cp_watershed_damDensity,
-            by = c("watershed",
-                   "Year"))
-
-# 2021
-brz_21_ws_swa <- brz_SW_21_collapsed %>% 
-  mutate(watershed = "BRZ",
-         Year = 2021) %>% 
-  select(watershed,
-         Year,
-         riparian_area_m2,
-         SWA_t1,
-         SWA_t2,
-         SWA_t3,
-         SWA_t4,
-         SWA_t5,
-         SWA_t6,
-         SWA_t7,
-         SWA_t8) %>% 
-  group_by(watershed,
-           Year) %>% 
-  summarise(SWA_t1 = sum(SWA_t1, na.rm = T),
-            SWA_t2 = sum(SWA_t2, na.rm = T),
-            SWA_t3 = sum(SWA_t3, na.rm = T),
-            SWA_t4 = sum(SWA_t4, na.rm = T),
-            SWA_t5 = sum(SWA_t5, na.rm = T),
-            SWA_t6 = sum(SWA_t6, na.rm = T),
-            SWA_t7 = sum(SWA_t7, na.rm = T),
-            SWA_t8 = sum(SWA_t8, na.rm = T),
-            riparian_area_m2 = sum(riparian_area_m2, na.rm = T))%>% 
-  mutate(RI_t1 = SWA_t1/riparian_area_m2,
-         RI_t2 = SWA_t2/riparian_area_m2,
-         RI_t3 = SWA_t3/riparian_area_m2,
-         RI_t4 = SWA_t4/riparian_area_m2,
-         RI_t5 = SWA_t5/riparian_area_m2,
-         RI_t6 = SWA_t6/riparian_area_m2,
-         RI_t7 = SWA_t7/riparian_area_m2,
-         RI_t8 = SWA_t8/riparian_area_m2,
-         ) %>% 
-  left_join(cp_watershed_damDensity,
-            by = c("watershed",
-                   "Year"))
-
-# 2023
-brz_23_ws_swa <- brz_SW_23_collapsed %>% 
-  mutate(watershed = "BRZ",
-         Year = 2023) %>% 
-  select(watershed,
-         Year,
-         riparian_area_m2,
-         SWA_t1,
-         SWA_t2,
-         SWA_t3,
-         SWA_t4,
-         SWA_t5,
-         SWA_t6,
-         SWA_t7,
-         SWA_t8) %>% 
-  group_by(watershed,
-           Year) %>% 
-  summarise(SWA_t1 = sum(SWA_t1, na.rm = T),
-            SWA_t2 = sum(SWA_t2, na.rm = T),
-            SWA_t3 = sum(SWA_t3, na.rm = T),
-            SWA_t4 = sum(SWA_t4, na.rm = T),
-            SWA_t5 = sum(SWA_t5, na.rm = T),
-            SWA_t6 = sum(SWA_t6, na.rm = T),
-            SWA_t7 = sum(SWA_t7, na.rm = T),
-            SWA_t8 = sum(SWA_t8, na.rm = T),
-            riparian_area_m2 = sum(riparian_area_m2, na.rm = T))%>% 
-  mutate(RI_t1 = SWA_t1/riparian_area_m2,
-         RI_t2 = SWA_t2/riparian_area_m2,
-         RI_t3 = SWA_t3/riparian_area_m2,
-         RI_t4 = SWA_t4/riparian_area_m2,
-         RI_t5 = SWA_t5/riparian_area_m2,
-         RI_t6 = SWA_t6/riparian_area_m2,
-         RI_t7 = SWA_t7/riparian_area_m2,
-         RI_t8 = SWA_t8/riparian_area_m2,
-         ) %>% 
-  left_join(cp_watershed_damDensity,
-            by = c("watershed",
-                   "Year"))
-
-
-########################################
-
-
-# LARB
-
-# 2019
-lrb_19_ws_swa <- lrb_SW_19_collapsed %>% 
-  mutate(watershed = "LRB",
-         Year = 2019) %>% 
-  select(watershed,
-         Year,
-         riparian_area_m2,
-         SWA_t1,
-         SWA_t2,
-         SWA_t3,
-         SWA_t4,
-         SWA_t5,
-         SWA_t6,
-         SWA_t7,
-         SWA_t8) %>% 
-  group_by(watershed,
-           Year) %>% 
-  summarise(SWA_t1 = sum(SWA_t1, na.rm = T),
-            SWA_t2 = sum(SWA_t2, na.rm = T),
-            SWA_t3 = sum(SWA_t3, na.rm = T),
-            SWA_t4 = sum(SWA_t4, na.rm = T),
-            SWA_t5 = sum(SWA_t5, na.rm = T),
-            SWA_t6 = sum(SWA_t6, na.rm = T),
-            SWA_t7 = sum(SWA_t7, na.rm = T),
-            SWA_t8 = sum(SWA_t8, na.rm = T),
-            riparian_area_m2 = sum(riparian_area_m2, na.rm = T))%>% 
-  mutate(RI_t1 = SWA_t1/riparian_area_m2,
-         RI_t2 = SWA_t2/riparian_area_m2,
-         RI_t3 = SWA_t3/riparian_area_m2,
-         RI_t4 = SWA_t4/riparian_area_m2,
-         RI_t5 = SWA_t5/riparian_area_m2,
-         RI_t6 = SWA_t6/riparian_area_m2,
-         RI_t7 = SWA_t7/riparian_area_m2,
-         RI_t8 = SWA_t8/riparian_area_m2,
-         ) %>% 
-  left_join(cp_watershed_damDensity,
-            by = c("watershed",
-                   "Year"))
-
-# 2021
-lrb_21_ws_swa <- lrb_SW_21_collapsed %>% 
-  mutate(watershed = "LRB",
-         Year = 2021) %>% 
-  select(watershed,
-         Year,
-         riparian_area_m2,
-         SWA_t1,
-         SWA_t2,
-         SWA_t3,
-         SWA_t4,
-         SWA_t5,
-         SWA_t6,
-         SWA_t7,
-         SWA_t8) %>% 
-  group_by(watershed,
-           Year) %>% 
-  summarise(SWA_t1 = sum(SWA_t1, na.rm = T),
-            SWA_t2 = sum(SWA_t2, na.rm = T),
-            SWA_t3 = sum(SWA_t3, na.rm = T),
-            SWA_t4 = sum(SWA_t4, na.rm = T),
-            SWA_t5 = sum(SWA_t5, na.rm = T),
-            SWA_t6 = sum(SWA_t6, na.rm = T),
-            SWA_t7 = sum(SWA_t7, na.rm = T),
-            SWA_t8 = sum(SWA_t8, na.rm = T),
-            riparian_area_m2 = sum(riparian_area_m2, na.rm = T))%>% 
-  mutate(RI_t1 = SWA_t1/riparian_area_m2,
-         RI_t2 = SWA_t2/riparian_area_m2,
-         RI_t3 = SWA_t3/riparian_area_m2,
-         RI_t4 = SWA_t4/riparian_area_m2,
-         RI_t5 = SWA_t5/riparian_area_m2,
-         RI_t6 = SWA_t6/riparian_area_m2,
-         RI_t7 = SWA_t7/riparian_area_m2,
-         RI_t8 = SWA_t8/riparian_area_m2,
-         ) %>% 
-  left_join(cp_watershed_damDensity,
-            by = c("watershed",
-                   "Year"))
-
-# 2023
-lrb_23_ws_swa <- lrb_SW_23_collapsed %>% 
-  mutate(watershed = "LRB",
-         Year = 2023) %>% 
-  select(watershed,
-         Year,
-         riparian_area_m2,
-         SWA_t1,
-         SWA_t2,
-         SWA_t3,
-         SWA_t4,
-         SWA_t5,
-         SWA_t6,
-         SWA_t7,
-         SWA_t8) %>% 
-  group_by(watershed,
-           Year) %>% 
-  summarise(SWA_t1 = sum(SWA_t1, na.rm = T),
-            SWA_t2 = sum(SWA_t2, na.rm = T),
-            SWA_t3 = sum(SWA_t3, na.rm = T),
-            SWA_t4 = sum(SWA_t4, na.rm = T),
-            SWA_t5 = sum(SWA_t5, na.rm = T),
-            SWA_t6 = sum(SWA_t6, na.rm = T),
-            SWA_t7 = sum(SWA_t7, na.rm = T),
-            SWA_t8 = sum(SWA_t8, na.rm = T),
-            riparian_area_m2 = sum(riparian_area_m2, na.rm = T))%>% 
-  mutate(RI_t1 = SWA_t1/riparian_area_m2,
-         RI_t2 = SWA_t2/riparian_area_m2,
-         RI_t3 = SWA_t3/riparian_area_m2,
-         RI_t4 = SWA_t4/riparian_area_m2,
-         RI_t5 = SWA_t5/riparian_area_m2,
-         RI_t6 = SWA_t6/riparian_area_m2,
-         RI_t7 = SWA_t7/riparian_area_m2,
-         RI_t8 = SWA_t8/riparian_area_m2,
-         ) %>% 
-  left_join(cp_watershed_damDensity,
-            by = c("watershed",
-                   "Year"))
-
-
-########################################
-
-
-# LOWER BEAVER 
-
-# 2019
-lbv_19_ws_swa <- lbv_SW_19_collapsed %>% 
-  mutate(watershed = "LBV",
-         Year = 2019) %>% 
-  select(watershed,
-         Year,
-         riparian_area_m2,
-         SWA_t1,
-         SWA_t2,
-         SWA_t3,
-         SWA_t4,
-         SWA_t5,
-         SWA_t6,
-         SWA_t7,
-         SWA_t8) %>% 
-  group_by(watershed,
-           Year) %>% 
-  summarise(SWA_t1 = sum(SWA_t1, na.rm = T),
-            SWA_t2 = sum(SWA_t2, na.rm = T),
-            SWA_t3 = sum(SWA_t3, na.rm = T),
-            SWA_t4 = sum(SWA_t4, na.rm = T),
-            SWA_t5 = sum(SWA_t5, na.rm = T),
-            SWA_t6 = sum(SWA_t6, na.rm = T),
-            SWA_t7 = sum(SWA_t7, na.rm = T),
-            SWA_t8 = sum(SWA_t8, na.rm = T),
-            riparian_area_m2 = sum(riparian_area_m2, na.rm = T))%>% 
-  mutate(RI_t1 = SWA_t1/riparian_area_m2,
-         RI_t2 = SWA_t2/riparian_area_m2,
-         RI_t3 = SWA_t3/riparian_area_m2,
-         RI_t4 = SWA_t4/riparian_area_m2,
-         RI_t5 = SWA_t5/riparian_area_m2,
-         RI_t6 = SWA_t6/riparian_area_m2,
-         RI_t7 = SWA_t7/riparian_area_m2,
-         RI_t8 = SWA_t8/riparian_area_m2,
-         ) %>% 
-  left_join(cp_watershed_damDensity,
-            by = c("watershed",
-                   "Year"))
-
-# 2021
-lbv_21_ws_swa <- lbv_SW_21_collapsed %>% 
-  mutate(watershed = "LBV",
-         Year = 2021) %>% 
-  select(watershed,
-         Year,
-         riparian_area_m2,
-         SWA_t1,
-         SWA_t2,
-         SWA_t3,
-         SWA_t4,
-         SWA_t5,
-         SWA_t6,
-         SWA_t7,
-         SWA_t8) %>% 
-  group_by(watershed,
-           Year) %>% 
-  summarise(SWA_t1 = sum(SWA_t1, na.rm = T),
-            SWA_t2 = sum(SWA_t2, na.rm = T),
-            SWA_t3 = sum(SWA_t3, na.rm = T),
-            SWA_t4 = sum(SWA_t4, na.rm = T),
-            SWA_t5 = sum(SWA_t5, na.rm = T),
-            SWA_t6 = sum(SWA_t6, na.rm = T),
-            SWA_t7 = sum(SWA_t7, na.rm = T),
-            SWA_t8 = sum(SWA_t8, na.rm = T),
-            riparian_area_m2 = sum(riparian_area_m2, na.rm = T))%>% 
-  mutate(RI_t1 = SWA_t1/riparian_area_m2,
-         RI_t2 = SWA_t2/riparian_area_m2,
-         RI_t3 = SWA_t3/riparian_area_m2,
-         RI_t4 = SWA_t4/riparian_area_m2,
-         RI_t5 = SWA_t5/riparian_area_m2,
-         RI_t6 = SWA_t6/riparian_area_m2,
-         RI_t7 = SWA_t7/riparian_area_m2,
-         RI_t8 = SWA_t8/riparian_area_m2,
-         ) %>% 
-  left_join(cp_watershed_damDensity,
-            by = c("watershed",
-                   "Year"))
-
-# 2023
-lbv_23_ws_swa <- lbv_SW_23_collapsed %>% 
-  mutate(watershed = "LBV",
-         Year = 2023) %>% 
-  select(watershed,
-         Year,
-         riparian_area_m2,
-         SWA_t1,
-         SWA_t2,
-         SWA_t3,
-         SWA_t4,
-         SWA_t5,
-         SWA_t6,
-         SWA_t7,
-         SWA_t8) %>% 
-  group_by(watershed,
-           Year) %>% 
-  summarise(SWA_t1 = sum(SWA_t1, na.rm = T),
-            SWA_t2 = sum(SWA_t2, na.rm = T),
-            SWA_t3 = sum(SWA_t3, na.rm = T),
-            SWA_t4 = sum(SWA_t4, na.rm = T),
-            SWA_t5 = sum(SWA_t5, na.rm = T),
-            SWA_t6 = sum(SWA_t6, na.rm = T),
-            SWA_t7 = sum(SWA_t7, na.rm = T),
-            SWA_t8 = sum(SWA_t8, na.rm = T),
-            riparian_area_m2 = sum(riparian_area_m2, na.rm = T))%>% 
-  mutate(RI_t1 = SWA_t1/riparian_area_m2,
-         RI_t2 = SWA_t2/riparian_area_m2,
-         RI_t3 = SWA_t3/riparian_area_m2,
-         RI_t4 = SWA_t4/riparian_area_m2,
-         RI_t5 = SWA_t5/riparian_area_m2,
-         RI_t6 = SWA_t6/riparian_area_m2,
-         RI_t7 = SWA_t7/riparian_area_m2,
-         RI_t8 = SWA_t8/riparian_area_m2,
-         ) %>% 
-  left_join(cp_watershed_damDensity,
-            by = c("watershed",
-                   "Year"))
-
-
-########################################
-
-
-# UPPER BEAVER 
-
-# 2019
-ubv_19_ws_swa <- ubv_SW_19_collapsed %>% 
-  mutate(watershed = "UBV",
-         Year = 2019) %>% 
-  select(watershed,
-         Year,
-         riparian_area_m2,
-         SWA_t1,
-         SWA_t2,
-         SWA_t3,
-         SWA_t4,
-         SWA_t5,
-         SWA_t6,
-         SWA_t7,
-         SWA_t8) %>% 
-  group_by(watershed,
-           Year) %>% 
-  summarise(SWA_t1 = sum(SWA_t1, na.rm = T),
-            SWA_t2 = sum(SWA_t2, na.rm = T),
-            SWA_t3 = sum(SWA_t3, na.rm = T),
-            SWA_t4 = sum(SWA_t4, na.rm = T),
-            SWA_t5 = sum(SWA_t5, na.rm = T),
-            SWA_t6 = sum(SWA_t6, na.rm = T),
-            SWA_t7 = sum(SWA_t7, na.rm = T),
-            SWA_t8 = sum(SWA_t8, na.rm = T),
-            riparian_area_m2 = sum(riparian_area_m2, na.rm = T))%>% 
-  mutate(RI_t1 = SWA_t1/riparian_area_m2,
-         RI_t2 = SWA_t2/riparian_area_m2,
-         RI_t3 = SWA_t3/riparian_area_m2,
-         RI_t4 = SWA_t4/riparian_area_m2,
-         RI_t5 = SWA_t5/riparian_area_m2,
-         RI_t6 = SWA_t6/riparian_area_m2,
-         RI_t7 = SWA_t7/riparian_area_m2,
-         RI_t8 = SWA_t8/riparian_area_m2,
-         ) %>% 
-  left_join(cp_watershed_damDensity,
-            by = c("watershed",
-                   "Year"))
-
-# 2021
-ubv_21_ws_swa <- ubv_SW_21_collapsed %>% 
-  mutate(watershed = "UBV",
-         Year = 2021) %>% 
-  select(watershed,
-         Year,
-         riparian_area_m2,
-         SWA_t1,
-         SWA_t2,
-         SWA_t3,
-         SWA_t4,
-         SWA_t5,
-         SWA_t6,
-         SWA_t7,
-         SWA_t8) %>% 
-  group_by(watershed,
-           Year) %>% 
-  summarise(SWA_t1 = sum(SWA_t1, na.rm = T),
-            SWA_t2 = sum(SWA_t2, na.rm = T),
-            SWA_t3 = sum(SWA_t3, na.rm = T),
-            SWA_t4 = sum(SWA_t4, na.rm = T),
-            SWA_t5 = sum(SWA_t5, na.rm = T),
-            SWA_t6 = sum(SWA_t6, na.rm = T),
-            SWA_t7 = sum(SWA_t7, na.rm = T),
-            SWA_t8 = sum(SWA_t8, na.rm = T),
-            riparian_area_m2 = sum(riparian_area_m2, na.rm = T))%>% 
-  mutate(RI_t1 = SWA_t1/riparian_area_m2,
-         RI_t2 = SWA_t2/riparian_area_m2,
-         RI_t3 = SWA_t3/riparian_area_m2,
-         RI_t4 = SWA_t4/riparian_area_m2,
-         RI_t5 = SWA_t5/riparian_area_m2,
-         RI_t6 = SWA_t6/riparian_area_m2,
-         RI_t7 = SWA_t7/riparian_area_m2,
-         RI_t8 = SWA_t8/riparian_area_m2,
-         ) %>% 
-  left_join(cp_watershed_damDensity,
-            by = c("watershed",
-                   "Year"))
-
-# 2023
-ubv_23_ws_swa <- ubv_SW_23_collapsed %>% 
-  mutate(watershed = "UBV",
-         Year = 2023) %>% 
-  select(watershed,
-         Year,
-         riparian_area_m2,
-         SWA_t1,
-         SWA_t2,
-         SWA_t3,
-         SWA_t4,
-         SWA_t5,
-         SWA_t6,
-         SWA_t7,
-         SWA_t8) %>% 
-  group_by(watershed,
-           Year) %>% 
-  summarise(SWA_t1 = sum(SWA_t1, na.rm = T),
-            SWA_t2 = sum(SWA_t2, na.rm = T),
-            SWA_t3 = sum(SWA_t3, na.rm = T),
-            SWA_t4 = sum(SWA_t4, na.rm = T),
-            SWA_t5 = sum(SWA_t5, na.rm = T),
-            SWA_t6 = sum(SWA_t6, na.rm = T),
-            SWA_t7 = sum(SWA_t7, na.rm = T),
-            SWA_t8 = sum(SWA_t8, na.rm = T),
-            riparian_area_m2 = sum(riparian_area_m2, na.rm = T))%>% 
-  mutate(RI_t1 = SWA_t1/riparian_area_m2,
-         RI_t2 = SWA_t2/riparian_area_m2,
-         RI_t3 = SWA_t3/riparian_area_m2,
-         RI_t4 = SWA_t4/riparian_area_m2,
-         RI_t5 = SWA_t5/riparian_area_m2,
-         RI_t6 = SWA_t6/riparian_area_m2,
-         RI_t7 = SWA_t7/riparian_area_m2,
-         RI_t8 = SWA_t8/riparian_area_m2,
-         ) %>% 
-  left_join(cp_watershed_damDensity,
-            by = c("watershed",
-                   "Year"))
-
-
-########################################
-
-
-aoi_allYears_ws_RI <- bind_rows(wc_19_ws_swa,
-                                wc_21_ws_swa,
-                                wc_23_ws_swa,
-                                lt_19_ws_swa,
-                                lt_21_ws_swa,
-                                lt_23_ws_swa,
-                                brz_19_ws_swa,
-                                brz_21_ws_swa,
-                                brz_23_ws_swa,
-                                lrb_19_ws_swa,
-                                lrb_21_ws_swa,
-                                lrb_23_ws_swa,
-                                lbv_19_ws_swa,
-                                lbv_21_ws_swa,
-                                lbv_23_ws_swa,
-                                ubv_19_ws_swa,
-                                ubv_21_ws_swa,
-                                ubv_23_ws_swa)
-```
-
-
-```{r,echo=F}
-# pivot the dataframe you just created into long format for comparison plotting:
-
-aoi_allYears_ws_RI_long <- aoi_allYears_ws_RI %>%
-  pivot_longer(
-    cols = starts_with("SWA_t"),
-    names_to = "t",
-    values_to = "SWA"
-  ) %>%
-  mutate(t = readr::parse_number(t)) %>%
-  left_join(
-    aoi_allYears_ws_RI %>%
-      pivot_longer(
-        cols = starts_with("RI_t"),
-        names_to = "t_RI",
-        values_to = "RI"
-      ) %>%
-      mutate(t = readr::parse_number(t_RI)) %>%
-      select(watershed, Year, t, RI),
-    by = c("watershed", "Year", "t")
-  ) %>%
-  select(watershed, Year, t, SWA, RI, riparian_area_m2, dams_per_km) %>% 
-  mutate(surveyPeriod = as.factor(case_when(Year == 2019 & t == 1 ~ 191,
-                                  Year == 2019 & t == 2 ~ 192,
-                                  Year == 2019 & t == 3 ~ 193,
-                                  Year == 2019 & t == 4 ~ 194,
-                                  Year == 2019 & t == 5 ~ 195,
-                                  Year == 2019 & t == 6 ~ 196,
-                                  Year == 2019 & t == 7 ~ 197,
-                                  Year == 2019 & t == 8 ~ 198,
-                                  Year == 2021 & t == 1 ~ 211,
-                                  Year == 2021 & t == 2 ~ 212,
-                                  Year == 2021 & t == 3 ~ 213,
-                                  Year == 2021 & t == 4 ~ 214,
-                                  Year == 2021 & t == 5 ~ 215,
-                                  Year == 2021 & t == 6 ~ 216,
-                                  Year == 2021 & t == 7 ~ 217,
-                                  Year == 2021 & t == 8 ~ 218,
-                                  Year == 2023 & t == 1 ~ 231,
-                                  Year == 2023 & t == 2 ~ 232,
-                                  Year == 2023 & t == 3 ~ 233,
-                                  Year == 2023 & t == 4 ~ 234,
-                                  Year == 2023 & t == 5 ~ 235,
-                                  Year == 2023 & t == 6 ~ 236,
-                                  Year == 2023 & t == 7 ~ 237,
-                                  Year == 2023 & t == 8 ~ 238))) %>% 
-  left_join(mean_flow_per_survey_period,
-            by = "surveyPeriod") %>% 
-  left_join(aoi_UDA,
-            by = "watershed") %>% 
-  filter(t >= 5)
-
-
-```
-
-
-```{r,echo=FALSE}
-
-ggplot(aoi_allYears_ws_RI_long,
-       aes(x = dams_per_km,
-           y = RI,
-           color = zFlow_mean,
-           shape = factor(Year))) +
-  geom_point(size = 5, alpha = 0.75)  +
-  labs(
-    x = "Watershed Dam Density (dams/km)",
-    y = "Watershed Riparian Inundation (SWA/RIPA)",
-    color = "z-Std Relative Flow",
-    shape = "Year",
-    title = expression( RI[watershed] * "~" * DamDensity[watershed] ),
-    subtitle = "All Watersheds, All Years"
-  ) +
-  theme_bw(base_size = 14)
-
-
-
-
-
-
-plot_ly(
-  aoi_allYears_ws_RI_long,
-  x = ~dams_per_km,
-  y = ~as.numeric(scale(catchment_km2)),
-  z = ~RI,
-  color = ~watershed,
-  type = "scatter3d",
-  mode = "markers"
-) %>%
-  layout(
-    scene = list(
-      xaxis = list(title = "Dam Density (dams/stream km)"),
-      yaxis = list(title = "Upstream Drainage Area (km^2)"),
-      zaxis = list(title = "RI"),
-      camera = list(
-        eye = list(x = -1.5, y = -1.5, z = -1.5)
-      )
-    )
-  )
-
-
-plot_ly(
-  aoi_allYears_ws_RI_long,
-  x = ~dams_per_km,
-  y = ~as.numeric(scale(riparian_area_m2)),
-  z = ~as.numeric(scale(SWA)),
-  color = ~watershed,
-  type = "scatter3d",
-  mode = "markers"
-) %>%
-  layout(
-    scene = list(
-      xaxis = list(title = "Dam Density (dams/stream km)"),
-      yaxis = list(title = "Riparian Area (m^2)"),
-      zaxis = list(title = "SWA"),
-      camera = list(
-        eye = list(x = -1.5, y = -1.5, z = -1.5)
-      )
-    )
-  )
-
-
-```
