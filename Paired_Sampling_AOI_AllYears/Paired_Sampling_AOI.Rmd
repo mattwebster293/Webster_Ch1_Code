@@ -17,17 +17,21 @@ editor_options:
     COMPLETE THE FOLLOWING FOR ALL TARGET WATERSHEDS (n=6) in 2019, 2021, 2023:
     
       1) Import and organize data from various sources/source scripts:
-        a) Surface water area (m2) per riparian polygon
-        a) Vegegtation data (area m2 & mean(NDVI))
-        b) Riparian polygon geometries, and riparian polygon area (m2)
-        c) Topographic Openness (no unit) per riparian polygon
-        d) dynOcc data: grid cells, p, f, UDA
-        e) Dam count per riparian polygon
+         ... for all riparian polygons in all watersheds:
+       
+        a) Surface water area (m2)
+        b) Vegetation area (m2) & mean(NDVI)
+        c) Riparian polygon geometries, and riparian polygon area (m2)
+        d) Topographic Openness; Confinement (inverse TO)
+        e) dynOcc data: grid cells, p, f, UDA
+        f) Dam count
           - beaver dams ('certain' and 'all' detections)
           - anthropogenic dams/channel spanning structures (e.g., road crossings, check dams, etc.)
+      
       2) Implement density based cluster analysis of dammed stream reaches
         a) Max distance to be considered same cluster (Eps) = 250(m)
         b) Minimum dams for one cluster (minPoints) = 1 dam
+      
       3) Implement paired sampling of dammed and undammed reaches
         a) Dammed/undammed not within 500m of 'anthro'
         a2) Single dam = dam + 250m stream length (25 TP_ID)
@@ -36,28 +40,27 @@ editor_options:
         d) Undammed not within 250m of 'undammed'
           - (force no overlap via spatial thinning, post pairing. 
             This winnows your sample size)
-      4) Compare surface water area (SWA) at dammed vs paired undammed reaches
-      5) Visualize diff(SW) b/t dammed and undammed as heat map
-        a) x axis is relative flow (2wk average for time t)
-        b) y axis is ponding capacity (RIPA*(TO/90))
+     
+      4) Compare surface water area (SWA), veg area (VA), and NDVI at dammed vs paired undammed reaches
       
-      5) Data needs:
-        a. Surface Water Area [sum(SWA)] (m2) for cluster[i]
-        b. Topographic Openness [mean(TO)] for cluster[i]
-        c. Riparian Area [sum(RIPA)] (m2) for cluster[i]
-        d. damIntensity/damDensity (Nhat) for cluster[i]
-        e. Upstream drainage area [max(UDA)] (km2) for cluster[i] (a.k.a. contributing catchment are)
+      5) Visualize differences
     
     
+----
+----
     
     
-**NOTE:** The main purpose of this iteration is to incorporate vegArea and mean(NDVI) for each dammed/undammed sample window. Do this AFTER the sample data frame has been created with all the other variables -- BEFORE you convert the data frame to long format for export. Join the veg data by TP_ID [this should filter veg data and only include TP_IDs of sample windows]. Double check NA prevalence -- if it's an issue, consider computing nullArea and accounting for that.
+    **NOTE:** The main purpose of this iteration is to incorporate vegArea and mean(NDVI) for each dammed/undammed sample window. Do this AFTER the sample data frame has been created with all the other variables -- BEFORE you convert the data frame to long format for export. Join the veg data by TP_ID [this should filter veg data and only include TP_IDs of sample windows]. Double check NA prevalence -- if it's an issue, consider computing nullArea and accounting for that.
+
 
 ----
 
 ----
 
 ----
+
+----
+
 
 ```{r, include=FALSE}
 library("tidyverse") #the all mighty tidy; 
@@ -2426,7 +2429,7 @@ trim_undammed_window <- function(dam_start, dam_end, und_start, und_end, buffer 
 WILLOW
 ----
 
-
+<!---
 **2019**
 ----
 
@@ -2495,14 +2498,14 @@ wc19_dammed_df <- wc19_dammed_df %>%
 
 ----
 
-
+<!---
 **VISUALIZE DAM CLUSTERS:**
 
 
 Plot dam clusters for Willow Creek 2019 on a map:
 
 
-```{r, echo=FALSE,  fig.width=10, fig.height=10}
+```{r, include=FALSE,  fig.width=10, fig.height=10}
 # Join geometries to polygons with data
 wc_dam_map_19 <- wc19_dammed_df %>% 
   st_drop_geometry() %>%      
@@ -2539,6 +2542,8 @@ leaflet(wc_points_19) %>%
     )
   )
 ```
+
+
 
 **2021**
 ----
@@ -2608,13 +2613,13 @@ wc21_dammed_df <- wc21_dammed_df %>%
 
 ----
 
-
+<!---
 **VISUALIZE DAM CLUSTERS:**
 
 
 Plot dam clusters for Willow Creek 2021 on a map:
 
-```{r, echo=FALSE,  fig.width=10, fig.height=10}
+```{r, include=FALSE,  fig.width=10, fig.height=10}
 # Join geometries to polygons with data
 wc_dam_map_21 <- wc21_dammed_df %>% 
   st_drop_geometry() %>%      
@@ -2651,6 +2656,8 @@ leaflet(wc_points_21) %>%
     )
   )
 ```
+
+
 
 
 **2023**
@@ -2721,13 +2728,14 @@ wc23_dammed_df <- wc23_dammed_df %>%
 
 ----
 
+<!---
 
 **VISUALIZE DAM CLUSTERS:**
 
 
 Plot dam clusters for Willow Creek 2023 on a map:
 
-```{r, echo=FALSE,  fig.width=10, fig.height=10}
+```{r, include=FALSE,  fig.width=10, fig.height=10}
 # Join geometries to polygons with data
 wc_dam_map_23 <- wc23_dammed_df %>% 
   st_drop_geometry() %>%      
@@ -3476,7 +3484,7 @@ length(wc23_pairings$clusterID_seq)
 LONE TREE
 ----
 
-
+<!---
 **2019**
 ----
 
@@ -3545,14 +3553,14 @@ lt19_dammed_df <- lt19_dammed_df %>%
 
 ----
 
-
+<!---
 **VISUALIZE DAM CLUSTERS:**
 
 
 Plot sample regions for Willow Creek 2019 on a map:
 
 
-```{r, echo=FALSE,  fig.width=10, fig.height=10}
+```{r, include=FALSE,  fig.width=10, fig.height=10}
 # Join geometries to polygons with data
 lt_dam_map_19 <- lt19_dammed_df %>% 
   st_drop_geometry() %>%      
@@ -3589,6 +3597,7 @@ leaflet(lt_points_19) %>%
     )
   )
 ```
+
 
 **2021**
 ----
@@ -3658,14 +3667,14 @@ lt21_dammed_df <- lt21_dammed_df %>%
 
 ----
 
-
+<!---
 **VISUALIZE DAM CLUSTERS:**
 
 
  Plot sample regions for Willow Creek 2021 on a map:
 
 
-```{r, echo=FALSE,  fig.width=10, fig.height=10}
+```{r, include=FALSE,  fig.width=10, fig.height=10}
 # Join geometries to polygons with data
 lt_dam_map_21 <- lt21_dammed_df %>% 
   st_drop_geometry() %>%      
@@ -3772,14 +3781,14 @@ lt23_dammed_df <- lt23_dammed_df %>%
 
 ----
 
-
+<!---
 **VISUALIZE DAM CLUSTERS:**
 
 
 Plot sample regions for Willow Creek 2023 on a map:
 
 
-```{r, echo=FALSE,  fig.width=10, fig.height=10}
+```{r, include=FALSE,  fig.width=10, fig.height=10}
 # Join geometries to polygons with data
 lt_dam_map_23 <- lt23_dammed_df %>% 
   st_drop_geometry() %>%      
@@ -4527,7 +4536,7 @@ length(lt23_pairings$clusterID_seq)
 BRAZIL
 ----
 
-
+<!---
 **2019**
 ----
 
@@ -4596,7 +4605,7 @@ brz19_dammed_df <- brz19_dammed_df %>%
 
 ----
 
-
+<!---
 **VISUALIZE DAM CLUSTERS:**
 
 
@@ -4640,6 +4649,9 @@ leaflet(brz_points_19) %>%
     )
   )
 ```
+
+
+
 
 **2021**
 ----
@@ -4709,6 +4721,7 @@ brz21_dammed_df <- brz21_dammed_df %>%
 
 ----
 
+<!---
 
 **VISUALIZE DAM CLUSTERS:**
 
@@ -4716,7 +4729,7 @@ brz21_dammed_df <- brz21_dammed_df %>%
  Plot sample regions for Willow Creek 2021 on a map:
 
 
-```{r, echo=FALSE,  fig.width=10, fig.height=10}
+```{r, include=FALSE,  fig.width=10, fig.height=10}
 # Join geometries to polygons with data
 brz_dam_map_21 <- brz21_dammed_df %>% 
   st_drop_geometry() %>%      
@@ -4823,14 +4836,14 @@ brz23_dammed_df <- brz23_dammed_df %>%
 
 ----
 
-
+<!---
 **VISUALIZE DAM CLUSTERS:**
 
 
 Plot sample regions for Willow Creek 2023 on a map:
 
 
-```{r, echo=FALSE,  fig.width=10, fig.height=10}
+```{r, include=FALSE,  fig.width=10, fig.height=10}
 # Join geometries to polygons with data
 brz_dam_map_23 <- brz23_dammed_df %>% 
   st_drop_geometry() %>%      
@@ -5577,7 +5590,7 @@ length(brz23_pairings$clusterID_seq)
 LARB
 ----
 
-
+<!---
 **2019**
 ----
 
@@ -5646,14 +5659,14 @@ lrb19_dammed_df <- lrb19_dammed_df %>%
 
 ----
 
-
+<!---
 **VISUALIZE DAM CLUSTERS:**
 
 
 Plot sample regions for Willow Creek 2019 on a map:
 
 
-```{r, echo=FALSE,  fig.width=10, fig.height=10}
+```{r, include=FALSE,  fig.width=10, fig.height=10}
 # Join geometries to polygons with data
 lrb_dam_map_19 <- lrb19_dammed_df %>% 
   st_drop_geometry() %>%      
@@ -5690,6 +5703,7 @@ leaflet(lrb_points_19) %>%
     )
   )
 ```
+
 
 **2021**
 ----
@@ -5758,7 +5772,7 @@ lrb21_dammed_df <- lrb21_dammed_df %>%
 ```
 
 ----
-
+<!---
 
 **VISUALIZE DAM CLUSTERS:**
 
@@ -5766,7 +5780,7 @@ lrb21_dammed_df <- lrb21_dammed_df %>%
  Plot sample regions for Willow Creek 2021 on a map:
 
 
-```{r, echo=FALSE,  fig.width=10, fig.height=10}
+```{r, include=FALSE,  fig.width=10, fig.height=10}
 # Join geometries to polygons with data
 lrb_dam_map_21 <- lrb21_dammed_df %>% 
   st_drop_geometry() %>%      
@@ -5803,6 +5817,7 @@ leaflet(lrb_points_21) %>%
     )
   )
 ```
+
 
 
 **2023**
@@ -5873,6 +5888,7 @@ lrb23_dammed_df <- lrb23_dammed_df %>%
 
 ----
 
+<!---
 
 **VISUALIZE DAM CLUSTERS:**
 
@@ -5880,7 +5896,7 @@ lrb23_dammed_df <- lrb23_dammed_df %>%
 Plot sample regions for Willow Creek 2023 on a map:
 
 
-```{r, echo=FALSE,  fig.width=10, fig.height=10}
+```{r, include=FALSE,  fig.width=10, fig.height=10}
 # Join geometries to polygons with data
 lrb_dam_map_23 <- lrb23_dammed_df %>% 
   st_drop_geometry() %>%      
@@ -6628,7 +6644,7 @@ length(lrb23_pairings$clusterID_seq)
 LOW BEAV
 ----
 
-
+<!---
 **2019**
 ----
 
@@ -6697,6 +6713,7 @@ lbv19_dammed_df <- lbv19_dammed_df %>%
 
 ----
 
+<!---
 
 **VISUALIZE DAM CLUSTERS:**
 
@@ -6704,7 +6721,7 @@ lbv19_dammed_df <- lbv19_dammed_df %>%
 Plot sample regions for Willow Creek 2019 on a map:
 
 
-```{r, echo=FALSE,  fig.width=10, fig.height=10}
+```{r, include=FALSE,  fig.width=10, fig.height=10}
 # Join geometries to polygons with data
 lbv_dam_map_19 <- lbv19_dammed_df %>% 
   st_drop_geometry() %>%      
@@ -6741,6 +6758,8 @@ leaflet(lbv_points_19) %>%
     )
   )
 ```
+
+
 
 **2021**
 ----
@@ -6810,6 +6829,7 @@ lbv21_dammed_df <- lbv21_dammed_df %>%
 
 ----
 
+<!---
 
 **VISUALIZE DAM CLUSTERS:**
 
@@ -6817,7 +6837,7 @@ lbv21_dammed_df <- lbv21_dammed_df %>%
  Plot sample regions for Willow Creek 2021 on a map:
 
 
-```{r, echo=FALSE,  fig.width=10, fig.height=10}
+```{r, include=FALSE,  fig.width=10, fig.height=10}
 # Join geometries to polygons with data
 lbv_dam_map_21 <- lbv21_dammed_df %>% 
   st_drop_geometry() %>%      
@@ -6854,6 +6874,7 @@ leaflet(lbv_points_21) %>%
     )
   )
 ```
+
 
 
 **2023**
@@ -6924,6 +6945,7 @@ lbv23_dammed_df <- lbv23_dammed_df %>%
 
 ----
 
+<!---
 
 **VISUALIZE DAM CLUSTERS:**
 
@@ -6931,7 +6953,7 @@ lbv23_dammed_df <- lbv23_dammed_df %>%
 Plot sample regions for Willow Creek 2023 on a map:
 
 
-```{r, echo=FALSE,  fig.width=10, fig.height=10}
+```{r, include=FALSE,  fig.width=10, fig.height=10}
 # Join geometries to polygons with data
 lbv_dam_map_23 <- lbv23_dammed_df %>% 
   st_drop_geometry() %>%      
@@ -7678,7 +7700,7 @@ length(lbv23_pairings$clusterID_seq)
 UPPER BEAVER
 ----
 
-
+<!---
 **2019**
 ----
 
@@ -7747,6 +7769,7 @@ ubv19_dammed_df <- ubv19_dammed_df %>%
 
 ----
 
+<!---
 
 **VISUALIZE DAM CLUSTERS:**
 
@@ -7754,7 +7777,7 @@ ubv19_dammed_df <- ubv19_dammed_df %>%
 Plot sample regions for Willow Creek 2019 on a map:
 
 
-```{r, echo=FALSE,  fig.width=10, fig.height=10}
+```{r, include=FALSE,  fig.width=10, fig.height=10}
 # Join geometries to polygons with data
 ubv_dam_map_19 <- ubv19_dammed_df %>% 
   st_drop_geometry() %>%      
@@ -7791,6 +7814,7 @@ leaflet(ubv_points_19) %>%
     )
   )
 ```
+
 
 **2021**
 ----
@@ -7860,14 +7884,14 @@ ubv21_dammed_df <- ubv21_dammed_df %>%
 
 ----
 
-
+<!---
 **VISUALIZE DAM CLUSTERS:**
 
 
  Plot sample regions for Upper Beaver Creek 2021 on a map:
 
 
-```{r, echo=FALSE,  fig.width=10, fig.height=10}
+```{r, include=FALSE,  fig.width=10, fig.height=10}
 # Join geometries to polygons with data
 ubv_dam_map_21 <- ubv21_dammed_df %>% 
   st_drop_geometry() %>%      
@@ -7974,6 +7998,7 @@ ubv23_dammed_df <- ubv23_dammed_df %>%
 
 ----
 
+<!---
 
 **VISUALIZE DAM CLUSTERS:**
 
@@ -7981,7 +8006,7 @@ ubv23_dammed_df <- ubv23_dammed_df %>%
 Plot sample regions for Upper Beaver Creek 2023 on a map:
 
 
-```{r, echo=FALSE,  fig.width=10, fig.height=10}
+```{r, include=FALSE,  fig.width=10, fig.height=10}
 # Join geometries to polygons with data
 ubv_dam_map_23 <- ubv23_dammed_df %>% 
   st_drop_geometry() %>%      
@@ -8718,24 +8743,6 @@ leaflet(ubv_SampleReaches_23) %>%
 ```{r,echo=FALSE}
 length(ubv23_pairings$clusterID_seq)
 ```
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -9751,7 +9758,7 @@ ubv_SW_23_collapsed <- ubv_SW_23 %>%
 
 ```
 
-```{r,include=FALSE}
+```{r,echo=FALSE}
 ################################################################################
 # Visualize spread of SWA across riparian polygons
 # Set up a 1x3 panel layout
@@ -10236,7 +10243,7 @@ colnames(ubv23_veg) <- c("TP_ID",
 ----
 ----
 
-Now sample SWA for dammed and undammed clusters, and finalize data frames for summary and analysis:
+Now sample SWA and VEG for dammed and undammed clusters, and finalize data frames for summary and analysis:
 
     The goal is to end up with a dataframe in long format where columns =
     
@@ -10252,6 +10259,10 @@ Now sample SWA for dammed and undammed clusters, and finalize data frames for su
       - containsNull: Impacted by satellite obfuscation
       - timePeriod: sample period 1:8; 2wk subdivisions of (June 01 - Sept 30).
       - SWA: summed surface water area of window
+      - NDVI: mean(NDVI) of window
+      - NDVIsd: sd(NDVI) of window
+      - VA: summed veg area of window
+      - 
       
       
       
