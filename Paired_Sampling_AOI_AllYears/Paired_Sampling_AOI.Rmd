@@ -301,7 +301,7 @@ ggplot(flow23, aes(x = date,
 
 
 # Willow:
-wcRiparianGeometries <- suppressMessages(st_read("WC_RIP_GEOMS.shp",quiet=TRUE)) %>% 
+ltRiparianGeometries <- suppressMessages(st_read("WC_RIP_GEOMS.shp",quiet=TRUE)) %>% 
   st_make_valid() %>% 
   select(Input_FID,
          geometry) %>% 
@@ -1904,6 +1904,7 @@ Identify dammed and undammed sample clusters using **1-D DBSCAN** (Density Based
 **Willow Creek ** 
 
 ```{r, echo=FALSE}
+#Add on NWI data to further delineate anthro influenced areas
 wc_anthroDammed <- read.csv("WC_RIP_isAnthro.csv")
 
 colnames(wc_anthroDammed) <- c("TP_ID", "isAnthro")
@@ -1949,6 +1950,8 @@ wc19_damIDs_anthro <- wcRIP_Area_TO_UDA_uniqueID_detDat19_dam19 %>%
            isAnthro >=1) %>% 
   pull(TP_ID)
 
+length(wc19_damIDs_anthro)
+
 # 2021
 wc21_damIDs_bvAll <- wcRIP_Area_TO_UDA_uniqueID_detDat21_dam21 %>% 
   filter(dam_count_beav_all >=1) %>% 
@@ -1962,6 +1965,8 @@ wc21_damIDs_anthro <- wcRIP_Area_TO_UDA_uniqueID_detDat21_dam21 %>%
   filter(dam_count_ant >=1 |
            isAnthro >=1) %>% 
   pull(TP_ID)
+
+length(wc21_damIDs_anthro)
 
 #2023
 
@@ -1977,6 +1982,8 @@ wc23_damIDs_anthro <- wcRIP_Area_TO_UDA_uniqueID_detDat23_dam23 %>%
   filter(dam_count_ant >=1 |
            isAnthro >=1) %>% 
   pull(TP_ID)
+
+length(wc23_damIDs_anthro)
 
 ```
 
@@ -2429,7 +2436,6 @@ trim_undammed_window <- function(dam_start, dam_end, und_start, und_end, buffer 
 WILLOW
 ----
 
-<!---
 **2019**
 ----
 
@@ -2498,7 +2504,7 @@ wc19_dammed_df <- wc19_dammed_df %>%
 
 ----
 
-<!---
+
 **VISUALIZE DAM CLUSTERS:**
 
 
@@ -2613,7 +2619,7 @@ wc21_dammed_df <- wc21_dammed_df %>%
 
 ----
 
-<!---
+
 **VISUALIZE DAM CLUSTERS:**
 
 
@@ -2728,7 +2734,7 @@ wc23_dammed_df <- wc23_dammed_df %>%
 
 ----
 
-<!---
+
 
 **VISUALIZE DAM CLUSTERS:**
 
@@ -3484,7 +3490,7 @@ length(wc23_pairings$clusterID_seq)
 LONE TREE
 ----
 
-<!---
+
 **2019**
 ----
 
@@ -3553,7 +3559,7 @@ lt19_dammed_df <- lt19_dammed_df %>%
 
 ----
 
-<!---
+
 **VISUALIZE DAM CLUSTERS:**
 
 
@@ -3667,7 +3673,7 @@ lt21_dammed_df <- lt21_dammed_df %>%
 
 ----
 
-<!---
+
 **VISUALIZE DAM CLUSTERS:**
 
 
@@ -3781,7 +3787,7 @@ lt23_dammed_df <- lt23_dammed_df %>%
 
 ----
 
-<!---
+
 **VISUALIZE DAM CLUSTERS:**
 
 
@@ -4536,7 +4542,7 @@ length(lt23_pairings$clusterID_seq)
 BRAZIL
 ----
 
-<!---
+
 **2019**
 ----
 
@@ -4605,7 +4611,7 @@ brz19_dammed_df <- brz19_dammed_df %>%
 
 ----
 
-<!---
+
 **VISUALIZE DAM CLUSTERS:**
 
 
@@ -4721,7 +4727,7 @@ brz21_dammed_df <- brz21_dammed_df %>%
 
 ----
 
-<!---
+
 
 **VISUALIZE DAM CLUSTERS:**
 
@@ -4836,7 +4842,7 @@ brz23_dammed_df <- brz23_dammed_df %>%
 
 ----
 
-<!---
+
 **VISUALIZE DAM CLUSTERS:**
 
 
@@ -5590,7 +5596,7 @@ length(brz23_pairings$clusterID_seq)
 LARB
 ----
 
-<!---
+
 **2019**
 ----
 
@@ -5659,7 +5665,7 @@ lrb19_dammed_df <- lrb19_dammed_df %>%
 
 ----
 
-<!---
+
 **VISUALIZE DAM CLUSTERS:**
 
 
@@ -5772,7 +5778,7 @@ lrb21_dammed_df <- lrb21_dammed_df %>%
 ```
 
 ----
-<!---
+
 
 **VISUALIZE DAM CLUSTERS:**
 
@@ -5888,7 +5894,7 @@ lrb23_dammed_df <- lrb23_dammed_df %>%
 
 ----
 
-<!---
+
 
 **VISUALIZE DAM CLUSTERS:**
 
@@ -6644,7 +6650,7 @@ length(lrb23_pairings$clusterID_seq)
 LOW BEAV
 ----
 
-<!---
+
 **2019**
 ----
 
@@ -6713,7 +6719,7 @@ lbv19_dammed_df <- lbv19_dammed_df %>%
 
 ----
 
-<!---
+
 
 **VISUALIZE DAM CLUSTERS:**
 
@@ -6829,7 +6835,7 @@ lbv21_dammed_df <- lbv21_dammed_df %>%
 
 ----
 
-<!---
+
 
 **VISUALIZE DAM CLUSTERS:**
 
@@ -6945,7 +6951,7 @@ lbv23_dammed_df <- lbv23_dammed_df %>%
 
 ----
 
-<!---
+
 
 **VISUALIZE DAM CLUSTERS:**
 
@@ -7700,7 +7706,7 @@ length(lbv23_pairings$clusterID_seq)
 UPPER BEAVER
 ----
 
-<!---
+
 **2019**
 ----
 
@@ -7769,7 +7775,7 @@ ubv19_dammed_df <- ubv19_dammed_df %>%
 
 ----
 
-<!---
+
 
 **VISUALIZE DAM CLUSTERS:**
 
@@ -7884,7 +7890,7 @@ ubv21_dammed_df <- ubv21_dammed_df %>%
 
 ----
 
-<!---
+
 **VISUALIZE DAM CLUSTERS:**
 
 
@@ -7998,7 +8004,7 @@ ubv23_dammed_df <- ubv23_dammed_df %>%
 
 ----
 
-<!---
+
 
 **VISUALIZE DAM CLUSTERS:**
 
@@ -13841,6 +13847,8 @@ lrb21_sampled_Long_Export <- lrb21_lateSummer_Sample_Long %>%
 #write.csv(lrb21_sampled_Long_Export, "C:\\Users\\mattw\\OneDrive\\Desktop\\UMT\\Data\\GEE\\Paired_SWA_Sampling_AOI_AllYears\\lrb_2021_DF_Final_Long_0630Update.csv", row.names=FALSE)
 ```
 
+
+
 **2023**
 ----
 
@@ -16117,3 +16125,157 @@ ubv23_sampled_Long_Export <- ubv23_lateSummer_Sample_Long %>%
 ----
 
 ----
+
+
+CONSIDER ANTHROPOGENIC INFLUENCE:
+
+First, what proportion of each watershed is influenced by anthropogenically impounded features? NOTE: this includes actively and formerly impounding structures.(e.g., Forest Res. on WC is included though its dam is breached)
+
+
+```{r,echo=FALSE}
+# Willow:
+# 2019:
+wc19AnthroImpact <- length(wc19_anthro_influence_500)
+wc19TotalLength <- length(wcRIP_Area_TO_UDA_uniqueID_detDat19_dam19$TP_ID)
+
+wc19PropAnthro <- wc19AnthroImpact/wc19TotalLength
+# 2021:
+wc21AnthroImpact <- length(wc21_anthro_influence_500)
+wc21TotalLength <- length(wcRIP_Area_TO_UDA_uniqueID_detDat21_dam21$TP_ID)
+
+wc21PropAnthro <- wc21AnthroImpact/wc21TotalLength
+# 2023:
+wc23AnthroImpact <- length(wc23_anthro_influence_500)
+wc23TotalLength <- length(wcRIP_Area_TO_UDA_uniqueID_detDat23_dam23$TP_ID)
+
+wc23PropAnthro <- wc23AnthroImpact/wc23TotalLength
+
+
+
+# Lone Tree:
+# 2019:
+lt19AnthroImpact <- length(lt19_anthro_influence_500)
+lt19TotalLength <- length(ltRIP_Area_TO_UDA_uniqueID_detDat19_dam19$TP_ID)
+
+lt19PropAnthro <- lt19AnthroImpact/lt19TotalLength
+# 2021:
+lt21AnthroImpact <- length(lt21_anthro_influence_500)
+lt21TotalLength <- length(ltRIP_Area_TO_UDA_uniqueID_detDat21_dam21$TP_ID)
+
+lt21PropAnthro <- lt21AnthroImpact/lt21TotalLength
+# 2023:
+lt23AnthroImpact <- length(lt23_anthro_influence_500)
+lt23TotalLength <- length(ltRIP_Area_TO_UDA_uniqueID_detDat23_dam23$TP_ID)
+
+lt23PropAnthro <- lt23AnthroImpact/lt23TotalLength
+
+
+
+# Brazil:
+# 2019:
+brz19AnthroImpact <- length(brz19_anthro_influence_500)
+brz19TotalLength <- length(brzRIP_Area_TO_UDA_uniqueID_detDat19_dam19$TP_ID)
+
+brz19PropAnthro <- brz19AnthroImpact/brz19TotalLength
+# 2021:
+brz21AnthroImpact <- length(brz21_anthro_influence_500)
+brz21TotalLength <- length(brzRIP_Area_TO_UDA_uniqueID_detDat21_dam21$TP_ID)
+
+brz21PropAnthro <- brz21AnthroImpact/brz21TotalLength
+# 2023:
+brz23AnthroImpact <- length(brz23_anthro_influence_500)
+brz23TotalLength <- length(brzRIP_Area_TO_UDA_uniqueID_detDat23_dam23$TP_ID)
+
+brz23PropAnthro <- brz23AnthroImpact/brz23TotalLength
+
+
+
+# Larb:
+# 2019:
+lrb19AnthroImpact <- length(lrb19_anthro_influence_500)
+lrb19TotalLength <- length(lrbRIP_Area_TO_UDA_uniqueID_detDat19_dam19$TP_ID)
+
+lrb19PropAnthro <- lrb19AnthroImpact/lrb19TotalLength
+# 2021:
+lrb21AnthroImpact <- length(lrb21_anthro_influence_500)
+lrb21TotalLength <- length(lrbRIP_Area_TO_UDA_uniqueID_detDat21_dam21$TP_ID)
+
+lrb21PropAnthro <- lrb21AnthroImpact/lrb21TotalLength
+# 2023:
+lrb23AnthroImpact <- length(lrb23_anthro_influence_500)
+lrb23TotalLength <- length(lrbRIP_Area_TO_UDA_uniqueID_detDat23_dam23$TP_ID)
+
+lrb23PropAnthro <- lrb23AnthroImpact/lrb23TotalLength
+
+
+
+# Lower Beaver:
+# 2019:
+lbv19AnthroImpact <- length(lbv19_anthro_influence_500)
+lbv19TotalLength <- length(lbvRIP_Area_TO_UDA_uniqueID_detDat19_dam19$TP_ID)
+
+lbv19PropAnthro <- lbv19AnthroImpact/lbv19TotalLength
+# 2021:
+lbv21AnthroImpact <- length(lbv21_anthro_influence_500)
+lbv21TotalLength <- length(lbvRIP_Area_TO_UDA_uniqueID_detDat21_dam21$TP_ID)
+
+lbv21PropAnthro <- lbv21AnthroImpact/lbv21TotalLength
+# 2023:
+lbv23AnthroImpact <- length(lbv23_anthro_influence_500)
+lbv23TotalLength <- length(lbvRIP_Area_TO_UDA_uniqueID_detDat23_dam23$TP_ID)
+
+lbv23PropAnthro <- lbv23AnthroImpact/lbv23TotalLength
+
+
+
+# Upper Beaver:
+# 2019:
+ubv19AnthroImpact <- length(ubv19_anthro_influence_500)
+ubv19TotalLength <- length(ubvRIP_Area_TO_UDA_uniqueID_detDat19_dam19$TP_ID)
+
+ubv19PropAnthro <- ubv19AnthroImpact/ubv19TotalLength
+# 2021:
+ubv21AnthroImpact <- length(ubv21_anthro_influence_500)
+ubv21TotalLength <- length(ubvRIP_Area_TO_UDA_uniqueID_detDat21_dam21$TP_ID)
+
+ubv21PropAnthro <- ubv21AnthroImpact/ubv21TotalLength
+# 2023:
+ubv23AnthroImpact <- length(ubv23_anthro_influence_500)
+ubv23TotalLength <- length(ubvRIP_Area_TO_UDA_uniqueID_detDat23_dam23$TP_ID)
+
+ubv23PropAnthro <- ubv23AnthroImpact/ubv23TotalLength
+
+
+
+# Aggregate ^ data into 1 df
+anthro_df <- data.frame(
+  stream = rep(c("Willow", "Lone Tree", "Brazil", "Larb", "Lower Beaver", "Upper Beaver"), each = 3),
+  year   = rep(c(2019, 2021, 2023), times = 6),
+  prop   = c(
+    wc19PropAnthro, wc21PropAnthro, wc23PropAnthro,
+    lt19PropAnthro, lt21PropAnthro, lt23PropAnthro,
+    brz19PropAnthro, brz21PropAnthro, brz23PropAnthro,
+    lrb19PropAnthro, lrb21PropAnthro, lrb23PropAnthro,
+    lbv19PropAnthro, lbv21PropAnthro, lbv23PropAnthro,
+    ubv19PropAnthro, ubv21PropAnthro, ubv23PropAnthro
+  )
+)
+
+
+
+
+# Visualize anthropogenic pressure:
+#library(ggplot2)
+
+ggplot(anthro_df, aes(x = factor(year), y = prop, fill = stream)) +
+  geom_col(position = "dodge") +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
+  labs(
+    x = "Year",
+    y = "Proportion of riparian polys influenced by anthro pressure",
+    fill = "Stream",
+    title = "Anthropogenic Pressure by Stream and Year"
+  ) +
+  theme_minimal(base_size = 14)
+
+```
