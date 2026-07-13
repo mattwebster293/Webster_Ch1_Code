@@ -819,19 +819,244 @@ event_year_3_4 <- as.numeric(event_year_3_4)
 
 
 
+aoi_GLM_Data_mod_3_4$SWA <- as.numeric(aoi_GLM_Data_mod_3_4$SWA)
+```
 
+
+----
+
+----
+
+----
+
+----
+
+
+
+Data transformations:
+----
+
+z(log())
+
+1. log() transform raw SWA data to better normalize its distribution (currently heavily right skewed due to LOTS of small waterbodies and only a handful of large waterbodies)
+
+2. z-standardized (center & scale) the log-transformed SWA data so that 0 is the mean, and units are in terms of standard dev. from that mean: $log(SWA[i]) - mean(log(SWA))/sd(log(SWA))$
+
+
+Compare transformation across entire AOI vs within each watershed:
+
+----
+
+**Whole AOI:**
+
+```{r,echo=FALSE}
 ######
 ###### Z-STANDARDIZE LOG(SWA) FOR THE SAKE OF PRIORS
 ######
 
-SWA_log <- log(aoi_GLM_Data_mod_3_4$SWA +1)
+aoiSWA_log <- log(aoi_GLM_Data_mod_3_4$SWA +1)
 
-SWA_log_mean <- mean(SWA_log, na.rm = T)
+aoiSWA_log_mean <- mean(aoiSWA_log, na.rm = T)
 
-SWA_log_sd <- sd(SWA_log, na.rm = T)
+aoiSWA_log_sd <- sd(aoiSWA_log, na.rm = T)
 
-SWA_response <- (SWA_log - SWA_log_mean)/SWA_log_sd # z(log(SWA))
+aoiSWA_response <- (aoiSWA_log - aoiSWA_log_mean)/aoiSWA_log_sd # z(log(SWA))
+
+hist(aoi_GLM_Data_mod_3_4$SWA, main = "Raw SWA: AOI")
+mean(aoi_GLM_Data_mod_3_4$SWA)
+
+hist(aoiSWA_response, main = "z(log()) transformed SWA: AOI")
+mean(aoiSWA_response)
+sd(aoiSWA_response)
 ```
+
+
+**BRAZIL**
+
+```{r,echo=FALSE}
+######
+###### Z-STANDARDIZE LOG(SWA) FOR THE SAKE OF PRIORS
+######
+
+brzSWA <- aoi_GLM_Data_mod_3_4 |> 
+  filter(watershed == "BRZ") |> 
+  pull(SWA)
+
+brzSWA <- as.numeric(brzSWA)
+
+brzSWA_log <- log(brzSWA +1)
+
+brzSWA_log_mean <- mean(brzSWA_log, na.rm = T)
+
+brzSWA_log_sd <- sd(brzSWA_log, na.rm = T)
+
+brzSWA_response <- (brzSWA_log - brzSWA_log_mean)/brzSWA_log_sd # z(log(SWA))
+
+hist(brzSWA, main = "Raw SWA: BRZ")
+
+hist(brzSWA_log, main = "log(SWA): BRZ")
+
+hist(brzSWA_response, main = "z(log()) transformed SWA: BRZ")
+```
+
+
+**LARB**
+
+```{r,echo=FALSE}
+######
+###### Z-STANDARDIZE LOG(SWA) FOR THE SAKE OF PRIORS
+######
+
+lrbSWA <- aoi_GLM_Data_mod_3_4 |> 
+  filter(watershed == "LRB") |> 
+  pull(SWA)
+
+lrbSWA <- as.numeric(lrbSWA)
+
+lrbSWA_log <- log(lrbSWA +1)
+
+lrbSWA_log_mean <- mean(lrbSWA_log, na.rm = T)
+
+lrbSWA_log_sd <- sd(lrbSWA_log, na.rm = T)
+
+lrbSWA_response <- (lrbSWA_log - lrbSWA_log_mean)/lrbSWA_log_sd # z(log(SWA))
+
+hist(lrbSWA, main = "Raw SWA: LRB")
+
+hist(lrbSWA_log, main = "log(SWA): LRB")
+
+hist(lrbSWA_response, main = "z(log()) transformed SWA: LRB")
+```
+
+
+**LONE TREE**
+
+```{r,echo=FALSE}
+######
+###### Z-STANDARDIZE LOG(SWA) FOR THE SAKE OF PRIORS
+######
+
+ltSWA <- aoi_GLM_Data_mod_3_4 |> 
+  filter(watershed == "LT") |> 
+  pull(SWA)
+
+ltSWA <- as.numeric(ltSWA)
+
+ltSWA_log <- log(ltSWA +1)
+
+ltSWA_log_mean <- mean(ltSWA_log, na.rm = T)
+
+ltSWA_log_sd <- sd(ltSWA_log, na.rm = T)
+
+ltSWA_response <- (ltSWA_log - ltSWA_log_mean)/ltSWA_log_sd # z(log(SWA))
+
+hist(ltSWA, main = "Raw SWA: LT")
+
+hist(ltSWA_log, main = "log(SWA): LT")
+
+hist(ltSWA_response, main = "z(log()) transformed SWA: LT")
+```
+
+
+**LOWER BEAVER**
+
+```{r,echo=FALSE}
+######
+###### Z-STANDARDIZE LOG(SWA) FOR THE SAKE OF PRIORS
+######
+
+lbvSWA <- aoi_GLM_Data_mod_3_4 |> 
+  filter(watershed == "LBV") |> 
+  pull(SWA)
+
+lbvSWA <- as.numeric(lbvSWA)
+
+lbvSWA_log <- log(lbvSWA +1)
+
+lbvSWA_log_mean <- mean(lbvSWA_log, na.rm = T)
+
+lbvSWA_log_sd <- sd(lbvSWA_log, na.rm = T)
+
+lbvSWA_response <- (lbvSWA_log - lbvSWA_log_mean)/lbvSWA_log_sd # z(log(SWA))
+
+hist(lbvSWA, main = "Raw SWA: LBV")
+
+hist(lbvSWA_log, main = "log(SWA): LBV")
+
+hist(lbvSWA_response, main = "z(log()) transformed SWA: LBV")
+```
+
+
+**UPPER BEAVER**
+
+```{r,echo=FALSE}
+######
+###### Z-STANDARDIZE LOG(SWA) FOR THE SAKE OF PRIORS
+######
+
+ubvSWA <- aoi_GLM_Data_mod_3_4 |> 
+  filter(watershed == "UBV") |> 
+  pull(SWA)
+
+ubvSWA <- as.numeric(ubvSWA)
+
+ubvSWA_log <- log(ubvSWA +1)
+
+ubvSWA_log_mean <- mean(ubvSWA_log, na.rm = T)
+
+ubvSWA_log_sd <- sd(ubvSWA_log, na.rm = T)
+
+ubvSWA_response <- (ubvSWA_log - ubvSWA_log_mean)/ubvSWA_log_sd # z(log(SWA))
+
+hist(ubvSWA, main = "Raw SWA: UBV")
+
+hist(ubvSWA_log, main = "log(SWA): UBV")
+
+hist(ubvSWA_response, main = "z(log()) transformed SWA: UBV")
+```
+
+
+**WILLOW**
+
+```{r,echo=FALSE}
+######
+###### Z-STANDARDIZE LOG(SWA) FOR THE SAKE OF PRIORS
+######
+
+wcSWA <- aoi_GLM_Data_mod_3_4 |> 
+  filter(watershed == "WC") |> 
+  pull(SWA)
+
+wcSWA <- as.numeric(wcSWA)
+
+wcSWA_log <- log(wcSWA +1)
+
+wcSWA_log_mean <- mean(wcSWA_log, na.rm = T)
+
+wcSWA_log_sd <- sd(wcSWA_log, na.rm = T)
+
+wcSWA_response <- (wcSWA_log - wcSWA_log_mean)/wcSWA_log_sd # z(log(SWA))
+
+hist(wcSWA, main = "Raw SWA: WC")
+
+hist(wcSWA_log, main = "log(SWA): WC")
+
+hist(wcSWA_response, main = "z(log()) transformed SWA: WC")
+```
+
+
+
+
+----
+
+----
+
+----
+
+----
+
+
+
 
 
 
@@ -839,6 +1064,8 @@ SWA_response <- (SWA_log - SWA_log_mean)/SWA_log_sd # z(log(SWA))
     
     Uses nested random slopes for beaver dam effect to allow for stream, year, 
     and sampleEvent to cause deviation from the global mean beaver effect.
+    
+    Uses z(log(SWA)) for AOI all years.
 
 ----
 ----
@@ -935,7 +1162,7 @@ M3: Dam Presence Only; seasonal random slope (sampleEvent)
 ```{r,echo=FALSE}
 m3_data_list <- list(
   N = nrow(aoi_GLM_Data_mod_3_4),
-  SWA = SWA_response,
+  SWA = aoiSWA_response,
   damPresence = aoi_GLM_Data_mod_3_4$damPresence,
   stream = aoi_GLM_Data_mod_3_4$stream,
   year = aoi_GLM_Data_mod_3_4$year_id,
@@ -946,13 +1173,12 @@ m3_data_list <- list(
   sampleEvent = aoi_GLM_Data_mod_3_4$sampleEvent_new,
   n_event = length(unique(aoi_GLM_Data_mod_3_4$sampleEvent_new)),
   event_year = event_year_3_4,
-  SWA_log_mean = SWA_log_mean,
-  SWA_log_sd = SWA_log_sd
+  SWA_log_mean = aoiSWA_log_mean,
+  SWA_log_sd = aoiSWA_log_sd
 )
 
 m3inits <- function(){list(
-    alpha = rnorm(1, 0, 1),
-    beta1 = rnorm(1, 0, 1)
+    alpha = rnorm(1, 0, 1)
     )}
 
 parameters_m3 <- c(
@@ -1198,8 +1424,8 @@ for(j in 1:M3n_stream){
 M3Dammed_std <- M3Baseline_std + M3DamEffect
 
 # --- Back-transform both to raw SWA (m²) ---
-M3Baseline_raw <- exp(M3Baseline_std * SWA_log_sd + SWA_log_mean)-1
-M3Dammed_raw   <- exp(M3Dammed_std   * SWA_log_sd + SWA_log_mean)-1
+M3Baseline_raw <- exp(M3Baseline_std * aoiSWA_log_sd + aoiSWA_log_mean)-1
+M3Dammed_raw   <- exp(M3Dammed_std   * aoiSWA_log_sd + aoiSWA_log_mean)-1
 
 # --- Absolute increase in SWA (m²) ---
 M3Delta_raw <- M3Dammed_raw - M3Baseline_raw
@@ -1519,7 +1745,7 @@ M4: Dam Presence + Context with updated random effects structure
 ```{r,echo=FALSE}
 m4_data_list <- list(
   N = nrow(aoi_GLM_Data_mod_3_4),
-  SWA = SWA_response,
+  SWA = aoiSWA_response,
   damPresence = aoi_GLM_Data_mod_3_4$damPresence,
   TO = as.numeric(scale(1-(aoi_GLM_Data_mod_3_4$TO/90))),
   RIPA = as.numeric(scale(aoi_GLM_Data_mod_3_4$riparian_area_m2)),
@@ -1533,13 +1759,12 @@ m4_data_list <- list(
   sampleEvent = aoi_GLM_Data_mod_3_4$sampleEvent_new,
   n_event = length(unique(aoi_GLM_Data_mod_3_4$sampleEvent_new)),
   event_year = event_year_3_4,
-  SWA_log_mean = SWA_log_mean,
-  SWA_log_sd = SWA_log_sd
+  SWA_log_mean = aoiSWA_log_mean,
+  SWA_log_sd = aoiSWA_log_sd
 )
 
 m4inits <- function(){list(
-    alpha = rnorm(1, 0, 1),
-    beta1 = rnorm(1, 0, 1)
+    alpha = rnorm(1, 0, 1)
     )}
 
 parameters_m4 <- c(
@@ -1795,8 +2020,8 @@ for(j in 1:m4n_stream){
 m4Dammed_std <- m4Baseline_std + m4DamEffect
 
 # --- Back-transform both to raw SWA (m²) ---
-m4Baseline_raw <- exp(m4Baseline_std * SWA_log_sd + SWA_log_mean)-1
-m4Dammed_raw   <- exp(m4Dammed_std   * SWA_log_sd + SWA_log_mean)-1
+m4Baseline_raw <- exp(m4Baseline_std * aoiSWA_log_sd + aoiSWA_log_mean)-1
+m4Dammed_raw   <- exp(m4Dammed_std   * aoiSWA_log_sd + aoiSWA_log_mean)-1
 
 # --- Absolute increase in SWA (m²) ---
 m4Delta_raw <- m4Dammed_raw - m4Baseline_raw

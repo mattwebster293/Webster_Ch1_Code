@@ -16,7 +16,7 @@
     
       # Fixed effects (standardized log-SWA scale)
       alpha ~ dnorm(0, 1)  #mean SWA (no dam) ~ 0 +- 1 sd
-      beta1 ~ dnorm(0, 1)  #dam effect ~ 0 +- 1 sd
+      beta1 ~ dnorm(0, 1) T(0,)  #dam effect ~ 0 +- 1 sd, half normal forced positive
     
       # Random Effects
       # Stream/Watershed
