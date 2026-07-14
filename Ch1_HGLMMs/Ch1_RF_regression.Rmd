@@ -2,18 +2,45 @@
 title: "Exploring damEffect on SWA with RF model"
 author: "Matt Webster"
 date: "2026-07-09"
-output: html_document
-editor_options: 
+output:
+  html_document: default
+  pdf_document: default
+editor_options:
   chunk_output_type: console
 ---
 
 
 
 
+**NOTE**
+----
+
+**RF EXPLORATION ON HOLD UNTIL FURTHER NOTICE**
+----
+
+07.14.2026
+----
+
+Pursue hurdle model with hierarchical linear mixed effects framework
+----
+
+----
+----
+
+----
+----
+
+----
+----
+
+----
+----
+
+
 
 The purpose of this script is to explore the effect of beaver dams on surface water area, relative to local geomorphology, and contributing drainage area. This modeling focuses solely on late summer months; August & September. 
 
-This particular iteration explores the use of random forest models to assess importance of damPresence and damDensity as predictors of surface water area. 
+This particular iteration explores the use of random forest models to assess importance of dam_m and damDensity as predictors of surface water area. 
 
 
 ----
@@ -696,7 +723,7 @@ aoi_GLM_Data$sampleEvent <- as.numeric(aoi_GLM_Data$surveyPeriod)
 aoi_GLM_Data$year_id <- as.numeric(as.factor(aoi_GLM_Data$year))
 
 aoi_GLM_Data <- aoi_GLM_Data %>% 
-  mutate(damPresence = case_when(Nhat > 0 ~ 1,
+  mutate(dam_m = case_when(Nhat > 0 ~ 1,
                                  Nhat == 0 ~ 0))
 
 str(aoi_GLM_Data)
@@ -762,8 +789,6 @@ Whittle data to just what you want to fit the model with:
 
     clusterID_seq
     SWA
-    damPresence
-    Nhat
     dam_m
     TO
     riparian_area_m2
@@ -774,23 +799,20 @@ Whittle data to just what you want to fit the model with:
 
 ```{r,echo=FALSE}
 RF_dat <- aoi_GLM_Data_mod_3_4 |> 
-  select(clusterID_seq,
-         SWA,
-         damPresence,
-         Nhat,
+  select(SWA,
          dam_m,
          TO,
          riparian_area_m2,
          catchment_km2,
          stream,
          year_id,
-         sampleEvent_new) 
+         sampleEvent_new,
+         clusterID_seq) 
 
 RF_dat$stream           <- as.factor(RF_dat$stream)
 RF_dat$year_id          <- as.factor(RF_dat$year_id)
 RF_dat$sampleEvent_new  <- as.factor(RF_dat$sampleEvent_new)
 RF_dat$clusterID_seq    <- as.factor(RF_dat$clusterID_seq)
-RF_dat$damPresence      <- as.factor(RF_dat$damPresence)
 
 
 str(RF_dat)
@@ -821,7 +843,7 @@ RF_model <- ranger(
   formula = SWA ~ .,
   data = RF_dat,
   importance = "permutation",
-  num.trees = 1000
+  num.trees = 500
 )
 
 # Display model summary
@@ -846,12 +868,6 @@ ggplot(RIPA_pdp, aes(riparian_area_m2, yhat)) + geom_line() + theme_bw()
 UDA_pdp <- pdp::partial(RF_model, pred.var = "catchment_km2", train = RF_dat)
 ggplot(UDA_pdp, aes(catchment_km2, yhat)) + geom_line() + theme_bw()
 
-damPres_pdp <- pdp::partial(RF_model, pred.var = "damPresence", train = RF_dat)
-ggplot(damPres_pdp, aes(damPresence, yhat)) + geom_line() + theme_bw()
-
-damCt_pdp <- pdp::partial(RF_model, pred.var = "Nhat", train = RF_dat)
-ggplot(damCt_pdp, aes(Nhat, yhat)) + geom_line() + theme_bw()
-
 damDens_pdp <- pdp::partial(RF_model, pred.var = "dam_m", train = RF_dat)
 ggplot(damDens_pdp, aes(dam_m, yhat)) + geom_line() + theme_bw()
 
@@ -875,7 +891,7 @@ ggplot(pdp_inter_TO_dens, aes(TO, dam_m, fill = yhat)) +
   scale_fill_viridis_c() +
   labs(
     x = "TO",
-    y = "Dam Density (dam/km)",
+    y = "Dam Density (dams/km)",
     fill = "Predicted SWA",
     title = "Interaction Surface: SWA ~ TO × DamDensity"
   ) +
@@ -900,7 +916,7 @@ ggplot(pdp_inter_RIPA_dens, aes(riparian_area_m2, dam_m, fill = yhat)) +
   scale_fill_viridis_c() +
   labs(
     x = "Riprarian Area (m^2)",
-    y = "Dam Density (dam/km)",
+    y = "Dam Density (dams/km)",
     fill = "Predicted SWA",
     title = "Interaction Surface: SWA ~ RiparianArea × DamDensity"
   ) +
@@ -924,7 +940,7 @@ ggplot(pdp_inter_UDA_dens, aes(catchment_km2, dam_m, fill = yhat)) +
   scale_fill_viridis_c() +
   labs(
     x = "Upstream Drainage Area (km^2)",
-    y = "Dam Density (dam/km)",
+    y = "Dam Density (dams/km)",
     fill = "Predicted SWA",
     title = "Interaction Surface: SWA ~ DrainageArea × DamDensity"
   ) +
@@ -952,10 +968,26 @@ ggplot(pdp_inter_stream_dens2, aes(watershed, dam_m, fill = yhat)) +
   scale_fill_viridis_c() +
   labs(
     x = "Watershed",
-    y = "Dam Density (dam/km)",
+    y = "Dam Density (dams/km)",
     fill = "Predicted SWA",
     title = "Interaction Surface: SWA ~ Watershed × DamDensity"
   ) +
   theme_bw() +
   theme(text = element_text(size = 14))
+```
+
+
+
+```{r,echo=FALSE}
+RF_model <- ranger(
+  SWA ~ .,
+  data = RF_dat,
+  importance = "impurity",
+  num.trees = 500
+)
+
+barplot(RF_model$variable.importance,
+        las = 2,
+        main = "Impurity Importance")
+
 ```
