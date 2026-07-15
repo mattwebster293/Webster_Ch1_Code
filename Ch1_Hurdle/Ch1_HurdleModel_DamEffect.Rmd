@@ -795,6 +795,7 @@ Format data for hurdle:
 # Create binary indicator of surface water presence, for logistic part of hurdle model:
 aoi_HurdleData <- aoi_GLM_Data_mod_3_4
 aoi_HurdleData$z <- ifelse(aoi_GLM_Data_mod_3_4$SWA>0,1,0)
+aoi_HurdleData$dam_km_std <- scale(aoi_HurdleData$dam_km)
 
 # Identify positive-SWA subset for the continuous/magnitude submodel:
 pos_idx <- which(aoi_HurdleData$SWA > 0)
@@ -883,7 +884,7 @@ cat("
     
     z[i] ~ dbern(psi[i])
     
-    logit(psi[i] <- epsilon
+    logit(psi[i]) <- epsilon
                     + (zeta_damPres
                        + zeta_stream[stream[i]]
                        + zeta_year[year[i]]
@@ -937,9 +938,190 @@ cat("
     
     sigma_iota_cluster ~ dnorm(0,1) T(0,)
     tau_iota_cluster <- pow(sigma_iota_cluster, -2)
+    
+    #2. Water amount sub-model:
+    
+    for(p in 1:N_pos){
+    
+      y_pos[p] ~ dnorm(mu_pos[p], tau)
+      
+      mu_pos[p] <- alpha
+                   + (beta_damPres
+                      + beta_stream[stream_pos[p]]
+                      + beta_year[year_pos[p]]
+                      + beta_event[event_pos[p]]) * damPres_pos[p]
+                   + eta_stream[stream_pos[p]]
+                   + eta_event[event_pos[p]]
+                   + eta_cluster[cluster_pos[p]]
+    }
+    
+    #2a. Fixed effects priors for SW amount sub-model; log(SWA+1) scale:
+    
+    alpha ~ dnorm(0,0.001)       # weakly info. intercept prior
+    beta_damPres ~ dnorm(0,0.01) # weakly info. global dam effect prior; more info than alpha
+    
+    #2b. Random effects priors for SW amount sub-model; log(SWA+1) scale:
+    
+    for(j in 1:n_stream){
+      beta_stream[j] ~ dnorm(0, tau_beta_stream)
+      eta_stream[j] ~ dnorm(0, tau_eta_stream)
+    }
+    
+    for(yr in 1:n_year){
+      beta_year[yr] ~ dnorm(0, tau_beta_year)
+    }
+    
+    for(k in 1:n_event){
+      beta_event[k] ~ dnorm(beta_year[event_year[k]], tau_beta_event)
+      eta_event[k] ~ dnorm(0, tau_eta_event)
+    }
   
+    for(c in 1:n_cluster){
+      eta_cluster[c] ~ dnorm(0, tau_eta_cluster)
+    }
     
+    #2c. Hyperpriors for SW amount sub-model; still 1/2 Normal distributions
     
+    sigma ~ dnorm(0,1) T(0,)
+    tau <- pow(sigma, -2)
     
-    ")
+    sigma_beta_stream ~ dnorm(0, 0.7) T(0,)
+    tau_beta_stream <- pow(sigma_beta_stream, -2)
+    
+    sigma_beta_year ~ dnorm(0, 0.7) T(0,)
+    tau_beta_year <- pow(sigma_beta_year, -2)
+    
+    sigma_beta_event ~ dnorm(0, 0.7) T(0,)
+    tau_beta_event <- pow(sigma_beta_event, -2)
+    
+    sigma_eta_stream ~ dnorm(0, 1) T(0,)
+    tau_eta_stream <- pow(sigma_eta_stream, -2)
+    
+    sigma_eta_event ~ dnorm(0, 1) T(0,)
+    tau_eta_event <- pow(sigma_eta_event, -2)
+    
+    sigma_eta_cluster ~ dnorm(0, 1) T(0,)
+    tau_eta_cluster <- pow(sigma_eta_cluster, -2)
+    
+    # Derived Parameter:
+    
+    Psi_mean <- mean(psi)
+    
+    }
+    
+    ", fill = TRUE)
+
+sink()
 ```
+
+```{r,echo=FALSE}
+hurdle_damPres_data_list <- list(
+  N = N,
+  N_pos = N_pos,
+  z = z,
+  y_pos = y_pos,
+  stream = stream,
+  year = year,
+  event = event,
+  cluster = cluster, 
+  stream_pos = stream_pos,
+  year_pos = year_pos,
+  event_pos = event_pos,
+  cluster_pos = cluster_pos,
+  damPres = damPres,
+  damPres_pos = damPres_pos,
+  n_stream = n_stream,
+  n_year = n_year,
+  n_event = n_event,
+  n_cluster = n_cluster,
+  event_year = event_year_3_4
+)
+
+hurdle_damPres_inits <- function(){
+  list(
+    alpha        = rnorm(1, 0, 1),
+    epsilon      = rnorm(1, 0, 1),
+
+    sigma        = runif(1, 0.1, 2),
+    sigma_zeta_stream  = runif(1, 0.1, 2),
+    sigma_zeta_year    = runif(1, 0.1, 2),
+    sigma_zeta_event   = runif(1, 0.1, 2),
+    sigma_iota_stream  = runif(1, 0.1, 2),
+    sigma_iota_event   = runif(1, 0.1, 2),
+    sigma_iota_cluster = runif(1, 0.1, 2),
+
+    sigma_beta_stream  = runif(1, 0.1, 2),
+    sigma_beta_year    = runif(1, 0.1, 2),
+    sigma_beta_event   = runif(1, 0.1, 2),
+    sigma_eta_stream   = runif(1, 0.1, 2),
+    sigma_eta_event    = runif(1, 0.1, 2),
+    sigma_eta_cluster  = runif(1, 0.1, 2)
+  )
+}
+
+hurdle_damPres_params <- c(
+  "alpha",
+  "zeta_damPres",
+  "zeta_stream",
+  "zeta_year",
+  "zeta_event",
+  "iota_stream",
+  "iota_event",
+  "iota_cluster",
+  "beta_damPres",
+  "beta_stream",
+  "beta_year",
+  "beta_event",
+  "eta_stream",
+  "eta_event",
+  "eta_cluster",
+  "sigma",
+  "sigma_zeta_stream",
+  "sigma_zeta_year",
+  "sigma_zeta_event",
+  "sigma_iota_stream",
+  "sigma_iota_event",
+  "sigma_iota_cluster",
+  "sigma_beta_stream",
+  "sigma_beta_year",
+  "sigma_beta_event",
+  "sigma_eta_stream",
+  "sigma_eta_event",
+  "sigma_eta_cluster"
+)
+
+nchains <- 3
+nthin <- 10
+niter <- 20000
+nburn <- 5000
+
+hurdle_damPres_SW <- jags(data = hurdle_damPres_data_list,
+                   inits = hurdle_damPres_inits,
+                   parameters.to.save = hurdle_damPres_params,
+                   model.file = "HGLMM_hurdle_damPresence.jags",
+                   parallel = T,
+                   n.chains = nchains,
+                   n.thin = nthin,
+                   n.iter = niter,
+                   n.burnin = nburn)
+
+
+Sys.time()
+
+#print(hurdle_damPres_SW) # model with local and watershed dam density as fixed effects
+print(hurdle_damPres_SW$summary[grep("beta_", rownames(hurdle_damPres_SW$summary)), ])
+print(hurdle_damPres_SW$summary[grep("zeta_", rownames(hurdle_damPres_SW$summary)), ])
+
+```
+
+
+
+
+
+----
+----
+
+Dam Density
+----
+
+**COPY PASTE AND EDIT DAM PRESENCE MODEL FOR USE AS DAM DENSITY MODEL**
