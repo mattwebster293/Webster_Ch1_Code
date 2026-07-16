@@ -1,12 +1,121 @@
 
-    model{
-    
-    # Surface water presence/absence sub-model
-    
-    for(i in 1:N){
-    
+model{
+  # NEED priors and hyperpriors first so that nodes can be estimated 
+  
+  ##########################################################################
+  
+  # HYPERPRIORS FOR SW PRESENCE (1/2 Normal on SDs):
+
+  sigma_zeta_stream  ~ dnorm(0,1) T(0,)
+  tau_zeta_stream    <- pow(sigma_zeta_stream, -2)
+
+  sigma_zeta_year    ~ dnorm(0,1) T(0,)
+  tau_zeta_year      <- pow(sigma_zeta_year, -2)
+
+  sigma_zeta_event   ~ dnorm(0,1) T(0,)
+  tau_zeta_event     <- pow(sigma_zeta_event, -2)
+
+  sigma_iota_stream  ~ dnorm(0,1) T(0,)
+  tau_iota_stream    <- pow(sigma_iota_stream, -2)
+
+  sigma_iota_event   ~ dnorm(0,1) T(0,)
+  tau_iota_event     <- pow(sigma_iota_event, -2)
+
+  sigma_iota_cluster ~ dnorm(0,1) T(0,)
+  tau_iota_cluster   <- pow(sigma_iota_cluster, -2)
+
+  ##########################################################################
+  # HYPERPRIORS FOR SW AMOUNT (1/2 Normal on SDs):
+
+  sigma              ~ dnorm(0,1) T(0,)
+  tau                <- pow(sigma, -2)
+
+  sigma_beta_stream  ~ dnorm(0, 0.7) T(0,)
+  tau_beta_stream    <- pow(sigma_beta_stream, -2)
+
+  sigma_beta_year    ~ dnorm(0, 0.7) T(0,)
+  tau_beta_year      <- pow(sigma_beta_year, -2)
+
+  sigma_beta_event   ~ dnorm(0, 0.7) T(0,)
+  tau_beta_event     <- pow(sigma_beta_event, -2)
+
+  sigma_eta_stream   ~ dnorm(0, 1) T(0,)
+  tau_eta_stream     <- pow(sigma_eta_stream, -2)
+
+  sigma_eta_event    ~ dnorm(0, 1) T(0,)
+  tau_eta_event      <- pow(sigma_eta_event, -2)
+
+  sigma_eta_cluster  ~ dnorm(0, 1) T(0,)
+  tau_eta_cluster    <- pow(sigma_eta_cluster, -2)
+
+  ##########################################################################
+  # FIXED EFFECT PRIORS:
+
+  # Presence/absence:
+  epsilon      ~ dnorm(0,0.04)
+  zeta_damPres ~ dnorm(0,0.04)
+
+  # Amount:
+  alpha        ~ dnorm(0,0.04)
+  beta_damPres ~ dnorm(0,0.25)
+
+  ##########################################################################
+  # RANDOM EFFECT PRIORS FOR SW PRESENCE:
+
+  for(j in 1:n_stream){
+    zeta_stream[j] ~ dnorm(0, tau_zeta_stream)
+    iota_stream[j] ~ dnorm(0, tau_iota_stream)
+  }
+
+  for(yr in 1:n_year){
+    zeta_year[yr] ~ dnorm(0, tau_zeta_year)
+  }
+
+  for(k in 1:n_event){
+    zeta_event[k] ~ dnorm(0, tau_zeta_event)
+    iota_event[k] ~ dnorm(0, tau_iota_event)
+  }
+
+  for(c in 1:n_cluster){
+    iota_cluster[c] ~ dnorm(0, tau_iota_cluster)
+  }
+
+  ##########################################################################
+  # RANDOM EFFECT PRIORS FOR SW AMOUNT:
+
+  for(j in 1:n_stream){
+    beta_stream[j] ~ dnorm(0, tau_beta_stream)
+    eta_stream[j]  ~ dnorm(0, tau_eta_stream)
+  }
+
+  for(yr in 1:n_year){
+    beta_year[yr] ~ dnorm(0, tau_beta_year)
+  }
+
+  for(k in 1:n_event){
+    beta_event[k] ~ dnorm(beta_year[event_year[k]], tau_beta_event)
+    eta_event[k]  ~ dnorm(0, tau_eta_event)
+  }
+
+  for(c in 1:n_cluster){
+    eta_cluster[c] ~ dnorm(0, tau_eta_cluster)
+  }
+
+  ##########################################################################
+  # DETECTION PRIORS:
+
+  for(k in 1:n_event){
+    p_detect[k] ~ dnorm(0.76, pow(0.16,-2)) T(0,1)
+  }
+
+  ##########################################################################
+  # MAIN LOOP: PRESENCE, DETECTION, AMOUNT
+
+  for(i in 1:N){
+
+    # Presence/absence:
     z[i] ~ dbern(psi[i])
-    
+
     logit(psi[i]) <- epsilon
                      + (zeta_damPres
                         + zeta_stream[stream[i]]
@@ -15,138 +124,26 @@
                      + iota_stream[stream[i]]
                      + iota_event[event[i]]
                      + iota_cluster[cluster[i]]
-                     
-    ######################################
-    # Surface water detection sub-model:
-    
+
+    # Detection:
     p_eff[i] <- p_detect[event[i]] * z[i]
-    
-    y[i] ~ dbern(p_eff[i])    # presence/absence data (0,1)
-    
-    #######################################
-    # Surface water amount sub-model:
-    
+    y[i]     ~ dbern(p_eff[i])
+
+    # Amount:
     y2[i] ~ dnorm(mu[i], tau_eff[i])
-      
+
     mu[i] <- z[i] *
               (alpha
                 + (beta_damPres
-                  + beta_stream[stream_pos[i]]
-                  + beta_year[year_pos[i]]
-                  + beta_event[event_pos[i]]) * damPres_pos[i]
-                + eta_stream[stream_pos[i]]
-                + eta_event[event_pos[i]]
-                + eta_cluster[cluster_pos[i]])
-    
+                  + beta_stream[stream[i]]
+                  + beta_year[year[i]]
+                  + beta_event[event[i]]) * damPres[i]
+                + eta_stream[stream[i]]
+                + eta_event[event[i]]
+                + eta_cluster[cluster[i]])
+
     tau_eff[i] <- z[i] * tau + (1 - z[i]) * 100000
-    }
-    
-    ##########################################################################
-    # PRIORS FOR SW PRESENCE:
-    # Fixed effects priors for SW presence/absence sub-model:
-    
-    epsilon ~ dnorm(0,0.04)      # intercept; weakly informative
-    zeta_damPres ~ dnorm(0,0.04) # weak global dam effect on SW presence
-    
-    # Random effects priors for SW presence/absence sub-model:
-    
-    for(j in 1:n_stream){
-      zeta_stream[j] ~ dnorm(0, tau_zeta_stream)
-      iota_stream[j] ~ dnorm(0, tau_iota_stream)
-    }
-    
-    for(yr in 1:n_year){
-      zeta_year[yr] ~ dnorm(0, tau_zeta_year)
-    }
-    
-    for(k in 1:n_event){
-      zeta_event[k] ~ dnorm(0, tau_zeta_event)
-      iota_event[k] ~ dnorm(0, tau_iota_event)
-    }
-    
-    for(c in 1:n_cluster){
-      iota_cluster[c] ~ dnorm(0, tau_iota_cluster)
-    }
-    
-    # Hyperpriors for SW presence/absence submodel (1/2 Normal on SDs):
-    
-    sigma_zeta_stream ~ dnorm(0,1) T(0,)
-    tau_zeta_stream  <- pow(sigma_zeta_stream, -2)  #precision = 1/sd^2
-    
-    sigma_zeta_year ~ dnorm(0,1) T(0,)
-    tau_zeta_year <- pow(sigma_zeta_year, -2)
-    
-    sigma_zeta_event ~ dnorm(0,1) T(0,)
-    tau_zeta_event <- pow(sigma_zeta_event, -2)
-    
-    sigma_iota_stream ~ dnorm(0,1) T(0,)
-    tau_iota_stream <- pow(sigma_iota_stream, -2)
-    
-    sigma_iota_event ~ dnorm(0,1) T(0,)
-    tau_iota_event <- pow(sigma_iota_event, -2)
-    
-    sigma_iota_cluster ~ dnorm(0,1) T(0,)
-    tau_iota_cluster <- pow(sigma_iota_cluster, -2)
-    
-    ######################################################################
-    
-    # PRIORS FOR SW DETECTION:
-    
-    for(k in 1:n_event){
-      p_detect[k] ~ dnorm(0.76, pow(0.16,-2)) T(0,1)  #truncated normal; empirically centered
-    }
-    
-    ######################################################################
-    
-    # PRIORS FOR SW AMOUNT:
-    # Fixed effects priors for SW amount sub-model; log(SWA+1) scale:
-    
-    alpha ~ dnorm(0,0.04)        # weakly info. intercept prior
-    beta_damPres ~ dnorm(0,0.25) # moderately info. global dam effect prior; more info than alpha
-    
-    # Random effects priors for SW amount sub-model; log(SWA+1) scale:
-    
-    for(j in 1:n_stream){
-      beta_stream[j] ~ dnorm(0, tau_beta_stream)
-      eta_stream[j] ~ dnorm(0, tau_eta_stream)
-    }
-    
-    for(yr in 1:n_year){
-      beta_year[yr] ~ dnorm(0, tau_beta_year)
-    }
-    
-    for(k in 1:n_event){
-      beta_event[k] ~ dnorm(beta_year[event_year[k]], tau_beta_event)
-      eta_event[k] ~ dnorm(0, tau_eta_event)
-    }
-  
-    for(c in 1:n_cluster){
-      eta_cluster[c] ~ dnorm(0, tau_eta_cluster)
-    }
-    
-    # Hyperpriors for SW amount sub-model; still 1/2 Normal distributions
-    
-    sigma ~ dnorm(0,1) T(0,)
-    tau <- pow(sigma, -2)
-    
-    sigma_beta_stream ~ dnorm(0, 0.7) T(0,)
-    tau_beta_stream <- pow(sigma_beta_stream, -2)
-    
-    sigma_beta_year ~ dnorm(0, 0.7) T(0,)
-    tau_beta_year <- pow(sigma_beta_year, -2)
-    
-    sigma_beta_event ~ dnorm(0, 0.7) T(0,)
-    tau_beta_event <- pow(sigma_beta_event, -2)
-    
-    sigma_eta_stream ~ dnorm(0, 1) T(0,)
-    tau_eta_stream <- pow(sigma_eta_stream, -2)
-    
-    sigma_eta_event ~ dnorm(0, 1) T(0,)
-    tau_eta_event <- pow(sigma_eta_event, -2)
-    
-    sigma_eta_cluster ~ dnorm(0, 1) T(0,)
-    tau_eta_cluster <- pow(sigma_eta_cluster, -2)
-    
-    }
-    
-    
+  }
+
+}
+
