@@ -794,26 +794,27 @@ Format data for hurdle:
 ```{r,echo=TRUE}
 # Create binary indicator of surface water presence, for logistic part of hurdle model:
 aoi_HurdleData <- aoi_GLM_Data_mod_3_4
-aoi_HurdleData$z <- ifelse(aoi_GLM_Data_mod_3_4$SWA>0,1,0)
+aoi_HurdleData$y <- ifelse(aoi_GLM_Data_mod_3_4$SWA>0,1,0)
 aoi_HurdleData$dam_km_std <- scale(aoi_HurdleData$dam_km)
 
 # Identify positive-SWA subset for the continuous/magnitude submodel:
-pos_idx <- which(aoi_HurdleData$SWA > 0)
+#pos_idx <- which(aoi_HurdleData$SWA > 0)
 
-N_pos <- length(pos_idx) 
-y_pos <- aoi_HurdleData$logSWA[pos_idx] #response subset for magnitude sub-model
+#N_pos <- length(pos_idx) 
+#y_pos <- aoi_HurdleData$logSWA[pos_idx] #response subset for magnitude sub-model
 
-stream_pos <- aoi_HurdleData$stream[pos_idx]
-year_pos <- aoi_HurdleData$year_id[pos_idx]
-event_pos <- aoi_HurdleData$sampleEvent_new[pos_idx]
-cluster_pos <- aoi_HurdleData$clusterID_num[pos_idx]
-damPres_pos <- aoi_HurdleData$damPresence[pos_idx]
-damDen_pos <- aoi_HurdleData$dam_km[pos_idx] #only for densit model
+#stream_pos <- aoi_HurdleData$stream[pos_idx]
+#year_pos <- aoi_HurdleData$year_id[pos_idx]
+#event_pos <- aoi_HurdleData$sampleEvent_new[pos_idx]
+#cluster_pos <- aoi_HurdleData$clusterID_num[pos_idx]
+#damPres_pos <- aoi_HurdleData$damPresence[pos_idx]
+#damDen_pos <- aoi_HurdleData$dam_km[pos_idx] #only for densit model
 
 # Full data indices for Bernoulli sub-model
 
 N <- nrow(aoi_HurdleData)
-z <- aoi_HurdleData$z
+y <- aoi_HurdleData$y
+y2 <- aoi_HurdleData$SWA
 stream <- aoi_HurdleData$stream
 year <- aoi_HurdleData$year_id
 event <- aoi_HurdleData$sampleEvent_new
@@ -878,28 +879,54 @@ sink("HGLMM_hurdle_damPresence.jags")
 cat("
     model{
     
-    #1. Water presence/absence sub-model
+    # Surface water presence/absence sub-model
     
     for(i in 1:N){
     
     z[i] ~ dbern(psi[i])
     
     logit(psi[i]) <- epsilon
-                    + (zeta_damPres
-                       + zeta_stream[stream[i]]
-                       + zeta_year[year[i]]
-                       + zeta_event[event[i]]) * damPres[i]
-                    + iota_stream[stream[i]]
-                    + iota_event[event[i]]
-                    + iota_cluster[cluster[i]]
+                     + (zeta_damPres
+                        + zeta_stream[stream[i]]
+                        + zeta_year[year[i]]
+                        + zeta_event[event[i]]) * damPres[i]
+                     + iota_stream[stream[i]]
+                     + iota_event[event[i]]
+                     + iota_cluster[cluster[i]]
+                     
+    ######################################
+    # Surface water detection sub-model:
+    
+    p_eff[i] <- p_detect[event[i]] * z[i]
+    
+    y[i] ~ dbern(p_eff[i])    # presence/absence data (0,1)
+    
+    #######################################
+    # Surface water amount sub-model:
+    
+    y2[i] ~ dnorm(mu[i], tau_eff[i])
+      
+    mu[i] <- z[i] *
+              (alpha
+                + (beta_damPres
+                  + beta_stream[stream[i]]
+                  + beta_year[year[i]]
+                  + beta_event[event[i]]) * damPres[i]
+                + eta_stream[stream[i]]
+                + eta_event[event[i]]
+                + eta_cluster[cluster[i]])
+    
+    tau_eff[i] <- z[i] * tau + (1 - z[i]) * 100000
     }
     
-    #1a. Fixed effects priors for SW presence/absence sub-model:
+    ##########################################################################
+    # PRIORS FOR SW PRESENCE:
+    # Fixed effects priors for SW presence/absence sub-model:
     
-    epsilon ~ dnorm(0,0.001)      # intercept; weakly informative
-    zeta_damPres ~ dnorm(0,0.001) # weak global dam effect on SW presence
+    epsilon ~ dnorm(0,0.04)      # intercept; weakly informative
+    zeta_damPres ~ dnorm(0,0.04) # weak global dam effect on SW presence
     
-    #1b. Random effects priors for SW presence/absence sub-model:
+    # Random effects priors for SW presence/absence sub-model:
     
     for(j in 1:n_stream){
       zeta_stream[j] ~ dnorm(0, tau_zeta_stream)
@@ -919,7 +946,7 @@ cat("
       iota_cluster[c] ~ dnorm(0, tau_iota_cluster)
     }
     
-    #1c. Hyperpriors for SW presence/absence submodel (1/2 Normal on SDs):
+    # Hyperpriors for SW presence/absence submodel (1/2 Normal on SDs):
     
     sigma_zeta_stream ~ dnorm(0,1) T(0,)
     tau_zeta_stream  <- pow(sigma_zeta_stream, -2)  #precision = 1/sd^2
@@ -939,28 +966,23 @@ cat("
     sigma_iota_cluster ~ dnorm(0,1) T(0,)
     tau_iota_cluster <- pow(sigma_iota_cluster, -2)
     
-    #2. Water amount sub-model:
+    ######################################################################
     
-    for(p in 1:N_pos){
+    # PRIORS FOR SW DETECTION:
     
-      y_pos[p] ~ dnorm(mu_pos[p], tau)
-      
-      mu_pos[p] <- alpha
-                   + (beta_damPres
-                      + beta_stream[stream_pos[p]]
-                      + beta_year[year_pos[p]]
-                      + beta_event[event_pos[p]]) * damPres_pos[p]
-                   + eta_stream[stream_pos[p]]
-                   + eta_event[event_pos[p]]
-                   + eta_cluster[cluster_pos[p]]
+    for(k in 1:n_event){
+      p_detect[k] ~ dnorm(0.76, pow(0.16,-2)) T(0,1)  #truncated normal; empirically centered
     }
     
-    #2a. Fixed effects priors for SW amount sub-model; log(SWA+1) scale:
+    ######################################################################
     
-    alpha ~ dnorm(0,0.001)       # weakly info. intercept prior
-    beta_damPres ~ dnorm(0,0.01) # weakly info. global dam effect prior; more info than alpha
+    # PRIORS FOR SW AMOUNT:
+    # Fixed effects priors for SW amount sub-model; log(SWA+1) scale:
     
-    #2b. Random effects priors for SW amount sub-model; log(SWA+1) scale:
+    alpha ~ dnorm(0,0.04)        # weakly info. intercept prior
+    beta_damPres ~ dnorm(0,0.25) # moderately info. global dam effect prior; more info than alpha
+    
+    # Random effects priors for SW amount sub-model; log(SWA+1) scale:
     
     for(j in 1:n_stream){
       beta_stream[j] ~ dnorm(0, tau_beta_stream)
@@ -980,7 +1002,7 @@ cat("
       eta_cluster[c] ~ dnorm(0, tau_eta_cluster)
     }
     
-    #2c. Hyperpriors for SW amount sub-model; still 1/2 Normal distributions
+    # Hyperpriors for SW amount sub-model; still 1/2 Normal distributions
     
     sigma ~ dnorm(0,1) T(0,)
     tau <- pow(sigma, -2)
@@ -1003,10 +1025,6 @@ cat("
     sigma_eta_cluster ~ dnorm(0, 1) T(0,)
     tau_eta_cluster <- pow(sigma_eta_cluster, -2)
     
-    # Derived Parameter:
-    
-    Psi_mean <- mean(psi)
-    
     }
     
     ", fill = TRUE)
@@ -1017,19 +1035,13 @@ sink()
 ```{r,echo=FALSE}
 hurdle_damPres_data_list <- list(
   N = N,
-  N_pos = N_pos,
-  z = z,
-  y_pos = y_pos,
+  y = y,
+  y2 = y2,
   stream = stream,
   year = year,
   event = event,
-  cluster = cluster, 
-  stream_pos = stream_pos,
-  year_pos = year_pos,
-  event_pos = event_pos,
-  cluster_pos = cluster_pos,
+  cluster = cluster,
   damPres = damPres,
-  damPres_pos = damPres_pos,
   n_stream = n_stream,
   n_year = n_year,
   n_event = n_event,
@@ -1087,7 +1099,8 @@ hurdle_damPres_params <- c(
   "sigma_beta_event",
   "sigma_eta_stream",
   "sigma_eta_event",
-  "sigma_eta_cluster"
+  "sigma_eta_cluster",
+  "p_detect"
 )
 
 nchains <- 3
