@@ -821,7 +821,7 @@ year <- aoi_HurdleData$year_id
 event <- aoi_HurdleData$sampleEvent_new
 cluster <- aoi_HurdleData$clusterID_num
 damPres <- aoi_HurdleData$damPresence
-damDen <- aoi_HurdleData$dam_km
+damDen <- aoi_HurdleData$dam_km_std
 
 n_stream <- length(unique(aoi_HurdleData$stream))
 n_year <- length(unique(aoi_HurdleData$year_id))
@@ -981,11 +981,12 @@ model{
 
   ##########################################################################
   # DETECTION PRIORS:
-
+  
   for(k in 1:n_event){
-    p_detect[k] ~ dnorm(0.76, pow(0.16,-2)) T(0,1)
+  p_TP[k] ~ dnorm(0.76, pow(0.16,-2)) T(0,1)   # empirically derived recall
+  p_FP[k] ~ dnorm(0.01, pow(0.005,-2)) T(0,1)  # empirically derived FPR
   }
-
+  
   ##########################################################################
   # MAIN LOOP: PRESENCE, DETECTION, AMOUNT
 
@@ -1004,7 +1005,7 @@ model{
                      + iota_cluster[cluster[i]]
 
     # Detection:
-    p_eff[i] <- p_detect[event[i]] * z[i]
+    p_eff[i] <- z[i] * p_TP[event[i]] + (1-z[i]) * p_FP[event[i]]
     y[i]     ~ dbern(p_eff[i])
 
     # Amount:
@@ -1020,7 +1021,7 @@ model{
                 + eta_event[event[i]]
                 + eta_cluster[cluster[i]])
 
-    tau_eff[i] <- z[i] * tau + (1 - z[i]) * 100000
+    tau_eff[i] <- z[i] * tau + (1 - z[i]) * 100
   }
 
 }
@@ -1101,7 +1102,8 @@ hurdle_damPres_params <- c(
   "sigma_eta_stream",
   "sigma_eta_event",
   "sigma_eta_cluster",
-  "p_detect",
+  "p_TP",
+  "p_FP",
   "z",
   "tau_eff"
 )
@@ -1138,14 +1140,18 @@ DIAGNOSTICS:
 
 "Chain health" Rhat + ESS:
 ```{r,echo=FALSE}
-
-# Convert JAGS output to mcmc.lis
+# Choose only the parameters you care about
+params <- c(
+  "epsilon","alpha","zeta_damPres","beta_damPres",
+  "sigma","sigma_zeta_stream","sigma_iota_cluster",
+  "p_TP[1]","p_FP[1]"
+)
 
 # Gelman–Rubin convergence diagnostic
-gelman.diag(hurdle_damPres_SW$samples, multivariate = FALSE)
+gelman.diag(hurdle_damPres_SW$samples[, params], multivariate = FALSE)
 
 # Effective sample size
-effectiveSize(hurdle_damPres_SW$samples)
+effectiveSize(hurdle_damPres_SW$samples[, params])
 
 ```
 
@@ -1162,7 +1168,7 @@ traceplot(hurdle_damPres_SW$samples[, c("sigma","sigma_zeta_stream","sigma_beta_
 Posterior predictive plots: damPres --> sw presence
 ```{r,echo=FALSE}
 # Posterior mean psi
-psi_post <- summary(hurdle_damPres_SW$sims.list$psi)$statistics[,"Mean"]
+psi_post <- apply(hurdle_damPres_SW$sims.list$psi, 2, mean)
 
 # Compare to observed y
 plot(psi_post, y, pch=16, col=rgb(0,0,0,0.2))
@@ -1172,7 +1178,7 @@ plot(psi_post, y, pch=16, col=rgb(0,0,0,0.2))
 
 Posterior predictive plots: damPres --> sw amount
 ```{r,echo=FALSE}
-mu_post <- summary(hurdle_damPres_SW$sims.list$mu)$statistics[,"Mean"]
+mu_post <- apply(hurdle_damPres_SW$sims.list$mu, 2, mean)
 
 plot(mu_post[y==1], y2[y==1], pch=16, col=rgb(0,0,1,0.3))
 abline(0,1,col="red")
@@ -1199,18 +1205,19 @@ summary(hurdle_damPres_SW$sims.list$sigma_beta_stream)
 
 Check detection posteriors: goal is near empirical mean recall
 ```{r,echo=FALSE}
-summary(hurdle_damPres_SW$sims.list$p_detect)
+summary(hurdle_damPres_SW$sims.list$p_TP)
 
+summary(hurdle_damPres_SW$sims.list$p_FP)
 ```
 
 Check z latent states
 ```{r,echo=FALSE}
-z_post <- summary(hurdle_damPres_SW$sims.list$z)$statistics[,"Mean"]
+z_post <- apply(hurdle_damPres_SW$sims.list$z, 2, mean)
 
 hist(z_post[y==0], main="Posterior z for observed zeros")
 hist(z_post[y==1], main="Posterior z for observed ones")
 
-
+hist(z_post, main = "Split of posterior z")
 ```
 
 
