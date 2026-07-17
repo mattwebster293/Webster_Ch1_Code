@@ -103,11 +103,12 @@ model{
 
   ##########################################################################
   # DETECTION PRIORS:
-
+  
   for(k in 1:n_event){
-    p_detect[k] ~ dnorm(0.76, pow(0.16,-2)) T(0,1)
+  p_TP[k] ~ dnorm(0.76, pow(0.16,-2)) T(0,1)   # empirically derived recall
+  p_FP[k] ~ dnorm(0.01, pow(0.005,-2)) T(0,1)  # empirically derived FPR
   }
-
+  
   ##########################################################################
   # MAIN LOOP: PRESENCE, DETECTION, AMOUNT
 
@@ -126,7 +127,7 @@ model{
                      + iota_cluster[cluster[i]]
 
     # Detection:
-    p_eff[i] <- p_detect[event[i]] * z[i]
+    p_eff[i] <- z[i] * p_TP[event[i]] + (1-z[i]) * p_FP[event[i]]
     y[i]     ~ dbern(p_eff[i])
 
     # Amount:
@@ -142,7 +143,7 @@ model{
                 + eta_event[event[i]]
                 + eta_cluster[cluster[i]])
 
-    tau_eff[i] <- z[i] * tau + (1 - z[i]) * 100000
+    tau_eff[i] <- z[i] * tau + (1 - z[i]) * 100
   }
 
 }
