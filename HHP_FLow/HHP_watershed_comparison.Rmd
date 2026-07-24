@@ -1,0 +1,186 @@
+---
+title: "HHP_Flow_Hydroperiod_Exploration"
+author: "Matt Webster"
+date: "2026-07-16"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+
+```{r,echo=FALSE}
+library(tidyverse)
+library(lubridate)
+```
+
+
+```{r,echo=FALSE}
+# Willow:
+wc_HHP <- read.csv("wc_HHP.csv") %>%
+  mutate(date = ymd(date)) |> 
+  select(date,
+         value) |> 
+  filter(year(date) >= 2010) |> 
+  filter(month(date) %in% 6:8)
+
+# LoneTree:
+lt_HHP <- read.csv("lt_HHP.csv") |> 
+  mutate(date = ymd(date)) |> 
+  select(date,
+         value) |> 
+  filter(year(date) >= 2010) |>
+  filter(month(date) %in% 6:8)
+
+# Brazil:
+brz_HHP <- read.csv("brz_HHP.csv") |> 
+  mutate(date = ymd(date)) |> 
+  select(date,
+         value) |>
+  filter(year(date) >= 2010) |>
+  filter(month(date) %in% 6:8)
+
+# Larb:
+lrb_HHP <- read.csv("lrb_HHP.csv") |> 
+  mutate(date = ymd(date)) |> 
+  select(date,
+         value) |> 
+  filter(year(date) >= 2010) |>
+  filter(month(date) %in% 6:8)
+
+# LowBeav:
+lbv_HHP <- read.csv("lbv_HHP.csv") |> 
+  mutate(date = ymd(date)) |> 
+  select(date,
+         value) |> 
+  filter(year(date) >= 2010) |>
+  filter(month(date) %in% 6:8)
+
+# MidBeav: 
+mbv_HHP <- read.csv("mbv_HHP.csv") |> 
+  mutate(date = ymd(date)) |> 
+  select(date,
+         value) |> 
+  filter(year(date) >= 2010) |>
+  filter(month(date) %in% 6:8)
+
+# Flat:
+fc_HHP <- read.csv("fc_HHP.csv") |> 
+  mutate(date = ymd(date)) |> 
+  select(date,
+         value) |> 
+  filter(year(date) >= 2010) |>
+  filter(month(date) %in% 6:8)
+
+# UpBeav:
+ubv_HHP <- read.csv("ubv_HHP.csv") |> 
+  mutate(date = ymd(date)) |> 
+  select(date,
+         value) |> 
+  filter(year(date) >= 2010) |>
+  filter(month(date) %in% 6:8)
+
+# BigWarm:
+bw_HHP <- read.csv("bw_HHP.csv") |> 
+  mutate(date = ymd(date)) |> 
+  select(date,
+         value) |> 
+  filter(year(date) >= 2010) |>
+  filter(month(date) %in% 6:8)
+
+# "Hewitt Lake: Milk River; farthest upstream:
+Milk3_HHP <- read.csv("hewittLake_Milk_HHP.csv") |> 
+  mutate(date = ymd(date)) |> 
+  select(date,
+         value) |> 
+  filter(year(date) >= 2010) |>
+  filter(month(date) %in% 6:8)
+
+# "Sneider Coulee: Milk River; Middle:
+Milk2_HHP <- read.csv("sneiderCoulee_Milk_HHP.csv") |> 
+  mutate(date = ymd(date)) |> 
+  select(date,
+         value) |> 
+  filter(year(date) >= 2010) |>
+  filter(month(date) %in% 6:8)
+
+# "Mooney Coulee: Milk River; farthest downstream:
+Milk1_HHP <- read.csv("mooneyCoulee_Milk_HHP.csv") |> 
+  mutate(date = ymd(date)) |> 
+  select(date,
+         value) |> 
+  filter(year(date) >= 2010) |>
+  filter(month(date) %in% 6:8)
+```
+
+
+```{r,echo=FALSE}
+watersheds <- list(wc_HHP,
+                   lt_HHP,
+                   brz_HHP,
+                   lrb_HHP,
+                   lbv_HHP,
+                   mbv_HHP,
+                   fc_HHP,
+                   ubv_HHP,
+                   bw_HHP,
+                   Milk1_HHP,
+                   Milk2_HHP,
+                   Milk3_HHP)
+
+names(watersheds) <- c("wc_HHP",
+                       "lt_HHP",
+                       "brz_HHP",
+                       "lrb_HHP",
+                       "lbv_HHP",
+                       "mbv_HHP",
+                       "fc_HHP",
+                       "ubv_HHP",
+                       "bw_HHP",
+                       "Milk1_HHP",
+                       "Milk2_HHP",
+                       "Milk3_HHP")
+
+
+decile_df <- purrr::map_df(
+  watersheds,
+  ~ quantile(.x$value, probs = seq(0.1, 0.9, by = 0.1), na.rm = TRUE),
+  .id = "watershed"
+)
+
+
+
+decile_df_long <- decile_df |> 
+  pivot_longer(-watershed, names_to = "decile", values_to = "CFS")
+
+
+
+palette1 <- c(
+  "red", # orange
+  "orange", # sky blue
+  "yellow3", # bluish green
+  "green4", # yellow
+  "lightblue", # blue
+  "darkblue", # vermillion
+  "violet", # reddish purple
+  "purple",  # extension
+  "purple4",    # extension
+  "lightgreen",
+  "brown4",
+  "black"
+)
+
+ggplot(decile_df_long, aes(x = decile, y = CFS, color = watershed, group = watershed)) +
+  geom_line() +
+  geom_point(aes(size = 4)) +
+  scale_color_manual(values = palette1) +
+  theme_minimal() +
+  labs(
+    title = "HHP Simulated Stream Flow Across Watersheds",
+    subtitle = "2010 - Present",
+    x = "Stream Flow Decile",
+    y = "CFS",
+    color = "Watershed"
+  ) 
+
+
+```
