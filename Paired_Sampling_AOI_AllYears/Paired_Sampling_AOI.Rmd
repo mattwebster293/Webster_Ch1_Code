@@ -301,7 +301,7 @@ ggplot(flow23, aes(x = date,
 
 
 # Willow:
-ltRiparianGeometries <- suppressMessages(st_read("WC_RIP_GEOMS.shp",quiet=TRUE)) %>% 
+wcRiparianGeometries <- suppressMessages(st_read("WC_RIP_GEOMS.shp",quiet=TRUE)) %>% 
   st_make_valid() %>% 
   select(Input_FID,
          geometry) %>% 
@@ -10611,7 +10611,7 @@ wc19_sampled_Long_Export <- wc19_lateSummer_Sample_Long %>%
          containsNull) %>%
   fix_nan()
 
-#write.csv(wc19_sampled_Long_Export, "C:\\Users\\mattw\\OneDrive\\Desktop\\UMT\\Data\\GEE\\Paired_SWA_Sampling_AOI_AllYears\\WC_2019_DF_Final_Long_0630Update.csv", row.names=FALSE)
+write.csv(wc19_sampled_Long_Export, "C:\\Users\\mattw\\OneDrive\\Desktop\\UMT\\GIT\\Webster_Ch1_Code\\Paired_Sampling_AOI_AllYears\\WC_2019_DF_Final_Long_0630Update.csv", row.names=FALSE)
 ```
 
 **2021**
@@ -10931,7 +10931,7 @@ wc21_sampled_Long_Export <- wc21_lateSummer_Sample_Long %>%
          containsNull) %>%
   fix_nan()
 
-#write.csv(wc21_sampled_Long_Export, "C:\\Users\\mattw\\OneDrive\\Desktop\\UMT\\Data\\GEE\\Paired_SWA_Sampling_AOI_AllYears\\WC_2021_DF_Final_Long_0630Update.csv", row.names=FALSE)
+write.csv(wc21_sampled_Long_Export, "C:\\Users\\mattw\\OneDrive\\Desktop\\UMT\\GIT\\Webster_Ch1_Code\\Paired_Sampling_AOI_AllYears\\WC_2021_DF_Final_Long_0630Update.csv", row.names=FALSE)
 ```
 
 **2023**
@@ -11251,7 +11251,7 @@ wc23_sampled_Long_Export <- wc23_lateSummer_Sample_Long %>%
          containsNull) %>%
   fix_nan()
 
-#write.csv(wc23_sampled_Long_Export, "C:\\Users\\mattw\\OneDrive\\Desktop\\UMT\\Data\\GEE\\Paired_SWA_Sampling_AOI_AllYears\\WC_2023_DF_Final_Long_0630Update.csv", row.names=FALSE)
+write.csv(wc23_sampled_Long_Export, "C:\\Users\\mattw\\OneDrive\\Desktop\\UMT\\GIT\\Webster_Ch1_Code\\Paired_Sampling_AOI_AllYears\\WC_2023_DF_Final_Long_0630Update.csv", row.names=FALSE)
 ```
 
 
@@ -11585,7 +11585,7 @@ lt19_sampled_Long_Export <- lt19_lateSummer_Sample_Long %>%
          containsNull) %>%
   fix_nan()
 
-#write.csv(lt19_sampled_Long_Export, "C:\\Users\\mattw\\OneDrive\\Desktop\\UMT\\Data\\GEE\\Paired_SWA_Sampling_AOI_AllYears\\lt_2019_DF_Final_Long_0630Update.csv", row.names=FALSE)
+write.csv(lt19_sampled_Long_Export, "C:\\Users\\mattw\\OneDrive\\Desktop\\UMT\\GIT\\Webster_Ch1_Code\\Paired_Sampling_AOI_AllYears\\LT_2019_DF_Final_Long_0630Update.csv", row.names=FALSE)
 ```
 
 **2021**
@@ -11905,7 +11905,7 @@ lt21_sampled_Long_Export <- lt21_lateSummer_Sample_Long %>%
          containsNull) %>%
   fix_nan()
 
-#write.csv(lt21_sampled_Long_Export, "C:\\Users\\mattw\\OneDrive\\Desktop\\UMT\\Data\\GEE\\Paired_SWA_Sampling_AOI_AllYears\\lt_2021_DF_Final_Long_0630Update.csv", row.names=FALSE)
+write.csv(lt21_sampled_Long_Export, "C:\\Users\\mattw\\OneDrive\\Desktop\\UMT\\GIT\\Webster_Ch1_Code\\Paired_Sampling_AOI_AllYears\\LT_2021_DF_Final_Long_0630Update.csv", row.names=FALSE)
 ```
 
 **2023**
@@ -12225,7 +12225,7 @@ lt23_sampled_Long_Export <- lt23_lateSummer_Sample_Long %>%
          containsNull) %>%
   fix_nan()
 
-#write.csv(lt23_sampled_Long_Export, "C:\\Users\\mattw\\OneDrive\\Desktop\\UMT\\Data\\GEE\\Paired_SWA_Sampling_AOI_AllYears\\lt_2023_DF_Final_Long_0630Update.csv", row.names=FALSE)
+write.csv(lt23_sampled_Long_Export, "C:\\Users\\mattw\\OneDrive\\Desktop\\UMT\\GIT\\Webster_Ch1_Code\\Paired_Sampling_AOI_AllYears\\LT_2023_DF_Final_Long_0630Update.csv", row.names=FALSE)
 ```
 
 ----
@@ -12554,7 +12554,7 @@ brz19_sampled_Long_Export <- brz19_lateSummer_Sample_Long %>%
          containsNull) %>%
   fix_nan()
 
-#write.csv(brz19_sampled_Long_Export, "C:\\Users\\mattw\\OneDrive\\Desktop\\UMT\\Data\\GEE\\Paired_SWA_Sampling_AOI_AllYears\\brz_2019_DF_Final_Long_0630Update.csv", row.names=FALSE)
+write.csv(brz19_sampled_Long_Export, "C:\\Users\\mattw\\OneDrive\\Desktop\\UMT\\GIT\\Webster_Ch1_Code\\Paired_Sampling_AOI_AllYears\\BRZ_2019_DF_Final_Long_0630Update.csv", row.names=FALSE)
 ```
 
 **2021**
@@ -12874,7 +12874,7 @@ brz21_sampled_Long_Export <- brz21_lateSummer_Sample_Long %>%
          containsNull) %>%
   fix_nan()
 
-#write.csv(brz21_sampled_Long_Export, "C:\\Users\\mattw\\OneDrive\\Desktop\\UMT\\Data\\GEE\\Paired_SWA_Sampling_AOI_AllYears\\brz_2021_DF_Final_Long_0630Update.csv", row.names=FALSE)
+write.csv(brz21_sampled_Long_Export, "C:\\Users\\mattw\\OneDrive\\Desktop\\UMT\\GIT\\Webster_Ch1_Code\\Paired_Sampling_AOI_AllYears\\BRZ_2021_DF_Final_Long_0630Update.csv", row.names=FALSE)
 ```
 
 **2023**
@@ -13194,7 +13194,7 @@ brz23_sampled_Long_Export <- brz23_lateSummer_Sample_Long %>%
          containsNull) %>%
   fix_nan()
 
-#write.csv(brz23_sampled_Long_Export, "C:\\Users\\mattw\\OneDrive\\Desktop\\UMT\\Data\\GEE\\Paired_SWA_Sampling_AOI_AllYears\\brz_2023_DF_Final_Long_0630Update.csv", row.names=FALSE)
+write.csv(brz23_sampled_Long_Export, "C:\\Users\\mattw\\OneDrive\\Desktop\\UMT\\GIT\\Webster_Ch1_Code\\Paired_Sampling_AOI_AllYears\\BRZ_2023_DF_Final_Long_0630Update.csv", row.names=FALSE)
 ```
 
 
@@ -13524,7 +13524,7 @@ lrb19_sampled_Long_Export <- lrb19_lateSummer_Sample_Long %>%
          containsNull) %>%
   fix_nan()
  
-#write.csv(lrb19_sampled_Long_Export, "C:\\Users\\mattw\\OneDrive\\Desktop\\UMT\\Data\\GEE\\Paired_SWA_Sampling_AOI_AllYears\\lrb_2019_DF_Final_Long_0630Update.csv", row.names=FALSE)
+write.csv(lrb19_sampled_Long_Export, "C:\\Users\\mattw\\OneDrive\\Desktop\\UMT\\GIT\\Webster_Ch1_Code\\Paired_Sampling_AOI_AllYears\\LRB_2019_DF_Final_Long_0630Update.csv", row.names=FALSE)
 ```
 
 **2021**
@@ -13844,7 +13844,7 @@ lrb21_sampled_Long_Export <- lrb21_lateSummer_Sample_Long %>%
          containsNull) %>%
   fix_nan()
 
-#write.csv(lrb21_sampled_Long_Export, "C:\\Users\\mattw\\OneDrive\\Desktop\\UMT\\Data\\GEE\\Paired_SWA_Sampling_AOI_AllYears\\lrb_2021_DF_Final_Long_0630Update.csv", row.names=FALSE)
+write.csv(lrb21_sampled_Long_Export, "C:\\Users\\mattw\\OneDrive\\Desktop\\UMT\\GIT\\Webster_Ch1_Code\\Paired_Sampling_AOI_AllYears\\LRB_2021_DF_Final_Long_0630Update.csv", row.names=FALSE)
 ```
 
 
@@ -14166,7 +14166,7 @@ lrb23_sampled_Long_Export <- lrb23_lateSummer_Sample_Long %>%
          containsNull) %>%
   fix_nan()
 
-#write.csv(lrb23_sampled_Long_Export, "C:\\Users\\mattw\\OneDrive\\Desktop\\UMT\\Data\\GEE\\Paired_SWA_Sampling_AOI_AllYears\\lrb_2023_DF_Final_Long_0630Update.csv", row.names=FALSE)
+write.csv(lrb23_sampled_Long_Export, "C:\\Users\\mattw\\OneDrive\\Desktop\\UMT\\GIT\\Webster_Ch1_Code\\Paired_Sampling_AOI_AllYears\\LRB_2023_DF_Final_Long_0630Update.csv", row.names=FALSE)
 ```
 
 
@@ -14496,7 +14496,7 @@ lbv19_sampled_Long_Export <- lbv19_lateSummer_Sample_Long %>%
          containsNull) %>%
   fix_nan()
 
-#write.csv(lbv19_sampled_Long_Export, "C:\\Users\\mattw\\OneDrive\\Desktop\\UMT\\Data\\GEE\\Paired_SWA_Sampling_AOI_AllYears\\lbv_2019_DF_Final_Long_0630Update.csv", row.names=FALSE)
+write.csv(lbv19_sampled_Long_Export, "C:\\Users\\mattw\\OneDrive\\Desktop\\UMT\\GIT\\Webster_Ch1_Code\\Paired_Sampling_AOI_AllYears\\LBV_2019_DF_Final_Long_0630Update.csv", row.names=FALSE)
 ```
 
 **2021**
@@ -14816,7 +14816,7 @@ lbv21_sampled_Long_Export <- lbv21_lateSummer_Sample_Long %>%
          containsNull) %>%
   fix_nan()
 
-#write.csv(lbv21_sampled_Long_Export, "C:\\Users\\mattw\\OneDrive\\Desktop\\UMT\\Data\\GEE\\Paired_SWA_Sampling_AOI_AllYears\\lbv_2021_DF_Final_Long_0630Update.csv", row.names=FALSE)
+write.csv(lbv21_sampled_Long_Export, "C:\\Users\\mattw\\OneDrive\\Desktop\\UMT\\GIT\\Webster_Ch1_Code\\Paired_Sampling_AOI_AllYears\\LBV_2021_DF_Final_Long_0630Update.csv", row.names=FALSE)
 ```
 
 **2023**
@@ -15136,7 +15136,7 @@ lbv23_sampled_Long_Export <- lbv23_lateSummer_Sample_Long %>%
          containsNull) %>%
   fix_nan()
 
-#write.csv(lbv23_sampled_Long_Export, "C:\\Users\\mattw\\OneDrive\\Desktop\\UMT\\Data\\GEE\\Paired_SWA_Sampling_AOI_AllYears\\lbv_2023_DF_Final_Long_0630Update.csv", row.names=FALSE)
+write.csv(lbv23_sampled_Long_Export, "C:\\Users\\mattw\\OneDrive\\Desktop\\UMT\\GIT\\Webster_Ch1_Code\\Paired_Sampling_AOI_AllYears\\LBV_2023_DF_Final_Long_0630Update.csv", row.names=FALSE)
 ```
 
 ----
@@ -15464,7 +15464,7 @@ ubv19_sampled_Long_Export <- ubv19_lateSummer_Sample_Long %>%
          containsNull) %>%
   fix_nan()
 
-#write.csv(ubv19_sampled_Long_Export, "C:\\Users\\mattw\\OneDrive\\Desktop\\UMT\\Data\\GEE\\Paired_SWA_Sampling_AOI_AllYears\\ubv_2019_DF_Final_Long_0630Update.csv", row.names=FALSE)
+write.csv(ubv19_sampled_Long_Export, "C:\\Users\\mattw\\OneDrive\\Desktop\\UMT\\GIT\\Webster_Ch1_Code\\Paired_Sampling_AOI_AllYears\\UBV_2019_DF_Final_Long_0630Update.csv", row.names=FALSE)
 ```
 
 **2021**
@@ -15784,7 +15784,7 @@ ubv21_sampled_Long_Export <- ubv21_lateSummer_Sample_Long %>%
          containsNull) %>%
   fix_nan()
 
-#write.csv(ubv21_sampled_Long_Export, "C:\\Users\\mattw\\OneDrive\\Desktop\\UMT\\Data\\GEE\\Paired_SWA_Sampling_AOI_AllYears\\ubv_2021_DF_Final_Long_0630Update.csv", row.names=FALSE)
+write.csv(ubv21_sampled_Long_Export, "C:\\Users\\mattw\\OneDrive\\Desktop\\UMT\\GIT\\Webster_Ch1_Code\\Paired_Sampling_AOI_AllYears\\UBV_2021_DF_Final_Long_0630Update.csv", row.names=FALSE)
 ```
 
 **2023**
@@ -16104,7 +16104,7 @@ ubv23_sampled_Long_Export <- ubv23_lateSummer_Sample_Long %>%
          containsNull) %>%
   fix_nan()
 
-#write.csv(ubv23_sampled_Long_Export, "C:\\Users\\mattw\\OneDrive\\Desktop\\UMT\\Data\\GEE\\Paired_SWA_Sampling_AOI_AllYears\\ubv_2023_DF_Final_Long_0630Update.csv", row.names=FALSE)
+write.csv(ubv23_sampled_Long_Export, "C:\\Users\\mattw\\OneDrive\\Desktop\\UMT\\GIT\\Webster_Ch1_Code\\Paired_Sampling_AOI_AllYears\\UBV_2023_DF_Final_Long_0630Update.csv", row.names=FALSE)
 ```
 
 
