@@ -76,6 +76,7 @@ library(ggcorrplot)
 library(lme4)
 library(broom.mixed)
 library(coda)
+library(scales)
 ```
       
 
@@ -907,7 +908,7 @@ hist(aoi_HurdleData$logSWA,
 
 ```{r,echo=FALSE}
 library(jagsUI)
-```
+
     sink("HGLMM_hurdle_damPresence.jags")
     
     cat("
@@ -942,13 +943,13 @@ library(jagsUI)
       sigma              ~ dnorm(0,1) T(0,)
       tau                <- pow(sigma, -2)
     
-      sigma_beta_stream  ~ dnorm(0, 0.7) T(0,)
+      sigma_beta_stream  ~ dnorm(0, 1) T(0,)
       tau_beta_stream    <- pow(sigma_beta_stream, -2)
     
-      sigma_beta_year    ~ dnorm(0, 0.7) T(0,)
+      sigma_beta_year    ~ dnorm(0, 1) T(0,)
       tau_beta_year      <- pow(sigma_beta_year, -2)
     
-      sigma_beta_event   ~ dnorm(0, 0.7) T(0,)
+      sigma_beta_event   ~ dnorm(0, 1) T(0,)
       tau_beta_event     <- pow(sigma_beta_event, -2)
     
       sigma_eta_stream   ~ dnorm(0, 1) T(0,)
@@ -1074,7 +1075,7 @@ library(jagsUI)
     ", fill = TRUE)
     
     sink()
-    
+```    
     
 
 ```{r,echo=FALSE}
@@ -1166,7 +1167,7 @@ hurdle_damPres_params <- c(
 nchains <- 3
 nthin <- 5
 niter <- 100000
-nburn <- 20000
+nburn <- 25000
 
 Sys.time()
 
@@ -1311,7 +1312,7 @@ abline(0,1,col="red")
 
 **Random effects shrinkage: **
 
-Goal is centered around 0(ish)
+Goal is near 0(ish)
 
 1. zeta_stream; random effect of stream on sw presence
 2. beta_stream; random effect of stream on sw amount
@@ -1436,20 +1437,14 @@ exp(mean(hurdle_damPres_SW$sims.list$beta_damPres))
 damPres_alpha_post <- hurdle_damPres_SW$sims.list$alpha
 damPres_beta_post  <- hurdle_damPres_SW$sims.list$beta_damPres
 damPres_zeta_post  <- hurdle_damPres_SW$sims.list$zeta_damPres
-damPres_pTP_post <- hurdle_damPres_SW$sims.list$p_TP
-damPres_pFP_post <- hurdle_damPres_SW$sims.list$p_FP
+damPres_sigBetaStream <- hurdle_damPres_SW$sims.list$sigma_beta_stream
 
 damPresMod_n <- length(damPres_alpha_post)
 
 damPres_alpha_prior <- rnorm(damPresMod_n, 0, sqrt(1/0.04))
 damPres_beta_prior  <- rnorm(damPresMod_n, 0, sqrt(1/0.04))
 damPres_zeta_prior  <- rnorm(damPresMod_n, 0, sqrt(1/0.04))
-damPres_pTP_prior <- rnorm(damPresMod_n, 0.76, sqrt(1/0.16))
-damPres_pFP_prior <- rnorm(damPresMod_n, 0.01, sqrt(1/0.005))
-
-
-
-
+damPres_sigBetaStream_prior <- pmax(rnorm(damPresMod_n, 0, 1), 0)
 
 
 # Plot overlap:
@@ -1473,8 +1468,10 @@ plot_prior_post <- function(prior, post, name) {
 }
 
 plot_prior_post(damPres_alpha_prior, damPres_alpha_post, "alpha")
-plot_prior_post(damPres_beta_prior, damPres_beta_post, "beta")
-plot_prior_post(damPres_zeta_prior, damPres_zeta_post, "zeta")
+plot_prior_post(damPres_beta_prior, damPres_beta_post, "beta_damPres")
+plot_prior_post(damPres_zeta_prior, damPres_zeta_post, "zeta_damPres")
+plot_prior_post(damPres_sigBetaStream_prior, damPres_sigBetaStream, "sigma_beta_stream")
+
 ```
 
 
@@ -1547,8 +1544,8 @@ ggplot(damPres_psi_df, aes(x = incis_raw, y = psi, color = factor(dam))) +
     y = "Probability of Surface Water",
     color = "Dam Presence"
   ) +
-  scale_color_manual(values = c("steelblue","brown4"),
-                     labels = c("Dam Present", "No Dam")) +
+  scale_color_manual(values = c("brown4","steelblue"),
+                     labels = c("No Dam", "Dam Present")) +
   theme_minimal(base_size = 14)
 
 ```
@@ -1563,8 +1560,8 @@ ggplot(damPres_psi_df, aes(x = RIPA_raw, y = psi, color = factor(dam))) +
     y = "Probability of Surface Water",
     color = "Dam Presence"
   ) +
-  scale_color_manual(values = c("steelblue","brown4"),
-                     labels = c("Dam Present", "No Dam")) +
+  scale_color_manual(values = c("brown4","steelblue"),
+                     labels = c("No Dam", "Dam Present")) +
   theme_minimal(base_size = 14)
 
 
@@ -1580,8 +1577,8 @@ ggplot(damPres_psi_df, aes(x = UDA_raw, y = psi, color = factor(dam))) +
     y = "Probability of Surface Water",
     color = "Dam Presence"
   ) +
-  scale_color_manual(values = c("steelblue","brown4"),
-                     labels = c("Dam Present", "No Dam")) +
+  scale_color_manual(values = c("brown4","steelblue"),
+                     labels = c("No Dam", "Dam Present")) +
   theme_minimal(base_size = 14)
 
 
@@ -1596,8 +1593,7 @@ ggplot(damPres_psi_df, aes(x = UDA_raw, y = psi, color = factor(dam))) +
 Constrain PDP to empirical ranges for SWA and target covariates
 
 ```{r,echo=FALSE}
-library(tidyverse)
-library(scales)
+
 
 damPres_post <- hurdle_damPres_SW$sims.list
 
@@ -1736,7 +1732,7 @@ pdp_UDA <- build_pdp(
 
 
 
-##########################################3
+##########################################
 
 # Plot Function:
 
@@ -1799,7 +1795,7 @@ Dam Density
 
 ```{r,echo=FALSE}
 #library(jagsUI)
-```
+
     sink("HGLMM_hurdle_damDensity.jags")
     
     cat("
@@ -1834,13 +1830,13 @@ Dam Density
       sigma              ~ dnorm(0,1) T(0,)
       tau                <- pow(sigma, -2)
     
-      sigma_beta_stream  ~ dnorm(0, 0.7) T(0,)
+      sigma_beta_stream  ~ dnorm(0, 4) T(0,)
       tau_beta_stream    <- pow(sigma_beta_stream, -2)
     
-      sigma_beta_year    ~ dnorm(0, 0.7) T(0,)
+      sigma_beta_year    ~ dnorm(0, 4) T(0,)
       tau_beta_year      <- pow(sigma_beta_year, -2)
     
-      sigma_beta_event   ~ dnorm(0, 0.7) T(0,)
+      sigma_beta_event   ~ dnorm(0, 4) T(0,)
       tau_beta_event     <- pow(sigma_beta_event, -2)
     
       sigma_eta_stream   ~ dnorm(0, 1) T(0,)
@@ -1966,7 +1962,7 @@ Dam Density
     ", fill = TRUE)
     
     sink()
-   
+```   
     
 
 ```{r,echo=FALSE}
@@ -2055,10 +2051,10 @@ hurdle_damDen_params <- c(
   "tau_eff"
 )
 
-nchains <- 3
-nthin <- 5
-niter <- 100000
-nburn <- 20000
+#nchains <- 3
+#nthin <- 5
+#niter <- 100000
+#nburn <- 25000
 
 
 Sys.time()
@@ -2249,7 +2245,7 @@ summary(hurdle_damDen_SW$sims.list$beta_damDen)
 exp(mean(hurdle_damDen_SW$sims.list$beta_damDen))
 ```
 
-    Dam presence increases surface water area by ~ 13%.
+    Dam presence increases surface water area by ~ 15%.
 
 
 ----
@@ -2260,20 +2256,12 @@ exp(mean(hurdle_damDen_SW$sims.list$beta_damDen))
 damDen_alpha_post <- hurdle_damDen_SW$sims.list$alpha
 damDen_beta_post  <- hurdle_damDen_SW$sims.list$beta_damDen
 damDen_zeta_post  <- hurdle_damDen_SW$sims.list$zeta_damDen
-damDen_pTP_post <- hurdle_damDen_SW$sims.list$p_TP
-damDen_pFP_post <- hurdle_damDen_SW$sims.list$p_FP
 
 damDenMod_n <- length(damDen_alpha_post)
 
 damDen_alpha_prior <- rnorm(damDenMod_n, 0, sqrt(1/0.04))
 damDen_beta_prior  <- rnorm(damDenMod_n, 0, sqrt(1/0.04))
 damDen_zeta_prior  <- rnorm(damDenMod_n, 0, sqrt(1/0.04))
-damDen_pTP_prior <- rnorm(damDenMod_n, 0.76, sqrt(1/0.16))
-damDen_pFP_prior <- rnorm(damDenMod_n, 0.01, sqrt(1/0.005))
-
-
-
-
 
 
 # Plot overlap:
@@ -2373,7 +2361,7 @@ ggplot(damDen_psi_df, aes(x = incis_raw, y = psi, color = damDen)) +
     subtitle = "Predicted probability of water (psi) across raw incision values",
     x = "Channel Incision (raw scale: 1 - TO/90)",
     y = "Probability of Surface Water",
-    color = "Dam Density (z-std)"
+    color = "Dam Density (dams/km)"
   ) +
   theme_minimal(base_size = 14)
 
@@ -2388,7 +2376,7 @@ ggplot(damDen_psi_df, aes(x = RIPA_raw, y = psi, color = damDen)) +
     subtitle = "Predicted psi across raw riparian area (m^2)",
     x = "Riparian Area (m^2)",
     y = "Probability of Surface Water",
-    color = "Dam Density (z-std)"
+    color = "Dam Density (dams/km)"
   ) +
   theme_minimal(base_size = 14)
 ```
@@ -2402,7 +2390,7 @@ ggplot(damDen_psi_df, aes(x = UDA_raw, y = psi, color = damDen)) +
     subtitle = "Predicted psi across raw upstream drainage area (km^2)",
     x = "Upstream Drainage Area (km^2)",
     y = "Probability of Surface Water",
-    color = "Dam Density (z-std)"
+    color = "Dam Density (dams/km)"
   ) +
   theme_minimal(base_size = 14)
 
@@ -2826,10 +2814,10 @@ hurdle_veg_damPres_params <- c(
   "sigma_eta_cluster"
 )
 
-nchains <- 3
-nthin <- 5
-niter <- 100000
-nburn <- 20000
+#nchains <- 3
+#nthin <- 5
+#niter <- 100000
+#nburn <- 25000
 
 Sys.time()
 
@@ -2890,6 +2878,10 @@ effectiveSize(hurdle_veg_damPres_SW$samples[, params_veg])
 **Check traceplots** for critical parameters:
 
 ```{r,echo=FALSE}
+par(mfrow = c(2, 2),        # 2 rows, 2 columns
+    mar = c(4, 4, 2, 1),    # smaller margins
+    cex = 0.8)              # shrink text/points a bit
+
 tplot_veg_params <- c("alpha","beta_damPres","sigma", "sigma_beta_stream")
 
 
@@ -2911,16 +2903,42 @@ Predicted vegArea vs. observed vegArea
 Should be about 1
 
 ```{r,echo=FALSE}
+par(mfrow = c(1,1),        # 2 rows, 2 columns
+    mar = c(4, 4, 2, 1),    # smaller margins
+    cex = 0.8)  
+
+# Posterior mean of predicted log(VA + 1)
 mu_veg_post <- apply(hurdle_veg_damPres_SW$sims.list$mu, 2, mean)
 
+# Observed log vegetation area
+obs_logVA <- log(y_vegA + 1)
+
+# Fit regression on the log scale
+fit_log <- lm(obs_logVA ~ mu_veg_post)
+
+slope_log <- coef(fit_log)[2]
+R2_log    <- summary(fit_log)$r.squared
+
+# Plot
 plot(mu_veg_post,
-     log(y_vegA + 1),
+     obs_logVA,
      pch = 16,
-     col = rgb(0, 0, 1, 0.3),
+     col = rgb(0,0,1,0.3),
      xlab = "Predicted log(VA + 1)",
      ylab = "Observed log(VA + 1)")
 
 abline(0, 1, col = "red", lwd = 2)
+
+# Add slope and R² text
+text(x = min(mu_veg_post),
+     y = max(obs_logVA),
+     labels = paste0("Slope = ", round(slope_log, 3)),
+     pos = 4)
+
+text(x = min(mu_veg_post),
+     y = max(obs_logVA) - 0.3,
+     labels = paste0("R² = ", round(R2_log, 3)),
+     pos = 4)
 
 ```
 
@@ -2935,7 +2953,7 @@ Goal is centered around 0(ish)
 
 ```{r, echo=FALSE}
 
-par(mfrow = c(2, 2),        # 2 rows, 2 columns
+par(mfrow = c(2, 1),        # 2 rows, 1 columns
     mar = c(4, 4, 2, 1),    # smaller margins
     cex = 0.8)              # shrink text/points a bit
 
@@ -3016,38 +3034,44 @@ hist(damPres_veg_beta_post,
      col = "steelblue",
      main = "Posterior of damPresence effect on log(VA + 1)",
      xlab = "beta_damPres")
-abline(v = median(beta_post), col = "red", lwd = 2)
+abline(v = median(damPres_veg_beta_post), col = "red", lwd = 2)
 ```
 
 **Predicted VegArea with and without Dam Presence**
 
 ```{r,echo=FALSE}
-post <- hurdle_veg_damPres_SW$sims.list
-n_draws <- length(post$alpha)
+hurdle_veg_post <- hurdle_veg_damPres_SW$sims.list
+n_draws <- length(hurdle_veg_post$alpha)
 
 # Random effects averaged out
-mu_no_dam <- post$alpha +
-             post$eta_stream[ , stream] +
-             post$eta_event[ , event] +
-             post$eta_cluster[ , cluster]
+mu_no_dam <- hurdle_veg_post$alpha +
+             hurdle_veg_post$eta_stream[ , stream] +
+             hurdle_veg_post$eta_event[ , event] +
+             hurdle_veg_post$eta_cluster[ , cluster]
 
-mu_yes_dam <- post$alpha +
-              post$beta_damPres +
-              post$eta_stream[ , stream] +
-              post$eta_event[ , event] +
-              post$eta_cluster[ , cluster]
+mu_yes_dam <- hurdle_veg_post$alpha +
+              hurdle_veg_post$beta_damPres +
+              hurdle_veg_post$eta_stream[ , stream] +
+              hurdle_veg_post$eta_event[ , event] +
+              hurdle_veg_post$eta_cluster[ , cluster]
 
 
 VA_no_dam  <- exp(mu_no_dam) - 1
 VA_yes_dam <- exp(mu_yes_dam) - 1
 
 
+VA_no_dam_vec  <- as.numeric(VA_no_dam)
+VA_yes_dam_vec <- as.numeric(VA_yes_dam)
 
-boxplot(VA_no_dam, VA_yes_dam,
-        names = c("No Dam", "Dam Present"),
-        col = c("steelblue", "brown4"),
-        main = "Predicted Vegetation Area by Dam Presence")
-
+boxplot(
+  list(
+    `No Dam` = VA_no_dam_vec,
+    `Dam Present` = VA_yes_dam_vec
+  ),
+  col = c("steelblue", "brown4"),
+  main = "Predicted Vegetation Area by Dam Presence",
+  ylab = "Vegetation Area (m²)"
+)
 
 ```
 
@@ -3346,7 +3370,7 @@ hurdle_damDen_params <- c(
 nchains <- 3
 nthin <- 5
 niter <- 100000
-nburn <- 20000
+nburn <- 25000
 
 hurdle_damDen_SW <- jags(data = hurdle_damDen_data_list,
                    inits = hurdle_damDen_inits,
