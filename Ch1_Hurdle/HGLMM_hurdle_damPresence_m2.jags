@@ -1,0 +1,162 @@
+
+    model{
+      # NEED priors and hyperpriors first so that downstream nodes can be estimated
+      
+      ##########################################################################
+      
+      # HYPERPRIORS FOR SW PRESENCE (1/2 Normal on SDs):
+    
+      sigma_zeta_stream  ~ dnorm(0,1) T(0,)
+      tau_zeta_stream    <- pow(sigma_zeta_stream, -2)
+    
+      sigma_zeta_year    ~ dnorm(0,1) T(0,)
+      tau_zeta_year      <- pow(sigma_zeta_year, -2)
+    
+      sigma_zeta_event   ~ dnorm(0,1) T(0,)
+      tau_zeta_event     <- pow(sigma_zeta_event, -2)
+    
+      sigma_iota_stream  ~ dnorm(0,1) T(0,)
+      tau_iota_stream    <- pow(sigma_iota_stream, -2)
+    
+      sigma_iota_event   ~ dnorm(0,1) T(0,)
+      tau_iota_event     <- pow(sigma_iota_event, -2)
+    
+      sigma_iota_cluster ~ dnorm(0,1) T(0,)
+      tau_iota_cluster   <- pow(sigma_iota_cluster, -2)
+    
+      ##########################################################################
+      # HYPERPRIORS FOR SW AMOUNT (1/2 Normal on SDs):
+    
+      sigma              ~ dnorm(0,1) T(0,)
+      tau                <- pow(sigma, -2)
+    
+      sigma_beta_stream  ~ dnorm(0, 1) T(0,)
+      tau_beta_stream    <- pow(sigma_beta_stream, -2)
+    
+      sigma_beta_year    ~ dnorm(0, 1) T(0,)
+      tau_beta_year      <- pow(sigma_beta_year, -2)
+    
+      sigma_beta_event   ~ dnorm(0, 1) T(0,)
+      tau_beta_event     <- pow(sigma_beta_event, -2)
+    
+      sigma_eta_stream   ~ dnorm(0, 1) T(0,)
+      tau_eta_stream     <- pow(sigma_eta_stream, -2)
+    
+      sigma_eta_event    ~ dnorm(0, 1) T(0,)
+      tau_eta_event      <- pow(sigma_eta_event, -2)
+    
+      sigma_eta_cluster  ~ dnorm(0, 1) T(0,)
+      tau_eta_cluster    <- pow(sigma_eta_cluster, -2)
+    
+      ##########################################################################
+      # FIXED EFFECT PRIORS:
+    
+      # Presence/absence:
+      epsilon ~ dnorm(0,0.04)
+      zeta_damPres ~ dnorm(0,0.04)
+      zeta_incis ~ dnorm(0,0.04)
+      zeta_RIPA ~ dnorm(0,0.04)
+      zeta_UDA ~ dnorm(0,0.04)
+    
+      # Amount:
+      alpha ~ dnorm(0,0.04)
+      beta_damPres ~ dnorm(0,0.04)
+      beta_incis ~ dnorm(0,0.04)
+      beta_RIPA ~ dnorm(0,0.04)
+      beta_UDA ~ dnorm(0,0.04)
+    
+      ##########################################################################
+      # RANDOM EFFECT PRIORS FOR SW PRESENCE:
+    
+      for(j in 1:n_stream){
+        zeta_stream[j] ~ dnorm(0, tau_zeta_stream)
+        iota_stream[j] ~ dnorm(0, tau_iota_stream)
+      }
+    
+      for(yr in 1:n_year){
+        zeta_year[yr] ~ dnorm(0, tau_zeta_year)
+      }
+    
+      for(k in 1:n_event){
+        zeta_event[k] ~ dnorm(0, tau_zeta_event)
+        iota_event[k] ~ dnorm(0, tau_iota_event)
+      }
+    
+      for(c in 1:n_cluster){
+        iota_cluster[c] ~ dnorm(0, tau_iota_cluster)
+      }
+    
+      ##########################################################################
+      # RANDOM EFFECT PRIORS FOR SW AMOUNT:
+    
+      for(j in 1:n_stream){
+        beta_stream[j] ~ dnorm(0, tau_beta_stream)
+        eta_stream[j]  ~ dnorm(0, tau_eta_stream)
+      }
+    
+      for(yr in 1:n_year){
+        beta_year[yr] ~ dnorm(0, tau_beta_year)
+      }
+    
+      for(k in 1:n_event){
+        beta_event[k] ~ dnorm(beta_year[event_year[k]], tau_beta_event)
+        eta_event[k]  ~ dnorm(0, tau_eta_event)
+      }
+    
+      for(c in 1:n_cluster){
+        eta_cluster[c] ~ dnorm(0, tau_eta_cluster)
+      }
+    
+      ##########################################################################
+      # DETECTION PRIORS:
+      
+      for(k in 1:n_event){
+      p_TP[k] ~ dnorm(0.76, pow(0.16,-2)) T(0,1)   # empirically derived recall
+      p_FP[k] ~ dnorm(0.01, pow(0.005,-2)) T(0,1)  # empirically derived FPR
+      }
+      
+      ##########################################################################
+      # MAIN LOOP: PRESENCE, DETECTION, AMOUNT
+    
+      for(i in 1:N){
+    
+        # Presence/absence:
+        z[i] ~ dbern(psi[i])
+    
+        logit(psi[i]) <- epsilon
+                         + (zeta_damPres
+                            + zeta_stream[stream[i]]
+                            + zeta_year[year[i]]
+                            + zeta_event[event[i]]) * damPres[i]
+                         + zeta_incis * incis[i]
+                         + zeta_RIPA * RIPA[i]
+                         + zeta_UDA * UDA[i]
+                         + iota_stream[stream[i]]
+                         + iota_event[event[i]]
+                         + iota_cluster[cluster[i]]
+    
+        # Detection:
+        p_eff[i] <- z[i] * p_TP[event[i]] + (1-z[i]) * p_FP[event[i]]
+        y[i]     ~ dbern(p_eff[i])
+    
+        # Amount:
+        y2[i] ~ dnorm(mu[i], tau_eff[i])
+    
+        mu[i] <- z[i] *
+                  (alpha
+                    + (beta_damPres
+                      + beta_stream[stream[i]]
+                      + beta_year[year[i]]
+                      + beta_event[event[i]]) * damPres[i]
+                    + beta_incis * incis[i] 
+                    + beta_RIPA * RIPA[i]
+                    + beta_UDA * UDA[i]
+                    + eta_stream[stream[i]]
+                    + eta_event[event[i]]
+                    + eta_cluster[cluster[i]])
+    
+        tau_eff[i] <- z[i] * tau + (1 - z[i]) * 100
+      }
+    
+    }
+    
