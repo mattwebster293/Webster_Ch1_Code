@@ -1,0 +1,901 @@
+---
+title: "Hurdle_Data_Prep"
+author: "Matt Webster"
+date: "2026-07-28"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+The purpose of this RMarkdown document is to set up the dataframe for use in Ch1 models. Data herein is prepared for the folowing models:
+
+
+    Surface Water Hurdle Models:
+      
+      SW ~ damPresence
+      SW ~ damPresence + geomorphic covar.
+      SW ~ damDensity
+      SW ~ damDensity + geomorphic covar.
+      
+    Veg Area HGLMMs:
+    
+      VegArea ~ damPresence
+      VegArea ~ damPresence + geomorphic covar.
+      VegArea ~ damDensity
+      VegArea ~ damDensity + geomorphic covar.
+      
+    NDVI HGLMMs:
+    
+      NDVI ~ damPresence
+      NDVI ~ damPresence + geomorphic covar.
+      NDVI ~ damDensity
+      NDVI ~ damDensity + geomorphic covar.
+      
+      
+----
+
+----
+
+----
+
+----
+
+
+
+```{r,echo=FALSE}
+  knitr::opts_chunk$set(
+  echo = FALSE,
+  message = FALSE,
+  warning = FALSE,
+  fig.width = 8,
+  fig.height = 6
+)
+```
+
+```{r,echo=FALSE}
+library(tidyverse)
+library(lubridate)
+library(ggplot2)
+library(dataRetrieval)
+library(knitr)
+library(ggplot2)
+library(zoo) #for moving window
+library(stringr)
+library(vioplot)
+library(purrr)
+library(lavaan)
+library(blavaan)
+library(ggcorrplot)
+library(lme4)
+library(broom.mixed)
+library(coda)
+library(scales)
+```
+      
+
+
+
+USGS Flow Data
+----
+
+**Data from USGS LBV Guston Coulee gage, near Saco, MT:**
+
+```{r,echo=FALSE, warning=FALSE}
+# LOWER BEAVER CK
+# Gage near Guston Coulee
+usgsGage_06166000 <- read_waterdata_daily(
+  monitoring_location_id = "USGS-06166000",
+  parameter_code = "00060",
+  time = c("2019-06-01","2023-10-01")
+)
+
+###########################################
+
+# Clean USGS
+usgs_df <- usgsGage_06166000 %>%
+  mutate(
+    source = "USGS",
+    date   = as.Date(time),
+    flow   = value
+    ) %>%
+  filter(
+    (date >= as.Date("2019-06-01") & date <= as.Date("2019-10-01")) |
+    (date >= as.Date("2021-06-01") & date <= as.Date("2021-10-01")) |
+    (date >= as.Date("2023-06-01") & date <= as.Date("2023-10-01")) ) %>% 
+  mutate(
+    zFlow = scale(flow)
+  ) %>% 
+  select(source,
+         date,
+         zFlow) %>% 
+  mutate(surveyPeriod = case_when(between(date, as.Date("2019-06-01"), as.Date("2019-06-14")) ~ 191,
+                                between(date, as.Date("2019-06-15"), as.Date("2019-06-30")) ~ 192,
+                                between(date, as.Date("2019-07-01"), as.Date("2019-07-14")) ~ 193,
+                                between(date, as.Date("2019-07-15"), as.Date("2019-07-31")) ~ 194,
+                                between(date, as.Date("2019-08-01"), as.Date("2019-08-14")) ~ 195,
+                                between(date, as.Date("2019-08-15"), as.Date("2019-08-31")) ~ 196,
+                                between(date, as.Date("2019-09-01"), as.Date("2019-09-14")) ~ 197,
+                                between(date, as.Date("2019-09-15"), as.Date("2019-09-30")) ~ 198,
+                                between(date, as.Date("2021-06-01"), as.Date("2021-06-14")) ~ 211,
+                                between(date, as.Date("2021-06-15"), as.Date("2021-06-30")) ~ 212,
+                                between(date, as.Date("2021-07-01"), as.Date("2021-07-14")) ~ 213,
+                                between(date, as.Date("2021-07-15"), as.Date("2021-07-31")) ~ 214,
+                                between(date, as.Date("2021-08-01"), as.Date("2021-08-14")) ~ 215,
+                                between(date, as.Date("2021-08-15"), as.Date("2021-08-31")) ~ 216,
+                                between(date, as.Date("2021-09-01"), as.Date("2021-09-14")) ~ 217,
+                                between(date, as.Date("2021-09-15"), as.Date("2021-09-30")) ~ 218,
+                                between(date, as.Date("2023-06-01"), as.Date("2023-06-14")) ~ 231,
+                                between(date, as.Date("2023-06-15"), as.Date("2023-06-30")) ~ 232,
+                                between(date, as.Date("2023-07-01"), as.Date("2023-07-14")) ~ 233,
+                                between(date, as.Date("2023-07-15"), as.Date("2023-07-31")) ~ 234,
+                                between(date, as.Date("2023-08-01"), as.Date("2023-08-14")) ~ 235,
+                                between(date, as.Date("2023-08-15"), as.Date("2023-08-31")) ~ 236,
+                                between(date, as.Date("2023-09-01"), as.Date("2023-09-14")) ~ 237,
+                                between(date, as.Date("2023-09-15"), as.Date("2023-09-30")) ~ 238,
+                                TRUE ~ NA_real_)) %>% 
+  filter(surveyPeriod > 0)
+
+usgs_df$surveyPeriod <- as.factor(usgs_df$surveyPeriod)
+
+
+mean_flow_per_survey_period <- usgs_df %>% 
+  group_by(surveyPeriod) %>%
+  summarise(zFlow_mean = mean(zFlow),
+            .groups = "drop")
+
+
+
+lateSummerFlow <- usgs_df %>% 
+  filter(surveyPeriod != 191,
+         surveyPeriod != 192,
+         surveyPeriod != 193,
+         surveyPeriod != 194,
+         surveyPeriod != 211,
+         surveyPeriod != 212,
+         surveyPeriod != 213,
+         surveyPeriod != 214,
+         surveyPeriod != 231,
+         surveyPeriod != 232,
+         surveyPeriod != 233,
+         surveyPeriod != 234,
+         )
+```
+
+**Late Summer Flow Conditions**
+
+
+**2019:**
+
+
+Moderate August with small peak in September
+
+
+```{r,echo=FALSE}
+
+flow19 <- lateSummerFlow %>%
+  mutate(date = as.Date(date)) %>%
+  filter(
+    (date >= as.Date("2019-06-01") & date <= as.Date("2019-10-01"))
+  )
+
+
+####
+
+ggplot(flow19, aes(x = date, 
+                       y = zFlow,
+                       group = lubridate::year(date))) +
+  geom_line(linewidth = 0.8, alpha = 0.8) +
+  labs(
+    x = "Date",
+    y = "Discharge (cfs)",
+    title = "Summer '19 Stream Discharge; USGS 06166000; Lower Beaver",
+    subtitle = "z-scaled June through September, 2019, 2021, 2023"
+  ) +
+  theme_minimal(base_size = 14)
+
+```
+
+
+----
+
+
+**2021:**
+
+
+Low flow conditions throughout the summer season. Part of 3 year sustained drought conditions (2020, 2021, 2022).
+
+
+Gage recorded no flow during August & September
+
+
+
+```{r,echo=FALSE}
+
+flow21 <- lateSummerFlow %>%
+  mutate(date = as.Date(date)) %>%
+  filter(
+    (date >= as.Date("2021-06-01") & date <= as.Date("2021-10-01"))
+  )
+
+
+####
+
+ggplot(flow21, aes(x = date, 
+                       y = zFlow,
+                       group = lubridate::year(date))) +
+  geom_line(linewidth = 0.8, alpha = 0.8) +
+  labs(
+    x = "Date",
+    y = "Discharge (cfs)",
+    title = "Summer '21 Stream Discharge; USGS 06166000; Lower Beaver",
+    subtitle = "z-scaled June through September, 2019, 2021, 2023"
+  ) +
+  theme_minimal(base_size = 14)
+
+```  
+  
+  
+----
+
+
+**2023:**
+
+
+Moderate to low August & September flows; after early season extreme flooding. 
+
+
+
+```{r,echo=FALSE}
+flow23 <- lateSummerFlow %>%
+  mutate(date = as.Date(date)) %>%
+  filter(
+    (date >= as.Date("2023-06-01") & date <= as.Date("2023-10-01"))
+  )
+
+
+####
+
+ggplot(flow23, aes(x = date, 
+                       y = zFlow,
+                       group = lubridate::year(date))) +
+  geom_line(linewidth = 0.8, alpha = 0.8) +
+  labs(
+    x = "Date",
+    y = "Discharge (cfs)",
+    title = "Summer '23 Stream Discharge; USGS 06166000; Lower Beaver",
+    subtitle = "z-scaled June through September, 2019, 2021, 2023"
+  ) +
+  theme_minimal(base_size = 14)
+
+```  
+
+----
+
+GEE-derived data for each stream:
+----
+
+```{r, echo=FALSE}
+
+#Read in data frames for each HUC12/Year combo:
+
+# WILLOW:
+#2019:
+wc_19 <- read.csv("WC_2019_DF_Final_Long_0630Update.csv") %>% 
+  mutate(year = 2019,
+         watershed = 'WC')
+#2021:
+wc_21 <- read.csv("WC_2021_DF_Final_Long_0630Update.csv") %>% 
+  mutate(year = 2021,
+         watershed = 'WC')
+#2023:
+wc_23 <- read.csv("WC_2023_DF_Final_Long_0630Update.csv") %>% 
+  mutate(year = 2023,
+         watershed = 'WC')
+#AllYears:
+WC <- bind_rows(wc_19,wc_21,wc_23) %>% 
+  mutate(surveyPeriod = as.factor(case_when(year == 2019 & t == 1 ~ 191,
+                                  year == 2019 & t == 2 ~ 192,
+                                  year == 2019 & t == 3 ~ 193,
+                                  year == 2019 & t == 4 ~ 194,
+                                  year == 2019 & t == 5 ~ 195,
+                                  year == 2019 & t == 6 ~ 196,
+                                  year == 2019 & t == 7 ~ 197,
+                                  year == 2019 & t == 8 ~ 198,
+                                  year == 2021 & t == 1 ~ 211,
+                                  year == 2021 & t == 2 ~ 212,
+                                  year == 2021 & t == 3 ~ 213,
+                                  year == 2021 & t == 4 ~ 214,
+                                  year == 2021 & t == 5 ~ 215,
+                                  year == 2021 & t == 6 ~ 216,
+                                  year == 2021 & t == 7 ~ 217,
+                                  year == 2021 & t == 8 ~ 218,
+                                  year == 2023 & t == 1 ~ 231,
+                                  year == 2023 & t == 2 ~ 232,
+                                  year == 2023 & t == 3 ~ 233,
+                                  year == 2023 & t == 4 ~ 234,
+                                  year == 2023 & t == 5 ~ 235,
+                                  year == 2023 & t == 6 ~ 236,
+                                  year == 2023 & t == 7 ~ 237,
+                                  year == 2023 & t == 8 ~ 238)))
+  
+# LONE TREE:
+#2019:
+lt_19 <- read.csv("LT_2019_DF_Final_Long_0630Update.csv") %>% 
+  mutate(year = 2019,
+         watershed = 'LT')
+#2021:
+lt_21 <- read.csv("LT_2021_DF_Final_Long_0630Update.csv") %>% 
+  mutate(year = 2021,
+         watershed = 'LT')
+#2023:
+lt_23 <- read.csv("LT_2023_DF_Final_Long_0630Update.csv")%>% 
+  mutate(year = 2023,
+         watershed = 'LT')
+
+#AllYears:
+LT <- bind_rows(lt_19,lt_21,lt_23) %>% 
+  mutate(surveyPeriod = as.factor(case_when(year == 2019 & t == 1 ~ 191,
+                                  year == 2019 & t == 2 ~ 192,
+                                  year == 2019 & t == 3 ~ 193,
+                                  year == 2019 & t == 4 ~ 194,
+                                  year == 2019 & t == 5 ~ 195,
+                                  year == 2019 & t == 6 ~ 196,
+                                  year == 2019 & t == 7 ~ 197,
+                                  year == 2019 & t == 8 ~ 198,
+                                  year == 2021 & t == 1 ~ 211,
+                                  year == 2021 & t == 2 ~ 212,
+                                  year == 2021 & t == 3 ~ 213,
+                                  year == 2021 & t == 4 ~ 214,
+                                  year == 2021 & t == 5 ~ 215,
+                                  year == 2021 & t == 6 ~ 216,
+                                  year == 2021 & t == 7 ~ 217,
+                                  year == 2021 & t == 8 ~ 218,
+                                  year == 2023 & t == 1 ~ 231,
+                                  year == 2023 & t == 2 ~ 232,
+                                  year == 2023 & t == 3 ~ 233,
+                                  year == 2023 & t == 4 ~ 234,
+                                  year == 2023 & t == 5 ~ 235,
+                                  year == 2023 & t == 6 ~ 236,
+                                  year == 2023 & t == 7 ~ 237,
+                                  year == 2023 & t == 8 ~ 238)))
+
+# BRAZIL:
+#2019:
+brz_19 <- read.csv("BRZ_2019_DF_Final_Long_0630Update.csv") %>% 
+  mutate(year = 2019,
+         watershed = 'BRZ')
+#2021:
+brz_21 <- read.csv("BRZ_2021_DF_Final_Long_0630Update.csv") %>% 
+  mutate(year = 2021,
+         watershed = 'BRZ')
+#2023:
+brz_23 <- read.csv("BRZ_2023_DF_Final_Long_0630Update.csv") %>% 
+  mutate(year = 2023,
+         watershed = 'BRZ')
+
+#AllYears:
+BRZ <- bind_rows(brz_19,brz_21,brz_23) %>% 
+  mutate(surveyPeriod = as.factor(case_when(year == 2019 & t == 1 ~ 191,
+                                  year == 2019 & t == 2 ~ 192,
+                                  year == 2019 & t == 3 ~ 193,
+                                  year == 2019 & t == 4 ~ 194,
+                                  year == 2019 & t == 5 ~ 195,
+                                  year == 2019 & t == 6 ~ 196,
+                                  year == 2019 & t == 7 ~ 197,
+                                  year == 2019 & t == 8 ~ 198,
+                                  year == 2021 & t == 1 ~ 211,
+                                  year == 2021 & t == 2 ~ 212,
+                                  year == 2021 & t == 3 ~ 213,
+                                  year == 2021 & t == 4 ~ 214,
+                                  year == 2021 & t == 5 ~ 215,
+                                  year == 2021 & t == 6 ~ 216,
+                                  year == 2021 & t == 7 ~ 217,
+                                  year == 2021 & t == 8 ~ 218,
+                                  year == 2023 & t == 1 ~ 231,
+                                  year == 2023 & t == 2 ~ 232,
+                                  year == 2023 & t == 3 ~ 233,
+                                  year == 2023 & t == 4 ~ 234,
+                                  year == 2023 & t == 5 ~ 235,
+                                  year == 2023 & t == 6 ~ 236,
+                                  year == 2023 & t == 7 ~ 237,
+                                  year == 2023 & t == 8 ~ 238)))
+  
+# LARB:
+#2019:
+lrb_19 <- read.csv("LRB_2019_DF_Final_Long_0630Update.csv") %>% 
+  mutate(year = 2019,
+         watershed = 'LRB')
+#2021:
+lrb_21 <- read.csv("LRB_2021_DF_Final_Long_0630Update.csv")%>% 
+  mutate(year = 2021,
+         watershed = 'LRB')
+#2023:
+lrb_23 <- read.csv("LRB_2023_DF_Final_Long_0630Update.csv") %>% 
+  mutate(year = 2023,
+         watershed = 'LRB')
+
+#AllYears:
+LRB <- bind_rows(lrb_19,lrb_21,lrb_23) %>% 
+  mutate(surveyPeriod = as.factor(case_when(year == 2019 & t == 1 ~ 191,
+                                  year == 2019 & t == 2 ~ 192,
+                                  year == 2019 & t == 3 ~ 193,
+                                  year == 2019 & t == 4 ~ 194,
+                                  year == 2019 & t == 5 ~ 195,
+                                  year == 2019 & t == 6 ~ 196,
+                                  year == 2019 & t == 7 ~ 197,
+                                  year == 2019 & t == 8 ~ 198,
+                                  year == 2021 & t == 1 ~ 211,
+                                  year == 2021 & t == 2 ~ 212,
+                                  year == 2021 & t == 3 ~ 213,
+                                  year == 2021 & t == 4 ~ 214,
+                                  year == 2021 & t == 5 ~ 215,
+                                  year == 2021 & t == 6 ~ 216,
+                                  year == 2021 & t == 7 ~ 217,
+                                  year == 2021 & t == 8 ~ 218,
+                                  year == 2023 & t == 1 ~ 231,
+                                  year == 2023 & t == 2 ~ 232,
+                                  year == 2023 & t == 3 ~ 233,
+                                  year == 2023 & t == 4 ~ 234,
+                                  year == 2023 & t == 5 ~ 235,
+                                  year == 2023 & t == 6 ~ 236,
+                                  year == 2023 & t == 7 ~ 237,
+                                  year == 2023 & t == 8 ~ 238)))
+  
+# LOWER BEAVER:
+#2019:
+lbv_19 <- read.csv("LBV_2019_DF_Final_Long_0630Update.csv") %>% 
+  mutate(year = 2019,
+         watershed = 'LBV')
+#2021:
+lbv_21 <- read.csv("LBV_2021_DF_Final_Long_0630Update.csv") %>% 
+  mutate(year = 2021,
+         watershed = 'LBV')
+#2023:
+lbv_23 <- read.csv("LBV_2023_DF_Final_Long_0630Update.csv") %>% 
+  mutate(year = 2023,
+         watershed = 'LBV')
+
+#AllYears:
+LBV <- bind_rows(lbv_19,lbv_21,lbv_23) %>% 
+  mutate(surveyPeriod = as.factor(case_when(year == 2019 & t == 1 ~ 191,
+                                  year == 2019 & t == 2 ~ 192,
+                                  year == 2019 & t == 3 ~ 193,
+                                  year == 2019 & t == 4 ~ 194,
+                                  year == 2019 & t == 5 ~ 195,
+                                  year == 2019 & t == 6 ~ 196,
+                                  year == 2019 & t == 7 ~ 197,
+                                  year == 2019 & t == 8 ~ 198,
+                                  year == 2021 & t == 1 ~ 211,
+                                  year == 2021 & t == 2 ~ 212,
+                                  year == 2021 & t == 3 ~ 213,
+                                  year == 2021 & t == 4 ~ 214,
+                                  year == 2021 & t == 5 ~ 215,
+                                  year == 2021 & t == 6 ~ 216,
+                                  year == 2021 & t == 7 ~ 217,
+                                  year == 2021 & t == 8 ~ 218,
+                                  year == 2023 & t == 1 ~ 231,
+                                  year == 2023 & t == 2 ~ 232,
+                                  year == 2023 & t == 3 ~ 233,
+                                  year == 2023 & t == 4 ~ 234,
+                                  year == 2023 & t == 5 ~ 235,
+                                  year == 2023 & t == 6 ~ 236,
+                                  year == 2023 & t == 7 ~ 237,
+                                  year == 2023 & t == 8 ~ 238)))
+  
+# UPPER BEAVER:
+#2019:
+ubv_19 <- read.csv("UBV_2019_DF_Final_Long_0630Update.csv") %>% 
+  mutate(year = 2019,
+         watershed = 'UBV')
+#2021:
+ubv_21 <- read.csv("UBV_2021_DF_Final_Long_0630Update.csv") %>% 
+  mutate(year = 2021,
+         watershed = 'UBV')
+#2023:
+ubv_23 <- read.csv("UBV_2023_DF_Final_Long_0630Update.csv") %>% 
+  mutate(year = 2023,
+         watershed = 'UBV')
+
+#AllYears:
+UBV <- bind_rows(ubv_19,ubv_21,ubv_23) %>% 
+  mutate(surveyPeriod = as.factor(case_when(year == 2019 & t == 1 ~ 191,
+                                  year == 2019 & t == 2 ~ 192,
+                                  year == 2019 & t == 3 ~ 193,
+                                  year == 2019 & t == 4 ~ 194,
+                                  year == 2019 & t == 5 ~ 195,
+                                  year == 2019 & t == 6 ~ 196,
+                                  year == 2019 & t == 7 ~ 197,
+                                  year == 2019 & t == 8 ~ 198,
+                                  year == 2021 & t == 1 ~ 211,
+                                  year == 2021 & t == 2 ~ 212,
+                                  year == 2021 & t == 3 ~ 213,
+                                  year == 2021 & t == 4 ~ 214,
+                                  year == 2021 & t == 5 ~ 215,
+                                  year == 2021 & t == 6 ~ 216,
+                                  year == 2021 & t == 7 ~ 217,
+                                  year == 2021 & t == 8 ~ 218,
+                                  year == 2023 & t == 1 ~ 231,
+                                  year == 2023 & t == 2 ~ 232,
+                                  year == 2023 & t == 3 ~ 233,
+                                  year == 2023 & t == 4 ~ 234,
+                                  year == 2023 & t == 5 ~ 235,
+                                  year == 2023 & t == 6 ~ 236,
+                                  year == 2023 & t == 7 ~ 237,
+                                  year == 2023 & t == 8 ~ 238)))
+```
+
+
+----
+
+Currently each incoming data frame is of the following structure:
+
+```{r,include=FALSE}
+str(brz_19)
+```
+
+Where:
+
+    - clusterID_seq = dammed/undammed sample pair ID
+    - window_type = whether a sample window is 'dammed' or 'undammed'
+    - watershed = watershed identifier (e.g., "BRZ" = Brazil Ck)
+    - year = year
+    - window_length = length (m) of stream flow line within sample window
+    - catchment_km2 = contributing catchment area/upstream drainage area (km^2)
+    - riparian_area_m2 = riparian area (m^2) of sample window; 2-m vertical
+      buffer from DEM low point (stream flow line)
+    - TO = mean topographic openness across window
+    - p_window: avg dam detection prob for target window; see CP Ch1
+    - f_window: avg dam false positive prob for target window; see CP Ch1
+    - beav_count_all: all unique detected dams
+    - beav_count_conf: unique confidently detected dams
+    - anthro_count: all unique detected anthropogenic dams
+    - isAnthro: National Wetland Inventory (NWI) "dyked/impounded"
+    - Nhat = estimated dam count within sample window
+      - ...= beav_count_all/(p_window(1-f_window)  [McCallum 2005]
+    - TO_mean = mean topographic openness across window
+    - time_period = 2wk interval 06/01 - 09/30
+    - SWA = surface water area (m^2) for window during time (t)
+    - t = time (t) {same as time_period}
+
+
+
+----
+
+----
+
+----
+
+----
+
+
+
+```{r,include=FALSE, fig.width=10}
+WC_RelFlow <- WC %>% 
+  left_join(mean_flow_per_survey_period,
+            by = "surveyPeriod") %>% 
+  mutate(dam_km = (Nhat/window_length)*1000)
+```
+
+```{r,include=FALSE, fig.width=10}
+LT_RelFlow <- LT %>% 
+  left_join(mean_flow_per_survey_period,
+            by = "surveyPeriod") %>% 
+  mutate(dam_km = (Nhat/window_length)*1000)
+
+```
+
+```{r,include=FALSE, fig.width=10}
+BRZ_RelFlow <- BRZ %>% 
+  left_join(mean_flow_per_survey_period,
+            by = "surveyPeriod") %>% 
+  mutate(dam_km = (Nhat/window_length)*1000)
+```
+
+```{r,include=FALSE, fig.width=10}
+LRB_RelFlow <- LRB %>% 
+  left_join(mean_flow_per_survey_period,
+            by = "surveyPeriod") %>% 
+  mutate(dam_km = (Nhat/window_length)*1000)
+
+```
+
+```{r,include=FALSE, fig.width=10}
+LBV_RelFlow <- LBV %>% 
+  left_join(mean_flow_per_survey_period,
+            by = "surveyPeriod") %>% 
+  mutate(dam_km = (Nhat/window_length)*1000)
+```
+
+```{r,include=FALSE, fig.width=10}
+UBV_RelFlow <- UBV %>% 
+  left_join(mean_flow_per_survey_period,
+            by = "surveyPeriod") %>% 
+  mutate(dam_km = (Nhat/window_length)*1000)
+```
+
+
+----
+
+----
+
+----
+
+----
+
+
+```{r,include=FALSE}
+# Create GLMM data frame:
+
+aoi_GLM_Data <- WC_RelFlow %>% 
+  select(clusterID_seq,
+         window_type,
+         watershed,
+         year,
+         catchment_km2,
+         TO,
+         Nhat,
+         t,
+         surveyPeriod,
+         SWA,
+         VA,
+         NDVI,
+         riparian_area_m2,
+         dam_km) %>% 
+  bind_rows(LT_RelFlow %>% 
+  select(clusterID_seq,
+         window_type,
+         watershed,
+         year,
+         catchment_km2,
+         TO,
+         Nhat,
+         t,
+         surveyPeriod,
+         SWA,
+         VA,
+         NDVI,
+         riparian_area_m2,
+         dam_km)) %>% 
+  bind_rows(BRZ_RelFlow %>% 
+  select(clusterID_seq,
+         window_type,
+         watershed,
+         year,
+         catchment_km2,
+         TO,
+         Nhat,
+         t,
+         surveyPeriod,
+         SWA,
+         VA,
+         NDVI,
+         riparian_area_m2,
+         dam_km)) %>% 
+  bind_rows(LRB_RelFlow %>% 
+  select(clusterID_seq,
+         window_type,
+         watershed,
+         year,
+         catchment_km2,
+         TO,
+         Nhat,
+         t,
+         surveyPeriod,
+         SWA,
+         VA,
+         NDVI,
+         riparian_area_m2,
+         dam_km)) %>% 
+  bind_rows(LBV_RelFlow %>% 
+  select(clusterID_seq,
+         window_type,
+         watershed,
+         year,
+         catchment_km2,
+         TO,
+         Nhat,
+         t,
+         surveyPeriod,
+         SWA,
+         VA,
+         NDVI,
+         riparian_area_m2,
+         dam_km)) %>% 
+  bind_rows(UBV_RelFlow %>% 
+  select(clusterID_seq,
+         window_type,
+         watershed,
+         year,
+         catchment_km2,
+         TO,
+         Nhat,
+         t,
+         surveyPeriod,
+         SWA,
+         VA,
+         NDVI,
+         riparian_area_m2,
+         dam_km))
+
+
+aoi_GLM_Data$clusterID_unique <- interaction(
+  aoi_GLM_Data$year,
+  aoi_GLM_Data$watershed,
+  aoi_GLM_Data$clusterID_seq,
+  drop = TRUE
+)
+
+aoi_GLM_Data$clusterID_num <- as.numeric(aoi_GLM_Data$clusterID_unique)
+
+#aoi_GLM_Data$eventID <- interaction(
+#  aoi_GLM_Data$year,
+#  aoi_GLM_Data$surveyPeriod,
+#  drop = TRUE
+#)
+
+#aoi_GLM_Data$eventID_num <- as.numeric(aoi_GLM_Data$eventID)
+
+aoi_GLM_Data$stream <- as.numeric(as.factor(aoi_GLM_Data$watershed))
+
+aoi_GLM_Data$sampleEvent <- as.numeric(aoi_GLM_Data$surveyPeriod)
+
+aoi_GLM_Data$year_id <- as.numeric(as.factor(aoi_GLM_Data$year))
+
+aoi_GLM_Data <- aoi_GLM_Data %>% 
+  mutate(damPresence = case_when(Nhat > 0 ~ 1,
+                                 Nhat == 0 ~ 0))
+
+str(aoi_GLM_Data)
+
+
+
+aoi_GLM_Data_mod <- aoi_GLM_Data %>%
+  filter(!is.na(SWA))   # or !is.na(RI) if that’s the response
+
+
+# Build explicit lookups from the data actually used in the model
+stream_lookup <- aoi_GLM_Data_mod %>%
+  distinct(stream, watershed) %>%
+  arrange(stream)
+
+year_lookup <- aoi_GLM_Data_mod %>%
+  distinct(year_id, year) %>%
+  arrange(year_id)
+
+uda_lookup <- aoi_GLM_Data_mod %>%
+  group_by(watershed) %>%
+  summarise(max_catchment = max(catchment_km2, na.rm = TRUE)) %>%
+  arrange(max_catchment)
+
+
+
+# Start from the full modeled data and remove early summer time periods
+# This analysis will look exclusively at late season mesic resource availability.
+# Imported data has already been filtered to the target time frame. 
+# 08/01-09/30
+# t5:t8
+
+aoi_glm_data_mod_refined <- aoi_GLM_Data_mod
+
+# If this is not the case for whatever reason, use the code block below
+
+#aoi_glm_data_mod_refined <- aoi_GLM_Data_mod %>% 
+#  filter(!(sampleEvent %in% 1:4) &      # drop 2019 t1-t4
+#           !(sampleEvent %in% 9:12) &   # drop 2021 t1-t4
+#           !(sampleEvent %in% 17:20))   # drop 2023 t1–t4
+
+event_lookup <- data.frame(
+  old = sort(unique(aoi_glm_data_mod_refined$sampleEvent)),
+  new = 1:length(unique(aoi_glm_data_mod_refined$sampleEvent))
+)
+
+aoi_glm_data_mod_refined <- aoi_glm_data_mod_refined %>%
+  left_join(event_lookup, by = c("sampleEvent" = "old")) %>%
+  mutate(sampleEvent_new = new) %>%
+  select(-new)
+
+event_year_3_4 <- tapply(aoi_glm_data_mod_refined$year_id,
+                         aoi_glm_data_mod_refined$sampleEvent_new,
+                         unique)
+event_year_3_4 <- as.numeric(event_year_3_4)
+
+
+
+aoi_glm_data_mod_refined$SWA <- ifelse(aoi_glm_data_mod_refined$SWA < 1,
+                                   0,
+                                   aoi_glm_data_mod_refined$SWA)
+```
+
+
+```{r,echo=FALSE}
+
+# LOG TRANSFORM SWA TO ADDRESSS RIGHT SKEW
+
+aoi_glm_data_mod_refined$logSWA <- log(aoi_glm_data_mod_refined$SWA+1)
+
+```
+
+
+Format data for hurdle:
+----
+
+```{r,echo=TRUE}
+# Create binary indicator of surface water presence, for logistic part of hurdle model:
+aoi_HurdleData <- aoi_glm_data_mod_refined
+
+aoi_HurdleData$y <- ifelse(aoi_glm_data_mod_refined$SWA>0,1,0)
+aoi_HurdleData$y_veg <- ifelse(aoi_glm_data_mod_refined$VA>0,1,0)
+aoi_HurdleData$dam_km_std <- scale(aoi_HurdleData$dam_km)
+
+str(aoi_HurdleData)
+
+# write.csv(aoi_HurdleData,"aoi_HurdleData.csv")
+
+```
+
+----
+
+**Visualize SWA distribution:**
+
+----
+
+**Raw SWA (m^2):**
+
+```{r,echo=FALSE}
+hist(aoi_HurdleData$SWA,
+     main = "Distribution of SWA",
+     xlab = "log(SWA)")
+```
+
+----
+
+**Log-transform SWA to 'normalize' the right skew:**
+
+**log(SWA):**
+
+```{r,echo=FALSE}
+hist(aoi_HurdleData$logSWA,
+     main = "Distribution of log(SWA)",
+     xlab = "log(SWA)")
+```
+
+This persistent spike at 0 is why we're using the hurdle approach for SWA. First model SW(0,1); then for SW = 1 model SWA.
+
+
+----
+
+**Visualize veg area (VA) distribution**
+
+**Raw VA (m^2):**
+
+```{r,echo=FALSE}
+hist(aoi_HurdleData$VA,
+     main = "Distribution of Vegetation area (VA)",
+     xlab = "Vegetation Area (VA) (m^2)")
+```
+
+
+----
+
+**Log-transform VA to normalize the right skew:**
+
+**log(VA):**
+
+```{r,echo=FALSE}
+hist(log(aoi_HurdleData$VA + 1),
+     main = "Distribution of log(VegArea)",
+     xlab = "log(VA)")
+```
+
+
+Long tail, but no spike at 0. Will model log(vegArea) ~ damPres + ...
+
+----
+
+**Visualize NDVI distribution**
+
+```{r,echo=FALSE}
+hist(aoi_HurdleData$NDVI)
+```
+
+Pretty much normal. No transformation needed (?)
