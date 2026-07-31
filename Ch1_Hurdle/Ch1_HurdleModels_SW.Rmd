@@ -10,34 +10,38 @@ editor_options:
 
 The purpose of this RMarkdown is to implement hurdle models for SW ~ damPresence, & SW ~ damDensity (with and without geomorphic covariates)
 
+4 models total.
+    
 
 
 
-```{r,echo=FALSE}
-library(tidyverse)
-library(lubridate)
-library(ggplot2)
-library(dataRetrieval)
-library(knitr)
-library(ggplot2)
-library(zoo) #for moving window
-library(stringr)
-library(vioplot)
-library(purrr)
-library(lavaan)
-library(blavaan)
-library(ggcorrplot)
-library(lme4)
-library(broom.mixed)
-library(coda)
-library(scales)
+```{r,echo=FALSE,}
+suppressPackageStartupMessages({
+  library(tidyverse)
+  library(lubridate)
+  library(ggplot2)
+  library(dataRetrieval)
+  library(knitr)
+  library(ggplot2)
+  library(zoo) #for moving window
+  library(stringr)
+  library(vioplot)
+  library(purrr)
+  library(lavaan)
+  library(blavaan)
+  library(ggcorrplot)
+  library(lme4)
+  library(broom.mixed)
+  library(coda)
+  library(scales)
+})
 ```
 
 
 ----
 
 
-Final Data Prep:
+**Final Data:**
 
 ```{r,echo=FALSE}
 aoi_HurdleData <- read.csv("aoi_HurdleData.csv")
@@ -68,30 +72,92 @@ n_stream <- length(unique(aoi_HurdleData$stream))
 n_year <- length(unique(aoi_HurdleData$year_id))
 n_event <- length(unique(aoi_HurdleData$sampleEvent_new))
 n_cluster <- length(unique(aoi_HurdleData$clusterID_num))
+
+str(aoi_HurdleData)
 ```
 
-----
+
+For surface water models, data of interest include:
+
+    - y: surface water presence (0,1); response variable for logistic portion of hurdle model
+    
+    - y2: log-transformed surface water area log(SWA[i]+1); response variable for HGLMM portion of hurdle model
+    
+    - stream: index for random intercept on SWA and random slope on dam effect
+    
+    - year: index for random slope on dam effect
+    
+    - sampleEvent: index for random intercept on SWA and random slope on dam effect 
+      (nested within year; represents each 2 week sample period for SW layer )
+    
+    - clusterID_seq: index for random intercept on SWA; represents sample pairing
+    
+    - damPres: dam presence (0,1); fixed effect on SWA
+    
+    - damDen: dams/km; z-standardized ("...$dam_km_std"); fixed effect on SWA
+    
+    Only used in models 2 and 4:
+    
+    - incis: channel incision: 1-(TO/90) (inverse of topographic openness); z-standardized; fixed effect on SWA
+    
+    - RIPA: riparian area (m^2); z-standardized; fixed effect on SWA 
+    
+    - UDA: upstream drainage area (km ^2); z-standardized; fixed effect on SWA
+
 
 ----
-
-----
-
-
 
 **Hurdle HGLMM**
-----
 
 
-
-    This section explores late summner SWA in relation to beaver dam presence.
+    This analysis explores late summner surface water presence and area in relation to beaver dam presence,
+    & density.
     
-    Uses hurdle model with nested random slopes for beaver dam effect to allow for stream, year, 
-    and sampleEvent to cause deviation from the global mean beaver effect.
+    All 4 models presented herein are constructed in a hurdle model framework with nested random slopes for 
+    beaver dam effect to allow for stream, year, and sampleEvent to cause deviation 
+    from the global mean beaver effect.
+    
     
     Pt1: Surface water presence/absence; logistic regression
-    Pt2: Surface water amount; log(Normal) regression
     
-    Uses log(SWA) for AOI all years.
+    Pt2: Surface water amount, conditional on presence; log(Normal) regression
+    
+    Uses log(SWA) for for 6 watersheds, 3 years, 4 sample periods (Aug-Sep) per year.
+
+
+----
+
+**Overall Takeaways**
+
+    - Estimates may be notably inflated when geomorphic conditions are not taken into consideration (see m1 vs m2). The following regards models 2 and 4, which estimate the effect of damPresence or damDensity on surface water, conditional on geomorphic covariates:
+    
+    - Dam presence has very little influence on surface water presence/absence. Surface water presence is instead
+      driven by local geomorphic characteristics and random effects of stream/year/season.
+      
+    - Likewise, 1 standard deviation increase in damDensity corresponds with a negligible increase in the odds of surface water presence.
+    
+    - When surface water is present, presence of beaver dam(s) is associated with a 25% increase in surface water area from baseline conditions, although there is considerable variation among watersheds and time periods.
+    
+    - Where surface water is present, 1 standard deviation increase in damDensity corresponds with a modest 
+      increase in surface water area (15%). Higher dam densities (3-4 SD increase) do 
+      notably increase surface water area relative to baseline conditionS (upwards of ~50% increase in SWA). 
+
+    - Of course there is A LOT of variation in these patterns by stream, year, and sampling event.
+
+----
+
+----
+
+----
+
+----
+
+----
+
+----
+
+SW ~ Dam Presence
+----
 
 ----
 
@@ -99,11 +165,15 @@ n_cluster <- length(unique(aoi_HurdleData$clusterID_num))
 
 **Model 1: SWA ~ DamPresence**
 
-damPresence without geomorphic covariates
+Effect of damPresence without geomorphic covariates
 
 ```{r,echo=FALSE}
+suppressPackageStartupMessages({
 library(jagsUI)
+})
 
+```
+    
     sink("HGLMM_hurdle_damPresence_m1.jags")
     
     cat("
@@ -258,7 +328,7 @@ library(jagsUI)
     ", fill = TRUE)
     
     sink()
-```    
+   
     
 
 ```{r,echo=FALSE}
@@ -376,7 +446,7 @@ Sys.time()
 
 ----
 
-DIAGNOSTICS:
+DIAGNOSTICS M1:
 ----
 
 ```{r,echo=FALSE}
@@ -453,7 +523,7 @@ coda::traceplot(m1_mcmc_sub)
 
 **Posterior predictive plots:**
 
-Predicted Psi vs observed SW Presence
+Predicted Psi (m1_psi_post) vs observed SW Presence (y)
 
 ```{r,echo=FALSE}
 
@@ -471,7 +541,7 @@ plot(m1_psi_post, y, pch=16, col=rgb(0,0,0,0.2))
 ```
 
 
-Predicted SW vs detected SW
+Predicted log(SWA) (m1_mu_post) vs detected log(SWA) (y2)
 
 Goal is 1:1 (ish)
 
@@ -569,7 +639,8 @@ summary(hurdle_damPres_m1_SW$sims.list$zeta_damPres)
 exp(mean(hurdle_damPres_m1_SW$sims.list$zeta_damPres))
 ```
 
-    When you don't account for geomorphic conditions, dam presence corresponds to an estimated 48% increase in the odds of surface‑water presence.
+    When you don't account for geomorphic conditions, dam presence corresponds to an estimated 40-50% increase in 
+    the odds of surface‑water presence.
     
 ----
 
@@ -582,7 +653,8 @@ summary(hurdle_damPres_m1_SW$sims.list$beta_damPres)
 exp(mean(hurdle_damPres_m1_SW$sims.list$beta_damPres))
 ```
 
-    When you don't account for geomorphic conditions, dam presence corresponds to an estimated 41% increases surface water area.
+    When you don't account for geomorphic conditions, dam presence corresponds to an estimated 30-40% increase 
+    in surface water area.
 
 
 ----
@@ -592,6 +664,11 @@ exp(mean(hurdle_damPres_m1_SW$sims.list$beta_damPres))
 **Prior-posterior overlap:**
 
 ```{r,echo=FALSE}
+par(mfrow = c(2, 2),        # 2 rows, 2 columns
+    mar = c(4, 4, 2, 1),    # smaller margins
+    cex = 0.8) 
+
+
 damPres_m1_alpha_post <- hurdle_damPres_m1_SW$sims.list$alpha
 damPres_m1_beta_post  <- hurdle_damPres_m1_SW$sims.list$beta_damPres
 damPres_m1_zeta_post  <- hurdle_damPres_m1_SW$sims.list$zeta_damPres
@@ -625,13 +702,17 @@ plot_prior_post <- function(prior, post, name) {
     theme_minimal(base_size = 14)
 }
 
-plot_prior_post(damPres_m1_alpha_prior, damPres_m1_alpha_post, "alpha")
+plot_prior_post(damPres_m1_alpha_prior, damPres_m1_alpha_post, "alpha_m1")
 plot_prior_post(damPres_m1_beta_prior, damPres_m1_beta_post, "beta_damPres_m1")
 plot_prior_post(damPres_m1_zeta_prior, damPres_m1_zeta_post, "zeta_damPres_m1")
-plot_prior_post(damPres_m1_sigBetaStream_prior, damPres_m1_sigBetaStream, "sigma_beta_stream")
+plot_prior_post(damPres_m1_sigBetaStream_prior, damPres_m1_sigBetaStream, "sigma_beta_stream_m1")
 
 ```
 
+    These PPO plots indicate that the priors are reasonable, but are not driving the model -- 
+    the data are sufficiently informing the model, and shifting the posterior distributions 
+    away from those prior expectations
+
 
 ----
 
@@ -639,19 +720,21 @@ plot_prior_post(damPres_m1_sigBetaStream_prior, damPres_m1_sigBetaStream, "sigma
 
 ----
 
-Now, include geomorphic conditions:
-----
+Now, include geomorphic covariates:
 
 ----
 
 ----
 
 ----
+
+
+**Model 2: SWA ~ DamPresence + Geom.Covar.**
 
 
 ```{r,echo=FALSE}
-library(jagsUI)
-
+#library(jagsUI)
+```
     sink("HGLMM_hurdle_damPresence_m2.jags")
     
     cat("
@@ -818,7 +901,7 @@ library(jagsUI)
     ", fill = TRUE)
     
     sink()
-```    
+   
     
 
 ```{r,echo=FALSE}
@@ -936,7 +1019,7 @@ Sys.time()
 
 ----
 
-DIAGNOSTICS:
+DIAGNOSTICS M2:
 ----
 
 ```{r,echo=FALSE}
@@ -989,13 +1072,11 @@ effectiveSize(hurdle_damPres_m2_SW$samples[, params])
 
 
 
-    Good Rhat values, all around 1.00.
+    Decent Rhat values, all around 1.00.
     
     Mostly high effective sample sizes. 
     
-    Note: beta_damPres has the most trouble converging; however, Rhat near 1, 
-    and moderate ESS for beta_damPres suggest that the parameter is still 
-    reliably usable. 
+    Same slow convergence for beta_damPres (hard to estimate)
 
 
 ----
@@ -1020,7 +1101,7 @@ coda::traceplot(m2_mcmc_sub)
 
 **Posterior predictive plots:**
 
-Predicted Psi vs observed SW Presence
+Predicted Psi (psi_post) vs observed SW Presence (y)
 
 ```{r,echo=FALSE}
 
@@ -1038,7 +1119,7 @@ plot(psi_post, y, pch=16, col=rgb(0,0,0,0.2))
 ```
 
 
-Predicted SW vs detected SW
+Predicted log(SWA) (mu_post[y==1]) vs detected SWA (y2[y==1]) conditional on SW presence
 
 Goal is 1:1 (ish)
 
@@ -1138,7 +1219,9 @@ summary(hurdle_damPres_m2_SW$sims.list$zeta_damPres)
 exp(mean(hurdle_damPres_m2_SW$sims.list$zeta_damPres))
 ```
 
-    Dam presence increases the odds of surface‑water presence by about 6%. On the probability scale, this corresponds to only a ~0.5–2 percentage‑point increase from the baseline probability, indicating that dam presence has a negligible effect on whether water is present at all.
+    When you consider local geomorphic conditions, dam presence increases the odds of surface‑water presence by
+    only about 6% (compared to 40-50% w/o geom.covar.). This indicates that dam presence has a negligible
+    effect on whether water is present at all.
     
 
 
@@ -1153,7 +1236,8 @@ summary(hurdle_damPres_m2_SW$sims.list$beta_damPres)
 exp(mean(hurdle_damPres_m2_SW$sims.list$beta_damPres))
 ```
 
-    Dam presence increases surface water area by ~ 20-25%.
+    Once geom. covar. are accounted for, dam presence corresponds with an estimated
+    ~20-25% increase in surface water area
 
 
 ----
@@ -1164,6 +1248,11 @@ exp(mean(hurdle_damPres_m2_SW$sims.list$beta_damPres))
 
 
 ```{r,echo=FALSE}
+par(mfrow = c(2, 2),        # 2 rows, 2 columns
+    mar = c(4, 4, 2, 1),    # smaller margins
+    cex = 0.8)
+
+
 damPres_m2_alpha_post <- hurdle_damPres_m2_SW$sims.list$alpha
 damPres_m2_beta_post  <- hurdle_damPres_m2_SW$sims.list$beta_damPres
 damPres_m2_zeta_post  <- hurdle_damPres_m2_SW$sims.list$zeta_damPres
@@ -1197,12 +1286,14 @@ damPres_m2_sigBetaStream_prior <- pmax(rnorm(damPres_m2Mod_n, 0, 1), 0)
 #    theme_minimal(base_size = 14)
 #}
 
-plot_prior_post(damPres_m2_alpha_prior, damPres_m2_alpha_post, "alpha")
-plot_prior_post(damPres_m2_beta_prior, damPres_m2_beta_post, "beta_damPres")
-plot_prior_post(damPres_m2_zeta_prior, damPres_m2_zeta_post, "zeta_damPres")
-plot_prior_post(damPres_m2_sigBetaStream_prior, damPres_m2_sigBetaStream, "sigma_beta_stream")
+plot_prior_post(damPres_m2_alpha_prior, damPres_m2_alpha_post, "alpha_m2")
+plot_prior_post(damPres_m2_beta_prior, damPres_m2_beta_post, "beta_damPres_m2")
+plot_prior_post(damPres_m2_zeta_prior, damPres_m2_zeta_post, "zeta_damPres_m2")
+plot_prior_post(damPres_m2_sigBetaStream_prior, damPres_m2_sigBetaStream, "sigma_beta_stream_m2")
 
 ```
+
+    PPOs still suggest data driven model. 
 
 
 ----
@@ -1212,7 +1303,7 @@ plot_prior_post(damPres_m2_sigBetaStream_prior, damPres_m2_sigBetaStream, "sigma
 
 **Note** there's a  TINY positive effect of dam presence on surface water presence. Not really perceptible from these plots. 
 
-```{r,echo=FALSE}
+```{r,echo=FALSE, warning=FALSE}
 # Build a grid of raw geomorphic covariate values
 damPres_m2_geom_grid <- tibble(
   TO_raw = seq(min(aoi_HurdleData$TO),
@@ -1323,7 +1414,6 @@ ggplot(damPres_m2_psi_df, aes(x = UDA_raw, y = psi, color = factor(dam))) +
 Constrain PDP to empirical ranges for SWA and target covariates
 
 ```{r,echo=FALSE}
-
 
 damPres_m2_post <- hurdle_damPres_m2_SW$sims.list
 
@@ -1503,21 +1593,31 @@ plot_pdp(pdp_UDA,   "UDA_raw",   "Contributing Drainage Area (km²)")
 
 ----
 
+----
 
-Dam Density
+----
+
+----
+
+----
+
+----
+
+----
+
+
+SW ~ Dam Density
 ----
 
 
 **Hurdle HGLMM**
 
 
-MODEL 3: 
-
-SW ~ damDensity (no geom. covar.)
+**MODEL 3: SW ~ damDensity (no Geom.Covar.)**
 
 ```{r,echo=FALSE}
 #library(jagsUI)
-
+```
     sink("HGLMM_hurdle_damDensity_m3.jags")
     
     cat("
@@ -1672,7 +1772,7 @@ SW ~ damDensity (no geom. covar.)
     ", fill = TRUE)
     
     sink()
-```   
+  
     
 
 ```{r,echo=FALSE}
@@ -1802,12 +1902,6 @@ params_m3 <- c(
   "alpha",
   "zeta_damDen",
   "beta_damDen",
-  "zeta_incis",
-  "beta_incis",
-  "zeta_RIPA",
-  "beta_RIPA",
-  "zeta_UDA",
-  "beta_UDA",
   "sigma",
   "sigma_zeta_stream",
   "sigma_iota_cluster",
@@ -1824,7 +1918,10 @@ effectiveSize(hurdle_damDen_m3_SW$samples[, params_m3])
 
     Rhat & Effective Sample Size:
     
-    ...
+    Rhat values look good. All near 1.00. Beta_damDen is slower to converge, but
+    still does so nicely.
+    
+    Effective sample sizes look good for all parameters (note beta_damDen). 
 
 ----
 
@@ -1848,14 +1945,14 @@ coda::traceplot(mcmc_sub_m3)
 
     Traceplots:
     
-    ... 
+    Traceplots all look sufficiently "grassy," indicating sufficient chain convergence
 
 
 ----
 
 **Posterior predictive plots:**
 
-Predicted Psi vs observed SW presence
+Predicted Probability of SW presence (Psi) vs observed SW presence (y)
 
 ```{r,echo=FALSE} 
 par(mfrow = c(1,1),        # 2 rows, 2 columns
@@ -1868,19 +1965,18 @@ psi_post_m3 <- apply(hurdle_damDen_m3_SW$sims.list$psi, 2, mean)
 # Compare to observed y
 plot(psi_post_m3, y, pch=16, col=rgb(0,0,0,0.2))
 
-
 ```
 
 ----
 
-Predicted SW vs observed SW
+Predicted log(SWA) vs observed log(SWA), conditional on SW presence
 
 Goal is 1:1 (ish)
 
 ```{r,echo=FALSE} 
 mu_post_m3 <- apply(hurdle_damDen_m3_SW$sims.list$mu, 2, mean)
 
-plot(mu_m3_post_2[y==1], y2[y==1], pch=16, col=rgb(0,0,1,0.3))
+plot(mu_post_m3[y==1], y2[y==1], pch=16, col=rgb(0,0,1,0.3))
 abline(0,1,col="red")
 
 
@@ -1925,13 +2021,14 @@ summary(hurdle_damDen_m3_SW$sims.list$zeta_damDen)
 exp(mean(hurdle_damDen_m3_SW$sims.list$zeta_damDen))
 ```
 
-    1 std dev. increase in dam density increases odds of surface water 
-    presence by ~ .... 
+    When geomorphic context is not considered, 1 std dev. increase in dam density
+    corresponds to an estimated ~17% increase in the odds of surface water presence
     
-    1 std dev. of dam density from raw data is about 3.14 dams
+    1 std dev. increase in damDensity is about +3.14 dams
     
-    Massive overlap of 0. Really no major effect of 1 std dev increase in dam 
-    density on surface water presence.
+    Massive overlap of 0. 
+    
+    Though slightly positive, there's no consistent global effect of a 1 std dev increase in dam density on surface water presence.
 
 ----
 
@@ -1943,7 +2040,7 @@ summary(hurdle_damDen_m3_SW$sims.list$beta_damDen)
 exp(mean(hurdle_damDen_m3_SW$sims.list$beta_damDen))
 ```
 
-    Dam presence increases surface water area by ~ 15%.
+    Without geomorphic covariates, dam presence corresponds with a ~ 19% increase in surface water area. Again, lots of variation, and notable overlap of 0.
 
 
 ----
@@ -1951,17 +2048,21 @@ exp(mean(hurdle_damDen_m3_SW$sims.list$beta_damDen))
 **Prior-posterior overlap:**
 
 ```{r,echo=FALSE}
+par(mfrow = c(2, 2),        # 2 rows, 2 columns
+    mar = c(4, 4, 2, 1),    # smaller margins
+    cex = 0.8) 
+
 damDen_alpha_post_m3 <- hurdle_damDen_m3_SW$sims.list$alpha
 damDen_beta_post_m3  <- hurdle_damDen_m3_SW$sims.list$beta_damDen
 damDen_zeta_post_m3  <- hurdle_damDen_m3_SW$sims.list$zeta_damDen
-damPres_sigBetaStream_post_m3 <- hurdle_damDen_m3_SW$sims.list$sigma_beta_stream
+damDen_sigBetaStream_post_m3 <- hurdle_damDen_m3_SW$sims.list$sigma_beta_stream
 
-damDenMod_m3_n <- length(damDen_m3_alpha_post)
+damDenMod_m3_n <- length(damDen_alpha_post_m3)
 
 damDen_alpha_prior_m3 <- rnorm(damDenMod_m3_n, 0, sqrt(1/0.04))
 damDen_beta_prior_m3  <- rnorm(damDenMod_m3_n, 0, sqrt(1/0.04))
 damDen_zeta_prior_m3  <- rnorm(damDenMod_m3_n, 0, sqrt(1/0.04))
-damPres_sigBetaStream_prior_m3 <- pmax(rnorm(damDenMod_m3_n, 0, 1), 0)
+damDen_sigBetaStream_prior_m3 <- pmax(rnorm(damDenMod_m3_n, 0, 1), 0)
 
 
 # Plot overlap:
@@ -1984,10 +2085,127 @@ damPres_sigBetaStream_prior_m3 <- pmax(rnorm(damDenMod_m3_n, 0, 1), 0)
 #    theme_minimal(base_size = 14)
 #}
 
-plot_prior_post(damDen_alpha_prior_m3, damPres_alpha_post_m3, "alpha")
-plot_prior_post(damDen_beta_prior_m3, damPres_beta_post_m3, "beta")
-plot_prior_post(damDen_zeta_prior_m3, damPres_zeta_post_m3, "zeta")
-plot_prior_post(damPres_sigBetaStream_prior_m3, damPres_sigBetaStream_post_m3, "sigma_beta_stream")
+plot_prior_post(damDen_alpha_prior_m3, damDen_alpha_post_m3, "alpha_m3")
+plot_prior_post(damDen_beta_prior_m3, damDen_beta_post_m3, "beta_damDen_m3")
+plot_prior_post(damDen_zeta_prior_m3, damDen_zeta_post_m3, "zeta_damDen_m3")
+plot_prior_post(damDen_sigBetaStream_prior_m3, damDen_sigBetaStream_post_m3, "sigma_beta_stream_m3")
+```
+
+
+    PPOs still look pretty good.
+
+----
+
+**Change in SWA across damDensity by stream and sampleEvent**
+
+```{r,echo=FALSE}
+
+m3_dam_seq <- seq(min(aoi_HurdleData$dam_km),
+               max(aoi_HurdleData$dam_km),
+               length.out = 50)
+
+# build PDP grid
+m3_pdp_stream <- map_dfr(1:n_stream, function(j) {
+
+  # posterior draws for this stream
+  alpha_j <- damDen_m3_post$alpha
+  beta_j  <- damDen_m3_post$beta_damDen + damDen_m3_post$beta_stream[, j]
+  eta_j   <- damDen_m3_post$eta_stream[, j]
+
+  map_dfr(m3_dam_seq, function(d) {
+
+    mu_draws <- alpha_j + beta_j * d + eta_j
+    swa_draws <- exp(mu_draws) - 1
+
+    tibble(
+      stream = j,
+      damDen = d,
+      SWA_med = median(swa_draws),
+      SWA_lo  = quantile(swa_draws, 0.025),
+      SWA_hi  = quantile(swa_draws, 0.975)
+    )
+  })
+})
+
+stream_lookup <- aoi_HurdleData %>%
+  distinct(stream, watershed) %>%
+  arrange(stream)
+
+m3_pdp_stream <- m3_pdp_stream %>%
+  left_join(stream_lookup, by = "stream")
+
+
+
+# plot
+ggplot(m3_pdp_stream, aes(x = watershed, y = SWA_med, color = damDen)) +
+  geom_point(size = 3, alpha = 0.8) +
+  scale_color_viridis_c(option = "plasma") +
+  scale_y_continuous(labels = scales::comma) +
+  labs(
+    title = "Partial Dependence of SWA on Stream and Dam Density",
+    x = "Stream",
+    y = "Predicted SWA (m²)",
+    color = "Dam Density"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+
+###############################################################
+################################################################
+
+# build PDP grid
+m3_pdp_event <- map_dfr(1:n_event, function(j) {
+
+  # posterior draws for this stream
+  alpha_j <- damDen_m3_post$alpha
+  beta_j  <- damDen_m3_post$beta_damDen + damDen_m3_post$beta_event[, j]
+  eta_j   <- damDen_m3_post$eta_event[, j]
+
+  map_dfr(m3_dam_seq, function(d) {
+
+    mu_draws <- alpha_j + beta_j * d + eta_j
+    swa_draws <- exp(mu_draws) - 1
+
+    tibble(
+      event = j,
+      damDen = d,
+      SWA_med = median(swa_draws),
+      SWA_lo  = quantile(swa_draws, 0.025),
+      SWA_hi  = quantile(swa_draws, 0.975)
+    )
+  })
+})
+
+event_year_lookup <- tibble(
+  event = 1:12,
+  event_label = c(
+    "2019_Aug_1","2019_Sep_1","2019_Aug_2","2019_Sep_2",
+    "2021_Aug_1","2021_Sep_1","2021_Aug_2","2021_Sep_2",
+    "2023_Aug_1","2023_Sep_1","2023_Aug_2","2023_Sep_2"
+  )
+)
+
+
+m3_pdp_event_named <- m3_pdp_event %>%
+  left_join(event_year_lookup, by = "event")
+
+
+
+# plot
+ggplot(m3_pdp_event_named, aes(x = event_label, y = SWA_med, color = damDen)) +
+  geom_point(size = 3, alpha = 0.8) +
+  scale_color_viridis_c(option = "plasma") +
+  scale_y_continuous(labels = scales::comma) +
+  labs(
+    title = "Partial Dependence of SWA on Sample Event and Dam Density",
+    x = "Sample Event",
+    y = "Predicted SWA (m²)",
+    color = "Dam Density"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
 
 ```
 
@@ -2004,12 +2222,11 @@ plot_prior_post(damPres_sigBetaStream_prior_m3, damPres_sigBetaStream_post_m3, "
 
 
 
-MODEL 4:
-SW ~  damDensity + geomorphic covariates
+**MODEL 4: SW ~  damDensity + Geom.Covar.**
 
 ```{r,echo=FALSE}
 #library(jagsUI)
-
+```
     sink("HGLMM_hurdle_damDensity_m4.jags")
     
     cat("
@@ -2176,7 +2393,7 @@ SW ~  damDensity + geomorphic covariates
     ", fill = TRUE)
     
     sink()
-```   
+   
     
 
 ```{r,echo=FALSE}
@@ -2337,7 +2554,8 @@ effectiveSize(hurdle_damDen_m4_SW$samples[, params_m4])
 
     Rhat & Effective Sample Size:
     
-    ...
+    Solid. Rhats near 1.0 (1.03-1.05 is fine); ESS all in the thousands. 
+    beta_damDen still the hardest to estimate
 
 
 ----
@@ -2360,8 +2578,7 @@ coda::traceplot(mcmc_sub_m4)
 ```
 
 
-    Traceplots all look good, except for beta_damDen, which is mostly grassy, but 
-    slow to converge - suggesting that its difficult for the model to estimate. 
+    Traceplots all look good, again see beta_damDen. 
 
 
 ----
@@ -2379,7 +2596,7 @@ par(mfrow = c(1,1),        # 2 rows, 2 columns
 psi_post_m4 <- apply(hurdle_damDen_m4_SW$sims.list$psi, 2, mean)
 
 # Compare to observed y
-plot(psi_post_m4_2, y, pch=16, col=rgb(0,0,0,0.2))
+plot(psi_post_m4, y, pch=16, col=rgb(0,0,0,0.2))
 
 
 ```
@@ -2438,10 +2655,11 @@ summary(hurdle_damDen_m4_SW$sims.list$zeta_damDen)
 exp(mean(hurdle_damDen_m4_SW$sims.list$zeta_damDen))
 ```
 
-    1 std dev. increase in dam density increases odds of surface water 
-    presence by ~ ... 
+    When we account for geomorphic context, a 1 std dev. increase in dam density corresponds with an estimated 3% increase in the odds of surface water presence
     
-    1 std dev. of dam density from raw data is about 3.14 dams
+    + 1 sd of damDensity ~= + 3.14 dams/km
+    
+    Effect = NEGLIGIBLE
 
 ----
 
@@ -2453,7 +2671,9 @@ summary(hurdle_damDen_m4_SW$sims.list$beta_damDen)
 exp(mean(hurdle_damDen_m4_SW$sims.list$beta_damDen))
 ```
 
-    Dam presence increases surface water area by ~ ...%.
+    When we account for geomorhpic context, a 1 std dev. increase in dam density corresponds with a ~ 15% increase in surface water area (conditional on SW presence).
+    
+    Again - notable overlap of 0 for ALL global parameter estimates, due to massive variation across landscape/time.
 
 
 ----
@@ -2461,6 +2681,10 @@ exp(mean(hurdle_damDen_m4_SW$sims.list$beta_damDen))
 **Prior-posterior overlap:**
 
 ```{r,echo=FALSE}
+par(mfrow = c(2, 2),        # 2 rows, 2 columns
+    mar = c(4, 4, 2, 1),    # smaller margins
+    cex = 0.8) 
+
 damDen_alpha_m4_post <- hurdle_damDen_m4_SW$sims.list$alpha
 damDen_beta_m4_post  <- hurdle_damDen_m4_SW$sims.list$beta_damDen
 damDen_zeta_m4_post  <- hurdle_damDen_m4_SW$sims.list$zeta_damDen
@@ -2494,18 +2718,19 @@ damDen_sigBetaStream_m4_prior <- pmax(rnorm(damDenMod_m4_n, 0, 1), 0)
 #    theme_minimal(base_size = 14)
 #}
 
-plot_prior_post(damDen_alpha_m4_prior, damPres_alpha_m4_post, "alpha")
-plot_prior_post(damDen_beta_m4_prior, damPres_beta_m4_post, "beta")
-plot_prior_post(damDen_zeta_m4_prior, damPres_zeta_m4_post, "zeta")
-plot_prior_post(damDen_sigBetaStream_m4_prior, damDen_sigBetaStream_m4_post, "sigma_beta_stream")
+plot_prior_post(damDen_alpha_m4_prior, damDen_alpha_m4_post, "alpha_m4")
+plot_prior_post(damDen_beta_m4_prior, damDen_beta_m4_post, "beta_damDen_m4")
+plot_prior_post(damDen_zeta_m4_prior, damDen_zeta_m4_post, "zeta_damDen_m4")
+plot_prior_post(damDen_sigBetaStream_m4_prior, damDen_sigBetaStream_m4_post, "sigma_beta_stream_m4")
 ```
 
+    PPOs still look good pretty good.
 
 ----
 
 **Marginal effect** of dam Density on surface water presence, given geomorphic context
 
-**Note** there's a small but negligble positive effect of a 1 stdDev increase in DamDensity on surface water presence. However, higher dam densities do increase probability of SW presence more notably (range is up to +4 standard dev. from mean) 
+**Note** there's a small but negligble positive effect of a 1 SD increase in DamDensity on surface water presence. However, higher dam densities do increase probability of SW presence more notably (empirical range of dam/km is up to +4 standard dev. from mean; 4*0.13 = 0.52 upwards of 52% increase in SWA at highest damDensity) 
 
 ```{r,echo=FALSE}
 # Build a grid of raw geomorphic covariate values
@@ -2557,7 +2782,7 @@ damDen_m4_compute_psi <- function(damDen_val, geom_grid, damDen_post) {
 ```
 
 ```{r,echo=FALSE}
-damDen_psi_df <- map_df(damDen_m4_seq,
+damDen_m4_psi_df <- map_df(damDen_m4_seq,
                         ~ damDen_m4_compute_psi(.x,
                                              damDen_m4_geom_grid,
                                              damDen_m4_post))
@@ -2569,7 +2794,7 @@ ggplot(damDen_m4_psi_df, aes(x = incis_raw, y = psi, color = damDen)) +
   scale_color_viridis_c(option = "plasma") +
   labs(
     title = "Marginal Effect of Dam Density on Surface Water Presence",
-    subtitle = "Predicted probability of water (psi) across raw incision values",
+    subtitle = "Predicted probability of water presence (psi) across raw incision values",
     x = "Channel Incision (raw scale: 1 - TO/90)",
     y = "Probability of Surface Water",
     color = "Dam Density (dams/km)"
@@ -2584,7 +2809,7 @@ ggplot(damDen_m4_psi_df, aes(x = RIPA_raw, y = psi, color = damDen)) +
   scale_color_viridis_c(option="plasma") +
   labs(
     title = "Marginal Effect of Dam Density on Surface Water Presence",
-    subtitle = "Predicted psi across raw riparian area (m^2)",
+    subtitle = "Predicted probability of water (psi) across raw riparian area (m^2)",
     x = "Riparian Area (m^2)",
     y = "Probability of Surface Water",
     color = "Dam Density (dams/km)"
@@ -2598,7 +2823,7 @@ ggplot(damDen_m4_psi_df, aes(x = UDA_raw, y = psi, color = damDen)) +
   scale_color_viridis_c(option="plasma") +
   labs(
     title = "Marginal Effect of Dam Density on Surface Water Presence",
-    subtitle = "Predicted psi across raw upstream drainage area (km^2)",
+    subtitle = "Predicted probability of water (psi) across raw upstream drainage area (km^2)",
     x = "Upstream Drainage Area (km^2)",
     y = "Probability of Surface Water",
     color = "Dam Density (dams/km)"
@@ -2608,7 +2833,7 @@ ggplot(damDen_m4_psi_df, aes(x = UDA_raw, y = psi, color = damDen)) +
 
 ```
 
-----   ...
+----
 
 **Partial dependence plots**
 
@@ -2710,7 +2935,7 @@ build_pdp_damDen <- function(focal_raw, focal_name,
   # Compute PDP curves for each dam density value
   pdp_list <- map(damDen_seq, function(dd) {
     swa_mat <- compute_swa_draws_damDen(grid$incis, grid$RIPA, grid$UDA, post,
-                                        (dd - damDen_mean_raw) / damDen_sd_raw)
+                                        (dd - damDen_m4_mean_raw) / damDen_m4_sd_raw)
     summarize_swa(swa_mat) %>% mutate(damDen = dd)
   })
 
@@ -2727,33 +2952,33 @@ build_pdp_damDen <- function(focal_raw, focal_name,
 #####
 
 pdp_incis_m4_damDen <- build_pdp_damDen(
-  focal_raw = incis_raw,
+  focal_raw = incis_m4_raw,
   focal_name = "incis",
-  incis_raw, RIPA_raw, UDA_raw,
-  damDen_post,
-  incis_mean_raw, incis_sd_raw,
-  RIPA_mean_raw, RIPA_sd_raw,
-  UDA_mean_raw, UDA_sd_raw, damDen_raw
+  incis_m4_raw, RIPA_m4_raw, UDA_m4_raw,
+  damDen_m4_post,
+  incis_m4_mean_raw, incis_m4_sd_raw,
+  RIPA_m4_mean_raw, RIPA_m4_sd_raw,
+  UDA_m4_mean_raw, UDA_m4_sd_raw, damDen_m4_raw
 )
 
 pdp_RIPA_m4_damDen <- build_pdp_damDen(
-  focal_raw = RIPA_raw,
+  focal_raw = RIPA_m4_raw,
   focal_name = "RIPA",
-  incis_raw, RIPA_raw, UDA_raw,
-  damDen_post,
-  incis_mean_raw, incis_sd_raw,
-  RIPA_mean_raw, RIPA_sd_raw,
-  UDA_mean_raw, UDA_sd_raw, damDen_raw
+  incis_m4_raw, RIPA_m4_raw, UDA_m4_raw,
+  damDen_m4_post,
+  incis_m4_mean_raw, incis_m4_sd_raw,
+  RIPA_m4_mean_raw, RIPA_m4_sd_raw,
+  UDA_m4_mean_raw, UDA_m4_sd_raw, damDen_m4_raw
 )
 
 pdp_UDA_m4_damDen <- build_pdp_damDen(
-  focal_raw = UDA_raw,
+  focal_raw = UDA_m4_raw,
   focal_name = "UDA",
-  incis_raw, RIPA_raw, UDA_raw,
-  damDen_post,
-  incis_mean_raw, incis_sd_raw,
-  RIPA_mean_raw, RIPA_sd_raw,
-  UDA_mean_raw, UDA_sd_raw, damDen_raw
+  incis_raw, RIPA_m4_raw, UDA_m4_raw,
+  damDen_m4_post,
+  incis_m4_mean_raw, incis_m4_sd_raw,
+  RIPA_m4_mean_raw, RIPA_m4_sd_raw,
+  UDA_m4_mean_raw, UDA_m4_sd_raw, damDen_m4_raw
 )
 
 
@@ -2772,7 +2997,7 @@ plot_pdp_damDen <- function(pdp, xvar, xtitle) {
     scale_fill_viridis_c(option = "plasma") +
     scale_y_continuous(labels = comma) +
     labs(
-      title = paste("Partial Dependence of SWA on", xtitle),
+      title = paste("Partial Dependence of SWA on dam density and", xtitle),
       subtitle = "Across empirical dam density range",
       x = xtitle,
       y = "Predicted SWA (m^2)",
@@ -2794,4 +3019,115 @@ plot_pdp_damDen(pdp_UDA_m4_damDen,   "UDA_raw",   "Contributing Drainage Area (k
 
 ```
 
- 
+----
+
+**Change in SWA across damDensity by stream and sampleEvent**
+
+```{r,echo=FALSE}
+
+m4_dam_seq <- seq(min(aoi_HurdleData$dam_km),
+               max(aoi_HurdleData$dam_km),
+               length.out = 50)
+
+# build PDP grid
+m4_pdp_stream <- map_dfr(1:n_stream, function(j) {
+
+  # posterior draws for this stream
+  alpha_j <- damDen_m4_post$alpha
+  beta_j  <- damDen_m4_post$beta_damDen + damDen_m4_post$beta_stream[, j]
+  eta_j   <- damDen_m4_post$eta_stream[, j]
+
+  map_dfr(m4_dam_seq, function(d) {
+
+    mu_draws <- alpha_j + beta_j * d + eta_j
+    swa_draws <- exp(mu_draws) - 1
+
+    tibble(
+      stream = j,
+      damDen = d,
+      SWA_med = median(swa_draws),
+      SWA_lo  = quantile(swa_draws, 0.025),
+      SWA_hi  = quantile(swa_draws, 0.975)
+    )
+  })
+})
+
+stream_lookup <- aoi_HurdleData %>%
+  distinct(stream, watershed) %>%
+  arrange(stream)
+
+m4_pdp_stream <- m4_pdp_stream %>%
+  left_join(stream_lookup, by = "stream")
+
+
+
+# plot
+ggplot(m4_pdp_stream, aes(x = watershed, y = SWA_med, color = damDen)) +
+  geom_point(size = 3, alpha = 0.8) +
+  scale_color_viridis_c(option = "plasma") +
+  labs(
+    title = "Partial Dependence of SWA on Stream and Dam Density",
+    x = "Stream",
+    y = "Predicted SWA (m²)",
+    color = "Dam Density"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+
+###############################################################
+################################################################
+
+# build PDP grid
+m4_pdp_event <- map_dfr(1:n_event, function(j) {
+
+  # posterior draws for this stream
+  alpha_j <- damDen_m4_post$alpha
+  beta_j  <- damDen_m4_post$beta_damDen + damDen_m4_post$beta_event[, j]
+  eta_j   <- damDen_m4_post$eta_event[, j]
+
+  map_dfr(m4_dam_seq, function(d) {
+
+    mu_draws <- alpha_j + beta_j * d + eta_j
+    swa_draws <- exp(mu_draws) - 1
+
+    tibble(
+      event = j,
+      damDen = d,
+      SWA_med = median(swa_draws),
+      SWA_lo  = quantile(swa_draws, 0.025),
+      SWA_hi  = quantile(swa_draws, 0.975)
+    )
+  })
+})
+
+event_year_lookup <- tibble(
+  event = 1:12,
+  event_label = c(
+    "2019_Aug_1","2019_Sep_1","2019_Aug_2","2019_Sep_2",
+    "2021_Aug_1","2021_Sep_1","2021_Aug_2","2021_Sep_2",
+    "2023_Aug_1","2023_Sep_1","2023_Aug_2","2023_Sep_2"
+  )
+)
+
+
+m4_pdp_event_named <- m4_pdp_event %>%
+  left_join(event_year_lookup, by = "event")
+
+
+
+# plot
+ggplot(m4_pdp_event_named, aes(x = event_label, y = SWA_med, color = damDen)) +
+  geom_point(size = 3, alpha = 0.8) +
+  scale_color_viridis_c(option = "plasma") +
+  labs(
+    title = "Partial Dependence of SWA on Sample Event and Dam Density",
+    x = "Sample Event",
+    y = "Predicted SWA (m²)",
+    color = "Dam Density"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+
+```
