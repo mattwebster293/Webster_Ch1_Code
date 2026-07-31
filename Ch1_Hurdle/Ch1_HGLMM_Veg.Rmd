@@ -1,0 +1,612 @@
+---
+title: "VegAreaModels"
+author: "Matt Webster"
+date: "2026-07-28"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+
+
+The purpose of this RMarkdown is to implement hierarchical generalized linear mixed effects models for VegArea ~ damPresence, & VegArea ~ damDensity (with and without geomorphic covariates).
+
+4 models total.
+    
+
+
+
+```{r,echo=FALSE,}
+suppressPackageStartupMessages({
+  library(tidyverse)
+  library(lubridate)
+  library(ggplot2)
+  library(dataRetrieval)
+  library(knitr)
+  library(ggplot2)
+  library(zoo) #for moving window
+  library(stringr)
+  library(vioplot)
+  library(purrr)
+  library(lavaan)
+  library(blavaan)
+  library(ggcorrplot)
+  library(lme4)
+  library(broom.mixed)
+  library(coda)
+  library(scales)
+})
+```
+
+
+----
+
+
+**Final Data:**
+
+```{r,echo=FALSE}
+aoi_HurdleData <- read.csv("aoi_HurdleData.csv")
+
+
+# add year/event index
+event_year_3_4 <- tapply(aoi_HurdleData$year_id,
+                         aoi_HurdleData$sampleEvent_new,
+                         unique)
+event_year_3_4 <- as.numeric(event_year_3_4)
+
+
+# Full Hurdle data
+N <- nrow(aoi_HurdleData)
+#y <- aoi_HurdleData$y
+#y2 <- aoi_HurdleData$logSWA
+y_veg <- aoi_HurdleData$y_veg
+y_vegA <- aoi_HurdleData$VA
+stream <- aoi_HurdleData$stream
+year <- aoi_HurdleData$year_id
+event <- aoi_HurdleData$sampleEvent_new
+cluster <- aoi_HurdleData$clusterID_num
+damPres <- aoi_HurdleData$damPresence
+damDen <- as.numeric(aoi_HurdleData$dam_km_std)
+damDen_raw <- aoi_HurdleData$dam_km
+
+n_stream <- length(unique(aoi_HurdleData$stream))
+n_year <- length(unique(aoi_HurdleData$year_id))
+n_event <- length(unique(aoi_HurdleData$sampleEvent_new))
+n_cluster <- length(unique(aoi_HurdleData$clusterID_num))
+
+str(aoi_HurdleData)
+```
+
+----
+
+    Right skew of vegetation area data warrants log-transformation prior to HGLMM.
+    
+    Because vegetation is almost always present in our sample reaches, a
+    hurdle model is not necessary here -- no need to model the presence/absence 
+    process if it's almost always present. 
+      
+      
+
+```{r,echo=FALSE}
+hist(aoi_HurdleData$VA)
+
+hist(log(aoi_HurdleData$VA+1))
+```
+
+
+----
+
+
+For surface water models, data of interest include:
+
+     - y_vegA: log-transformed vegetation area log(VegArea[i]+1); response variable
+    
+    - stream: index for random intercept on VegArea and random slope on dam effect
+    
+    - year: index for random slope on dam effect
+    
+    - sampleEvent: index for random intercept on VegArea and random slope on dam effect 
+      (nested within year; represents each 2 week sample period for Veg layer )
+    
+    - clusterID_seq: index for random intercept on VegArea; represents sample pairing
+    
+    - damPres: dam presence (0,1); fixed effect on VegArea
+    
+    - damDen: dams/km; z-standardized ("...$dam_km_std"); fixed effect on VegArea
+    
+    Only used in models 2 and 4:
+    
+    - incis: channel incision: 1-(TO/90) (inverse of topographic openness); z-standardized; fixed effect on VegArea
+    
+    - RIPA: riparian area (m^2); z-standardized; fixed effect on VegArea 
+    
+    - UDA: upstream drainage area (km ^2); z-standardized; fixed effect on VegArea
+
+
+----
+
+**HGLMM**
+
+
+    This analysis explores late summer vegetation area in relation to beaver dam presence,
+    & density.
+    
+    2 models for dam presence (1 without geomorphic covariates; 1 with geomorphic covariates)
+    2 models for dam density (...^^^...)
+    
+    All 4 models presented herein are constructed in a hierarchical generalized linear mixed
+    effects model framework with nested random slopes for beaver dam effect to allow
+    for stream, year, and sampleEvent to cause deviation from the global mean beaver
+    effect. Stream, sampleEvent, and sample clusterID are also included as random intercepts
+    for baseline vegetation area. 
+    
+      - VA ~ damPresence (no geom.covar.)
+      - VA ~ damPresence (geom.covar.)
+      - VA ~ damDensity (no geom.covar.)
+      - VA ~ damDensity (no geom.covar.)
+    
+    Model structure is paralleled with part 2 from the surface water hurdle models.
+    
+    Uses log(VegArea) for for 6 watersheds, 3 years, 4 sample periods (Aug-Sep) per year.
+    
+    
+----
+
+**Overall Takeaways**
+
+    ...
+    ...
+    ...
+
+----
+
+----
+
+----
+
+----
+
+----
+
+----
+
+Vegetation Area ~ Dam Presence
+----
+
+----
+
+----
+
+**Model 1: VegArea ~ DamPresence**
+
+Effect of damPresence without geomorphic covariates
+
+----
+
+```{r,echo=FALSE}
+#library(jagsUI)
+
+    sink("HGLMM_m1_Veg_damPresence.jags")
+    
+    cat("
+    model{
+      # NEED priors and hyperpriors first so that downstream nodes can be estimated
+      
+      ##########################################################################
+      
+      # HYPERPRIORS FOR VEG AMOUNT (1/2 Normal on SDs):
+    
+      sigma              ~ dnorm(0,1) T(0,)
+      tau                <- pow(sigma, -2)
+    
+      sigma_beta_stream  ~ dnorm(0, 0.7) T(0,)
+      tau_beta_stream    <- pow(sigma_beta_stream, -2)
+    
+      sigma_beta_year    ~ dnorm(0, 0.7) T(0,)
+      tau_beta_year      <- pow(sigma_beta_year, -2)
+    
+      sigma_beta_event   ~ dnorm(0, 0.7) T(0,)
+      tau_beta_event     <- pow(sigma_beta_event, -2)
+    
+      sigma_eta_stream   ~ dnorm(0, 1) T(0,)
+      tau_eta_stream     <- pow(sigma_eta_stream, -2)
+    
+      sigma_eta_event    ~ dnorm(0, 1) T(0,)
+      tau_eta_event      <- pow(sigma_eta_event, -2)
+    
+      sigma_eta_cluster  ~ dnorm(0, 1) T(0,)
+      tau_eta_cluster    <- pow(sigma_eta_cluster, -2)
+    
+      ##########################################################################
+      # FIXED EFFECT PRIORS:
+      
+      alpha ~ dnorm(0,0.04)
+      beta_damPres ~ dnorm(0,0.04)
+    
+      ##########################################################################
+      
+      # RANDOM EFFECT PRIORS FOR SW AMOUNT:
+    
+      for(j in 1:n_stream){
+        beta_stream[j] ~ dnorm(0, tau_beta_stream)
+        eta_stream[j]  ~ dnorm(0, tau_eta_stream)
+      }
+    
+      for(yr in 1:n_year){
+        beta_year[yr] ~ dnorm(0, tau_beta_year)
+      }
+    
+      for(k in 1:n_event){
+        beta_event[k] ~ dnorm(beta_year[event_year[k]], tau_beta_event)
+        eta_event[k]  ~ dnorm(0, tau_eta_event)
+      }
+    
+      for(c in 1:n_cluster){
+        eta_cluster[c] ~ dnorm(0, tau_eta_cluster)
+      }
+    
+      ##########################################################################
+     
+      # MAIN LOOP: PRESENCE, DETECTION, AMOUNT
+    
+      for(i in 1:N){
+    
+        # Amount:
+        y[i] ~ dnorm(mu[i], tau)
+    
+        mu[i] <- alpha
+                    + (beta_damPres
+                      + beta_stream[stream[i]]
+                      + beta_year[year[i]]
+                      + beta_event[event[i]]) * damPres[i]
+                    + eta_stream[stream[i]]
+                    + eta_event[event[i]]
+                    + eta_cluster[cluster[i]]
+      }
+    
+    }
+    ", fill = TRUE)
+    
+    sink()
+```
+    
+
+```{r,echo=FALSE}
+hglmm_m1_veg_damPres_data_list <- list(
+  N = N,
+  y = log(y_vegA + 1),
+  stream = stream,
+  year = year,
+  event = event,
+  cluster = cluster,
+  damPres = damPres,
+  n_stream = n_stream,
+  n_year = n_year,
+  n_event = n_event,
+  n_cluster = n_cluster,
+  event_year = event_year_3_4
+)
+
+hglmm_m1_veg_damPres_inits <- function(){
+  list(
+    alpha        = rnorm(1, 0, 1),
+    sigma        = runif(1, 0.1, 2),
+
+    sigma_beta_stream  = runif(1, 0.1, 2),
+    sigma_beta_year    = runif(1, 0.1, 2),
+    sigma_beta_event   = runif(1, 0.1, 2),
+    sigma_eta_stream   = runif(1, 0.1, 2),
+    sigma_eta_event    = runif(1, 0.1, 2),
+    sigma_eta_cluster  = runif(1, 0.1, 2)
+  )
+}
+
+hglmm_m1_veg_damPres_params <- c(
+  "mu",
+  "alpha",
+  "beta_damPres",
+  "beta_stream",
+  "beta_year",
+  "beta_event",
+  "eta_stream",
+  "eta_event",
+  "eta_cluster",
+  "sigma",
+  "sigma_beta_stream",
+  "sigma_beta_year",
+  "sigma_beta_event",
+  "sigma_eta_stream",
+  "sigma_eta_event",
+  "sigma_eta_cluster"
+)
+
+nchains <- 3
+nthin <- 5
+niter <- 100000
+nburn <- 25000
+
+Sys.time()
+
+hglmm_m1_veg_damPres <- jags(data = hglmm_m1_veg_damPres_data_list,
+                   inits = hglmm_m1_veg_damPres_inits,
+                   parameters.to.save = hglmm_m1_veg_damPres_params,
+                   model.file = "HGLMM_m1_Veg_damPresence.jags",
+                   parallel = T,
+                   n.chains = nchains,
+                   n.thin = nthin,
+                   n.iter = niter,
+                   n.burnin = nburn)
+
+
+Sys.time()
+
+#print(hglmm_m1_veg_damPres) # model with local and watershed dam density as fixed effects
+#print(hglmm_m1_veg_damPres$summary[grep("beta_", rownames(hurdle_damPres_SW$summary)), ])
+
+```
+
+
+----
+----
+
+DIAGNOSTICS:
+
+Extract posteriors:
+```{r,echo=FALSE}
+damPres_m1_veg_post <- hglmm_m1_veg_damPres$sims.list
+```
+
+"Chain health" Rhat + ESS:
+```{r,echo=FALSE}
+# Choose only the parameters you care about
+params_m1_veg <- c(
+  "alpha",
+  "beta_damPres",
+  "sigma")
+
+# Gelman–Rubin convergence diagnostic
+gelman.diag(hglmm_m1_veg_damPres$samples[, params_m1_veg], multivariate = FALSE)
+
+# Effective sample size
+effectiveSize(hglmm_m1_veg_damPres$samples[, params_m1_veg])
+
+```
+
+----
+
+    Acceptable Rhat values, all around 1.00. Though beta_damPres is slightly eleveated, 
+    1.02-1.05 is reasonable given the complexity of the nested random effects structure.
+    
+    Same for ESS. Not ideal for beta_damPres to be that low, but it is not a fatal issue.
+
+
+----
+
+**Check traceplots** for critical parameters:
+
+```{r,echo=FALSE}
+par(mfrow = c(2, 2),        # 2 rows, 2 columns
+    mar = c(4, 4, 2, 1),    # smaller margins
+    cex = 0.8)              # shrink text/points a bit
+
+tplot_m1_veg_params <- c("alpha","beta_damPres","sigma", "sigma_beta_stream")
+
+
+m1_mcmc_veg_sub <- hglmm_m1_veg_damPres$samples[, tplot_m1_veg_params]
+
+coda::traceplot(m1_mcmc_veg_sub)
+```
+
+----
+
+    Similarly, traceplots indicate solid convergence in all but beta_damPres which
+    is slow to converge. Still should be useable
+
+----
+
+**Posterior predictive plots:**
+
+Model-estimated vegArea vs. observed vegArea
+
+Should be about 1
+
+```{r,echo=FALSE}
+par(mfrow = c(1,1),        # 2 rows, 2 columns
+    mar = c(4, 4, 2, 1),    # smaller margins
+    cex = 0.8)  
+
+# Posterior mean of predicted log(VA + 1)
+m1_mu_veg_post <- apply(hglmm_m1_veg_damPres$sims.list$mu, 2, mean)
+
+# Observed log vegetation area
+m1_obs_logVA <- log(y_vegA + 1)
+
+# Fit regression on the log scale
+m1_fit_log <- lm(m1_obs_logVA ~ m1_mu_veg_post)
+
+m1_slope_log <- coef(m1_fit_log)[2]
+m1_R2_log    <- summary(m1_fit_log)$r.squared
+
+# Plot
+plot(m1_mu_veg_post,
+     m1_obs_logVA,
+     pch = 16,
+     col = rgb(0,0,1,0.3),
+     xlab = "Model-estimated log(VA + 1)",
+     ylab = "Observed log(VA + 1)")
+
+abline(0, 1, col = "red", lwd = 2)
+
+# Add slope and R² text
+text(x = min(m1_mu_veg_post),
+     y = max(m1_obs_logVA),
+     labels = paste0("Slope = ", round(m1_slope_log, 3)),
+     pos = 4)
+
+#text(x = min(m1_mu_veg_post),
+ #    y = max(m1_obs_logVA) - 0.3,
+  #   labels = paste0("R² = ", round(m1_R2_log, 3)),
+   #  pos = 4)
+
+```
+
+----
+
+    Comparison of model-estimated log-transformed vegetation area with observed log-
+    transformed vegetation area. "Perfect" model fit would have a slope = 1. A slope
+    of 1.095 is reasonable, given model complexity. This indicates that our model
+    slightly underestimates the observed variation in log(vegArea+1), but overall
+    performs well.
+
+----
+
+**Random effects shrinkage: **
+
+Should be centered around 0(ish)
+
+1. beta_stream; random effect of stream on sw amount (1:6)
+2. beta_event; random effect of sample event on sw amount (1:12; 4 sampleEvents per year)
+
+```{r, echo=FALSE}
+
+par(mfrow = c(2, 1),        # 2 rows, 1 columns
+    mar = c(4, 4, 2, 1),    # smaller margins
+    cex = 0.8)              # shrink text/points a bit
+
+
+boxplot(hglmm_m1_veg_damPres$sims.list$beta_stream)
+
+boxplot(hglmm_m1_veg_damPres$sims.list$beta_event)
+```
+
+----
+
+**Posterior mean dam effects:**
+
+damPres -> vegArea 
+
+```{r,echo=FALSE}
+summary(hglmm_m1_veg_damPres$sims.list$beta_damPres)
+
+exp(mean(hglmm_m1_veg_damPres$sims.list$beta_damPres))
+```
+
+    Dam presence increases log(vegetaion area+1) by ~23-27%. LOTS of variation. Strong
+    overlap of 0.
+
+----
+----
+
+Prior-posterior overlap:
+
+```{r,echo=FALSE}
+damPres_m1_veg_alpha_post <- hglmm_m1_veg_damPres$sims.list$alpha
+damPres_m1_veg_beta_post  <- hglmm_m1_veg_damPres$sims.list$beta_damPres
+
+damPres_m1_veg_Mod_n <- length(damPres_m1_veg_alpha_post)
+
+damPres_m1_veg_alpha_prior <- rnorm(damPres_m1_veg_Mod_n, 0, sqrt(1/0.04))
+damPres_m1_veg_beta_prior  <- rnorm(damPres_m1_veg_Mod_n, 0, sqrt(1/0.04))
+
+
+# Plot overlap:
+
+plot_prior_post <- function(prior, post, name) {
+  
+  df <- tibble(
+    value = c(prior, post),
+    dist  = rep(c("Prior", "Posterior"), each = length(prior))
+  )
+  
+  ggplot(df, aes(x = value, fill = dist)) +
+    geom_density(alpha = 0.4) +
+    scale_fill_manual(values = c("gray60", "steelblue")) +
+    labs(
+      title = paste("Prior vs Posterior for", name),
+      x = name,
+      y = "Density"
+    ) +
+    theme_minimal(base_size = 14)
+}
+
+plot_prior_post(damPres_m1_veg_alpha_prior, damPres_m1_veg_alpha_post, "alpha")
+plot_prior_post(damPres_m1_veg_beta_prior, damPres_m1_veg_beta_post, "beta_damPres")
+
+```
+
+----
+
+    PPO indicates that the model is not being driven by posterior specifications
+
+----
+----
+
+**Assess effect of dam presence on vegetation area**
+
+```{r,echo=FALSE}
+#library(tidyverse)
+#library(scales)
+
+
+#Posterior distribution of damEffect on vegArea:
+
+hist(damPres_m1_veg_beta_post,
+     breaks = 50,
+     col = "steelblue",
+     main = "Posterior of damPresence effect on log(VA + 1)",
+     xlab = "beta_damPres")
+abline(v = median(damPres_m1_veg_beta_post), col = "red", lwd = 2)
+```
+
+**Predicted VegArea with and without Dam Presence**
+
+```{r,echo=FALSE}
+
+m1_n_draws <- length(damPres_m1_veg_post$alpha)
+
+# Random effects averaged out
+m1_mu_no_dam <- damPres_m1_veg_post$alpha +
+             damPres_m1_veg_post$eta_stream[ , stream] +
+             damPres_m1_veg_post$eta_event[ , event] +
+             damPres_m1_veg_post$eta_cluster[ , cluster]
+
+m1_mu_yes_dam <- damPres_m1_veg_post$alpha +
+              damPres_m1_veg_post$beta_damPres +
+              damPres_m1_veg_post$eta_stream[ , stream] +
+              damPres_m1_veg_post$eta_event[ , event] +
+              damPres_m1_veg_post$eta_cluster[ , cluster]
+
+
+m1_VA_no_dam  <- exp(m1_mu_no_dam) - 1
+m1_VA_yes_dam <- exp(m1_mu_yes_dam) - 1
+
+
+m1_VA_no_dam_vec  <- as.numeric(m1_VA_no_dam)
+m1_VA_yes_dam_vec <- as.numeric(m1_VA_yes_dam)
+
+boxplot(
+  list(
+    `No Dam` = m1_VA_no_dam_vec,
+    `Dam Present` = m1_VA_yes_dam_vec
+  ),
+  col = c("steelblue", "brown4"),
+  main = "Predicted Vegetation Area by Dam Presence",
+  ylab = "Vegetation Area (m²)"
+)
+
+```
+
+**Marginal Effect:**
+
+```{r,echo=FALSE}
+delta <- VA_yes_dam - VA_no_dam
+
+hist(delta,
+     breaks = 50,
+     col = "darkgreen",
+     main = "Posterior of Dam Effect on Vegetation Area",
+     xlab = "Difference in veg area (m²)")
+abline(v = median(delta), col = "red", lwd = 2)
+
+
+```
