@@ -148,6 +148,45 @@ For surface water models, data of interest include:
 
 ----
 
+
+```{r,echo=FALSE}
+aoi_HurdleData %>%
+  ggplot(aes(x = logSWA)) +
+  geom_density(fill = "steelblue", alpha = 0.4) +
+  facet_wrap(~ stream, scales = "free_y") +
+  labs(
+    title = "log-SWA distributions by stream",
+    x = "log-SWA",
+    y = "Density"
+  ) +
+  theme_minimal(base_size = 14)
+
+aoi_HurdleData %>%
+  ggplot(aes(x = logSWA)) +
+  geom_density(fill = "steelblue", alpha = 0.4) +
+  facet_wrap(~ year_id, scales = "free_y") +
+  labs(
+    title = "log-SWA distributions by Year",
+    x = "log-SWA",
+    y = "Density"
+  ) +
+  theme_minimal(base_size = 14)
+
+aoi_HurdleData %>%
+  ggplot(aes(x = logSWA)) +
+  geom_density(fill = "steelblue", alpha = 0.4) +
+  facet_wrap(~ sampleEvent_new, scales = "free_y") +
+  labs(
+    title = "log-SWA distributions by sampleEvent",
+    x = "log-SWA",
+    y = "Density"
+  ) +
+  theme_minimal(base_size = 14)
+
+
+```
+
+
 ----
 
 ----
