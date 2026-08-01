@@ -184,7 +184,7 @@ Effect of damPresence without geomorphic covariates
 ----
 
 ```{r,echo=FALSE}
-#library(jagsUI)
+library(jagsUI)
 
     sink("HGLMM_m1_Veg_damPresence.jags")
     
@@ -327,6 +327,8 @@ nburn <- 25000
 
 Sys.time()
 
+set.seed(092323)
+
 hglmm_m1_veg_damPres <- jags(data = hglmm_m1_veg_damPres_data_list,
                    inits = hglmm_m1_veg_damPres_inits,
                    parameters.to.save = hglmm_m1_veg_damPres_params,
@@ -375,7 +377,7 @@ effectiveSize(hglmm_m1_veg_damPres$samples[, params_m1_veg])
 ----
 
     Acceptable Rhat values, all around 1.00. Though beta_damPres is slightly eleveated, 
-    1.02-1.05 is reasonable given the complexity of the nested random effects structure.
+    up to 1.05 or so is reasonable given the complexity of the nested random effects structure.
     
     Same for ESS. Not ideal for beta_damPres to be that low, but it is not a fatal issue.
 
@@ -454,7 +456,7 @@ text(x = min(m1_mu_veg_post),
 
     Comparison of model-estimated log-transformed vegetation area with observed log-
     transformed vegetation area. "Perfect" model fit would have a slope = 1. A slope
-    of 1.095 is reasonable, given model complexity. This indicates that our model
+    of 1.09 is reasonable, given model complexity. This indicates that our model
     slightly underestimates the observed variation in log(vegArea+1), but overall
     performs well.
 
@@ -483,7 +485,33 @@ boxplot(hglmm_m1_veg_damPres$sims.list$beta_event)
 
 **Posterior mean dam effects:**
 
-damPres -> vegArea 
+damPres -> vegArea (no geom.covar.)
+
+```{r,echo=FALSE}
+m1_coeffparams <- c(#"alpha",
+            "beta_damPres",
+            "sigma")
+
+m1_coef_df <- hglmm_m1_veg_damPres$summary[m1_coeffparams, ] %>%
+  as.data.frame() %>%
+  rownames_to_column("parameter") %>%
+  select(parameter, mean, `2.5%`, `97.5%`)
+
+ggplot(m1_coef_df, aes(y = parameter, x = mean)) +
+  geom_point(size = 3) +
+  geom_errorbar(
+    aes(xmin = `2.5%`, xmax = `97.5%`),
+    width = 0.2,
+    orientation = "y"
+  ) +
+  geom_vline(xintercept = 0, color = "black", linewidth = 1) +
+  labs(
+    title = "Posterior Means and 95% Credible Intervals",
+    x = "Effect Size (log scale)",
+    y = ""
+  ) +
+  theme_bw(base_size = 14)
+```
 
 ```{r,echo=FALSE}
 summary(hglmm_m1_veg_damPres$sims.list$beta_damPres)
@@ -491,8 +519,9 @@ summary(hglmm_m1_veg_damPres$sims.list$beta_damPres)
 exp(mean(hglmm_m1_veg_damPres$sims.list$beta_damPres))
 ```
 
-    Dam presence increases log(vegetaion area+1) by ~23-27%. LOTS of variation. Strong
-    overlap of 0.
+    Without consideration of geomorphic covariates, dam presence is associated with a
+    ~23-27% increase in vegetation area. LOTS of variation. Strong overlap of 0. MARGINAL
+    influence at best.
 
 ----
 ----
@@ -560,6 +589,7 @@ abline(v = median(damPres_m1_veg_beta_post), col = "red", lwd = 2)
 
 **Predicted VegArea with and without Dam Presence**
 
+
 ```{r,echo=FALSE}
 
 m1_n_draws <- length(damPres_m1_veg_post$alpha)
@@ -584,29 +614,2177 @@ m1_VA_yes_dam <- exp(m1_mu_yes_dam) - 1
 m1_VA_no_dam_vec  <- as.numeric(m1_VA_no_dam)
 m1_VA_yes_dam_vec <- as.numeric(m1_VA_yes_dam)
 
-boxplot(
-  list(
-    `No Dam` = m1_VA_no_dam_vec,
-    `Dam Present` = m1_VA_yes_dam_vec
-  ),
-  col = c("steelblue", "brown4"),
-  main = "Predicted Vegetation Area by Dam Presence",
-  ylab = "Vegetation Area (m²)"
+
+m1_VA_no_dam_med  <- apply(m1_VA_no_dam, 2, median)
+m1_VA_yes_dam_med <- apply(m1_VA_yes_dam, 2, median)
+
+m1_VA_df <- tibble(
+  VA = c(m1_VA_no_dam_med, m1_VA_yes_dam_med),
+  Dam = factor(rep(c("No Dam", "Dam Present"),
+                   each = length(m1_VA_no_dam_med)))
 )
+
+
+ggplot(m1_VA_df, aes(x = Dam, y = VA, fill = Dam)) +
+  geom_violin(trim = FALSE, alpha = 0.6) +
+  geom_boxplot(width = 0.15, outlier.shape = NA, alpha = 0.8) +
+  scale_fill_manual(values = c("steelblue", "brown4")) +
+  labs(
+    title = "Predicted Vegetation Area by Dam Presence (Site Medians)",
+    y = "Vegetation Area (m²)",
+    x = ""
+  ) +
+  theme_bw(base_size = 14) +
+  theme(legend.position = "none")
+```
+
+
+----
+
+----
+
+----
+
+----
+
+----
+
+----
+
+----
+
+**Model 1: VegArea ~ DamPresence**
+
+Effect of damPresence WITH geomorphic covariates
+
+----
+
+```{r,echo=FALSE}
+#library(jagsUI)
+
+    sink("HGLMM_m2_Veg_damPresence.jags")
+    
+    cat("
+    model{
+      # NEED priors and hyperpriors first so that downstream nodes can be estimated
+      
+      ##########################################################################
+      
+      # HYPERPRIORS FOR VEG AMOUNT (1/2 Normal on SDs):
+    
+      sigma              ~ dnorm(0,1) T(0,)
+      tau                <- pow(sigma, -2)
+    
+      sigma_beta_stream  ~ dnorm(0, 0.7) T(0,)
+      tau_beta_stream    <- pow(sigma_beta_stream, -2)
+    
+      sigma_beta_year    ~ dnorm(0, 0.7) T(0,)
+      tau_beta_year      <- pow(sigma_beta_year, -2)
+    
+      sigma_beta_event   ~ dnorm(0, 0.7) T(0,)
+      tau_beta_event     <- pow(sigma_beta_event, -2)
+    
+      sigma_eta_stream   ~ dnorm(0, 1) T(0,)
+      tau_eta_stream     <- pow(sigma_eta_stream, -2)
+    
+      sigma_eta_event    ~ dnorm(0, 1) T(0,)
+      tau_eta_event      <- pow(sigma_eta_event, -2)
+    
+      sigma_eta_cluster  ~ dnorm(0, 1) T(0,)
+      tau_eta_cluster    <- pow(sigma_eta_cluster, -2)
+    
+      ##########################################################################
+      # FIXED EFFECT PRIORS:
+      
+      alpha ~ dnorm(0,0.04)
+      beta_damPres ~ dnorm(0,0.04)
+      beta_incis ~ dnorm(0,0.04)
+      beta_RIPA ~ dnorm(0,0.04)
+      beta_UDA ~ dnorm(0,0.04)
+    
+      ##########################################################################
+      
+      # RANDOM EFFECT PRIORS FOR SW AMOUNT:
+    
+      for(j in 1:n_stream){
+        beta_stream[j] ~ dnorm(0, tau_beta_stream)
+        eta_stream[j]  ~ dnorm(0, tau_eta_stream)
+      }
+    
+      for(yr in 1:n_year){
+        beta_year[yr] ~ dnorm(0, tau_beta_year)
+      }
+    
+      for(k in 1:n_event){
+        beta_event[k] ~ dnorm(beta_year[event_year[k]], tau_beta_event)
+        eta_event[k]  ~ dnorm(0, tau_eta_event)
+      }
+    
+      for(c in 1:n_cluster){
+        eta_cluster[c] ~ dnorm(0, tau_eta_cluster)
+      }
+    
+      ##########################################################################
+     
+      # MAIN LOOP: PRESENCE, DETECTION, AMOUNT
+    
+      for(i in 1:N){
+    
+        # Amount:
+        y[i] ~ dnorm(mu[i], tau)
+    
+        mu[i] <- alpha
+                    + (beta_damPres
+                      + beta_stream[stream[i]]
+                      + beta_year[year[i]]
+                      + beta_event[event[i]]) * damPres[i]
+                    + beta_incis * incis[i] 
+                    + beta_RIPA * RIPA[i]
+                    + beta_UDA * UDA[i]
+                    + eta_stream[stream[i]]
+                    + eta_event[event[i]]
+                    + eta_cluster[cluster[i]]
+      }
+    
+    }
+    ", fill = TRUE)
+    
+    sink()
+```
+    
+
+```{r,echo=FALSE}
+hglmm_m2_veg_damPres_data_list <- list(
+  N = N,
+  y = log(y_vegA + 1),
+  stream = stream,
+  year = year,
+  event = event,
+  cluster = cluster,
+  damPres = damPres,
+  incis = as.numeric(scale(1-(aoi_HurdleData$TO/90))), # Channel Incision
+  RIPA = as.numeric(scale(aoi_HurdleData$riparian_area_m2)),
+  UDA = as.numeric(scale(aoi_HurdleData$catchment_km2)),
+  n_stream = n_stream,
+  n_year = n_year,
+  n_event = n_event,
+  n_cluster = n_cluster,
+  event_year = event_year_3_4
+)
+
+hglmm_m2_veg_damPres_inits <- function(){
+  list(
+    alpha        = rnorm(1, 0, 1),
+    sigma        = runif(1, 0.1, 2),
+
+    sigma_beta_stream  = runif(1, 0.1, 2),
+    sigma_beta_year    = runif(1, 0.1, 2),
+    sigma_beta_event   = runif(1, 0.1, 2),
+    sigma_eta_stream   = runif(1, 0.1, 2),
+    sigma_eta_event    = runif(1, 0.1, 2),
+    sigma_eta_cluster  = runif(1, 0.1, 2)
+  )
+}
+
+hglmm_m2_veg_damPres_params <- c(
+  "mu",
+  "alpha",
+  "beta_damPres",
+  "beta_incis",
+  "beta_RIPA",
+  "beta_UDA",
+  "beta_stream",
+  "beta_year",
+  "beta_event",
+  "eta_stream",
+  "eta_event",
+  "eta_cluster",
+  "sigma",
+  "sigma_beta_stream",
+  "sigma_beta_year",
+  "sigma_beta_event",
+  "sigma_eta_stream",
+  "sigma_eta_event",
+  "sigma_eta_cluster"
+)
+
+#nchains <- 3
+#nthin <- 5
+#niter <- 100000
+#nburn <- 25000
+
+Sys.time()
+
+set.seed(092323)
+
+hglmm_m2_veg_damPres <- jags(data = hglmm_m2_veg_damPres_data_list,
+                   inits = hglmm_m2_veg_damPres_inits,
+                   parameters.to.save = hglmm_m2_veg_damPres_params,
+                   model.file = "HGLMM_m2_Veg_damPresence.jags",
+                   parallel = T,
+                   n.chains = nchains,
+                   n.thin = nthin,
+                   n.iter = niter,
+                   n.burnin = nburn)
+
+
+Sys.time()
+
+#print(hglmm_m1_veg_damPres) # model with local and watershed dam density as fixed effects
+#print(hglmm_m1_veg_damPres$summary[grep("beta_", rownames(hurdle_damPres_SW$summary)), ])
 
 ```
 
-**Marginal Effect:**
+
+----
+----
+
+DIAGNOSTICS:
+
+Extract posteriors:
+```{r,echo=FALSE}
+damPres_m2_veg_post <- hglmm_m2_veg_damPres$sims.list
+```
+
+"Chain health" Rhat + ESS:
+```{r,echo=FALSE}
+# Choose only the parameters you care about
+params_m2_veg <- c(
+  "alpha",
+  "beta_damPres",
+  "beta_incis",
+  "beta_RIPA",
+  "beta_UDA",
+  "sigma")
+
+# Gelman–Rubin convergence diagnostic
+gelman.diag(hglmm_m2_veg_damPres$samples[, params_m2_veg], multivariate = FALSE)
+
+# Effective sample size
+effectiveSize(hglmm_m2_veg_damPres$samples[, params_m2_veg])
+
+```
+
+----
+
+    ...
+
+----
+
+**Check traceplots** for critical parameters:
 
 ```{r,echo=FALSE}
-delta <- VA_yes_dam - VA_no_dam
+par(mfrow = c(2, 2),        # 2 rows, 2 columns
+    mar = c(4, 4, 2, 1),    # smaller margins
+    cex = 0.8)              # shrink text/points a bit
 
-hist(delta,
+tplot_m2_veg_params <- c("alpha","beta_damPres",
+                         "beta_incis","beta_RIPA",
+                         "beta_UDA", "sigma", "sigma_beta_stream")
+
+
+m2_mcmc_veg_sub <- hglmm_m2_veg_damPres$samples[, tplot_m2_veg_params]
+
+coda::traceplot(m2_mcmc_veg_sub)
+```
+
+----
+
+    Hm.. not great for beta_damPres... what to do...
+    
+
+----
+
+**Posterior predictive plots:**
+
+Model-estimated vegArea vs. observed vegArea
+
+Should be about 1
+
+```{r,echo=FALSE}
+par(mfrow = c(1,1),        # 1 rows, 1 columns
+    mar = c(4, 4, 2, 1),    # smaller margins
+    cex = 0.8)  
+
+# Posterior mean of predicted log(VA + 1)
+m2_mu_veg_post <- apply(hglmm_m2_veg_damPres$sims.list$mu, 2, mean)
+
+# Observed log vegetation area
+m2_obs_logVA <- log(y_vegA + 1)
+
+# Fit regression on the log scale
+m2_fit_log <- lm(m2_obs_logVA ~ m2_mu_veg_post)
+
+m2_slope_log <- coef(m2_fit_log)[2]
+m2_R2_log    <- summary(m2_fit_log)$r.squared
+
+# Plot
+plot(m2_mu_veg_post,
+     m2_obs_logVA,
+     pch = 16,
+     col = rgb(0,0,1,0.3),
+     xlab = "Model-estimated log(VA + 1)",
+     ylab = "Observed log(VA + 1)")
+
+abline(0, 1, col = "red", lwd = 2)
+
+# Add slope and R² text
+text(x = min(m2_mu_veg_post),
+     y = max(m2_obs_logVA),
+     labels = paste0("Slope = ", round(m2_slope_log, 3)),
+     pos = 4)
+
+#text(x = min(m2_mu_veg_post),
+ #    y = max(m2_obs_logVA) - 0.3,
+  #   labels = paste0("R² = ", round(m2_R2_log, 3)),
+   #  pos = 4)
+
+```
+
+----
+
+    Comparison of model-estimated log-transformed vegetation area with observed log-
+    transformed vegetation area. "Perfect" model fit would have a slope = 1. A slope
+    of 1.09 is reasonable, given model complexity. This indicates that our model
+    slightly underestimates the observed variation in log(vegArea+1), but overall
+    performs well. Highest disagreement at lower veg areas.
+
+----
+
+**Random effects shrinkage: **
+
+Should be centered around 0(ish)
+
+1. beta_stream; random effect of stream on sw amount (1:6)
+2. beta_event; random effect of sample event on sw amount (1:12; 4 sampleEvents per year)
+
+```{r, echo=FALSE}
+
+par(mfrow = c(2, 1),        # 2 rows, 1 columns
+    mar = c(4, 4, 2, 1),    # smaller margins
+    cex = 0.8)              # shrink text/points a bit
+
+
+boxplot(hglmm_m2_veg_damPres$sims.list$beta_stream)
+
+boxplot(hglmm_m2_veg_damPres$sims.list$beta_event)
+```
+
+----
+
+**Posterior mean dam effects:**
+
+damPres -> vegArea (w/geom.covar.)
+
+
+```{r,echo=FALSE}
+m2_coeffparams <- c(#"alpha",
+            "beta_damPres",
+            "beta_incis",
+            "beta_RIPA",
+            "beta_UDA",
+            "sigma")
+
+m2_coef_df <- hglmm_m2_veg_damPres$summary[m2_coeffparams, ] %>%
+  as.data.frame() %>%
+  rownames_to_column("parameter") %>%
+  select(parameter, mean, `2.5%`, `97.5%`)
+
+ggplot(m2_coef_df, aes(y = parameter, x = mean)) +
+  geom_point(size = 3) +
+  geom_errorbar(
+    aes(xmin = `2.5%`, xmax = `97.5%`),
+    width = 0.2,
+    orientation = "y"
+  ) +
+  geom_vline(xintercept = 0, color = "black", linewidth = 1) +
+  labs(
+    title = "Posterior Means and 95% Credible Intervals",
+    x = "Effect Size (log scale)",
+    y = ""
+  ) +
+  theme_bw(base_size = 14)
+```
+
+
+```{r,echo=FALSE}
+summary(hglmm_m2_veg_damPres$sims.list$beta_damPres)
+
+exp(mean(hglmm_m2_veg_damPres$sims.list$beta_damPres))
+```
+
+    When you also consider site-level geomorphic conditions, dam presence is associated 
+    with an estimated 15-20% increase in vegetation area. More conservative than M1. 
+    Still, LOTS of variation, & strongoverlap of 0. Modest positive influence.
+
+----
+----
+
+Prior-posterior overlap:
+
+```{r,echo=FALSE}
+damPres_m2_veg_alpha_post <- hglmm_m2_veg_damPres$sims.list$alpha
+damPres_m2_veg_beta_post  <- hglmm_m2_veg_damPres$sims.list$beta_damPres
+damPres_m2_veg_sigmaBetaStream_post <- hglmm_m2_veg_damPres$sims.list$sigma_beta_stream
+
+damPres_m2_veg_Mod_n <- length(damPres_m2_veg_alpha_post)
+
+damPres_m2_veg_alpha_prior <- rnorm(damPres_m2_veg_Mod_n, 0, sqrt(1/0.04))
+damPres_m2_veg_beta_prior  <- rnorm(damPres_m2_veg_Mod_n, 0, sqrt(1/0.04))
+damPres_m2_veg_sigmaBetaStream_prior <- pmax(rnorm(damPres_m2_veg_Mod_n, 0, 1), 0)
+
+
+# Plot overlap:
+
+#plot_prior_post <- function(prior, post, name) {
+  
+#  df <- tibble(
+#    value = c(prior, post),
+#    dist  = rep(c("Prior", "Posterior"), each = length(prior))
+#  )
+  
+#  ggplot(df, aes(x = value, fill = dist)) +
+#    geom_density(alpha = 0.4) +
+#    scale_fill_manual(values = c("gray60", "steelblue")) +
+#    labs(
+#      title = paste("Prior vs Posterior for", name),
+#      x = name,
+#      y = "Density"
+#    ) +
+#    theme_minimal(base_size = 14)
+#}
+
+plot_prior_post(damPres_m2_veg_alpha_prior, damPres_m2_veg_alpha_post, "alpha")
+plot_prior_post(damPres_m2_veg_beta_prior, damPres_m2_veg_beta_post, "beta_damPres")
+plot_prior_post(damPres_m2_veg_sigmaBetaStream_prior, damPres_m2_veg_sigmaBetaStream_post,"sigmaBetaStream")
+
+```
+
+----
+
+    PPOs still look pretty good. 
+
+----
+----
+
+**Assess effect of dam presence on vegetation area**
+
+```{r,echo=FALSE}
+#library(tidyverse)
+#library(scales)
+
+par(mfrow = c(1, 1),        # 2 rows, 1 columns
+    mar = c(4, 4, 2, 1),    # smaller margins
+    cex = 0.8)  
+#Posterior distribution of damEffect on vegArea:
+
+hist(damPres_m2_veg_beta_post,
      breaks = 50,
-     col = "darkgreen",
-     main = "Posterior of Dam Effect on Vegetation Area",
-     xlab = "Difference in veg area (m²)")
-abline(v = median(delta), col = "red", lwd = 2)
+     col = "steelblue",
+     main = "Posterior distribution of damPres effect on log(VA + 1)",
+     xlab = "beta_damPres",
+     xlim = c(-1,1))
+# Add median line
+abline(v = median(damPres_m2_veg_beta_post), col = "red", lwd = 2)
+
+```
+
+**Predicted VegArea with and without Dam Presence**
+
+
+```{r,echo=FALSE}
+
+m2_n_draws <- length(damPres_m2_veg_post$alpha)
+
+# Random effects averaged out
+m2_mu_no_dam <- damPres_m2_veg_post$alpha +
+             damPres_m2_veg_post$eta_stream[ , stream] +
+             damPres_m2_veg_post$eta_event[ , event] +
+             damPres_m2_veg_post$eta_cluster[ , cluster] +
+             damPres_m2_veg_post$beta_incis +
+             damPres_m2_veg_post$beta_RIPA +
+             damPres_m2_veg_post$beta_UDA
+
+m2_mu_yes_dam <- damPres_m2_veg_post$alpha +
+              damPres_m2_veg_post$beta_damPres +
+              damPres_m2_veg_post$eta_stream[ , stream] +
+              damPres_m2_veg_post$eta_event[ , event] +
+              damPres_m2_veg_post$eta_cluster[ , cluster] +
+              damPres_m2_veg_post$beta_incis +
+              damPres_m2_veg_post$beta_RIPA +
+              damPres_m2_veg_post$beta_UDA
+
+
+m2_VA_no_dam  <- exp(m2_mu_no_dam) - 1
+m2_VA_yes_dam <- exp(m2_mu_yes_dam) - 1
+
+
+m2_VA_no_dam_vec  <- as.numeric(m2_VA_no_dam)
+m2_VA_yes_dam_vec <- as.numeric(m2_VA_yes_dam)
+
+
+m2_VA_no_dam_med  <- apply(m2_VA_no_dam, 2, median)
+m2_VA_yes_dam_med <- apply(m2_VA_yes_dam, 2, median)
+
+m2_VA_df <- tibble(
+  VA = c(m2_VA_no_dam_med, m2_VA_yes_dam_med),
+  Dam = factor(rep(c("No Dam", "Dam Present"),
+                   each = length(m2_VA_no_dam_med)))
+)
+
+
+ggplot(m2_VA_df, aes(x = Dam, y = VA, fill = Dam)) +
+  geom_violin(trim = FALSE, alpha = 0.6) +
+  geom_boxplot(width = 0.15, alpha = 0.8) +
+  scale_fill_manual(values = c("steelblue", "brown4")) +
+  labs(
+    title = "Predicted Vegetation Area by Dam Presence (Site Medians)",
+    y = "Vegetation Area (m²)",
+    x = ""
+  ) +
+  theme_bw(base_size = 14) +
+  theme(legend.position = "none")
+```
+
+----
+
+----
+
+----
+
+----
+
+
+**Partial dependence plots**
+
+Constrain PDP to empirical ranges for VA and target covariates
+
+```{r,echo=FALSE}
+
+names(damPres_m2_veg_post)
+
+# Raw covariates
+incis_raw <- 1 - aoi_HurdleData$TO/90
+RIPA_raw  <- aoi_HurdleData$riparian_area_m2
+UDA_raw   <- aoi_HurdleData$catchment_km2
+
+logSWA_mean <- mean(aoi_HurdleData$logSWA)
+logSWA_sd   <- sd(aoi_HurdleData$logSWA)
+
+# Standardization stats
+incis_mean_raw <- mean(incis_raw)
+incis_sd_raw   <- sd(incis_raw)
+
+RIPA_mean_raw  <- mean(RIPA_raw)
+RIPA_sd_raw    <- sd(RIPA_raw)
+
+UDA_mean_raw   <- mean(UDA_raw)
+UDA_sd_raw     <- sd(UDA_raw)
+
+
+##############################3
+
+# Helper Functions to Compute SWA from posterior draws
+compute_swa_draws <- function(incis, RIPA, UDA, post, dam_flag) {
+  n_draws <- length(damPres_m2_veg_post$alpha)
+  swa_mat <- matrix(NA_real_, nrow = length(incis), ncol = n_draws)
+
+  for (j in seq_len(n_draws)) {
+    lp <- damPres_m2_veg_post$alpha[j] +
+          damPres_m2_veg_post$beta_incis[j] * incis +
+          damPres_m2_veg_post$beta_RIPA[j]  * RIPA +
+          damPres_m2_veg_post$beta_UDA[j]   * UDA +
+          damPres_m2_veg_post$beta_damPres[j] * dam_flag
+
+    swa_mat[, j] <- exp(lp) - 1
+  }
+
+  swa_mat
+}
+
+summarize_swa <- function(swa_mat) {
+  tibble(
+    SWA_med = apply(swa_mat, 1, median),
+    SWA_lo  = apply(swa_mat, 1, quantile, probs = 0.025),
+    SWA_hi  = apply(swa_mat, 1, quantile, probs = 0.975)
+  )
+}
+
+
+
+
+#########################################
+
+# PDP Builder:
+
+build_pdp <- function(focal_raw, focal_name,
+                      incis_raw, RIPA_raw, UDA_raw,
+                      post,
+                      incis_mean_raw, incis_sd_raw,
+                      RIPA_mean_raw, RIPA_sd_raw,
+                      UDA_mean_raw, UDA_sd_raw) {
+
+  # Sequence only across empirical range
+  focal_seq <- seq(min(focal_raw), max(focal_raw), length.out = 200)
+
+  # Conditional medians of other covariates
+  incis_med <- median(incis_raw)
+  RIPA_med  <- median(RIPA_raw)
+  UDA_med   <- median(UDA_raw)
+
+  # Build grid (200 rows)
+  grid <- tibble(
+    focal_raw = focal_seq,
+    incis_raw = if (focal_name == "incis") focal_seq else incis_med,
+    RIPA_raw  = if (focal_name == "RIPA")  focal_seq else RIPA_med,
+    UDA_raw   = if (focal_name == "UDA")   focal_seq else UDA_med
+  ) %>%
+    mutate(
+      incis = (incis_raw - incis_mean_raw) / incis_sd_raw,
+      RIPA  = (RIPA_raw  - RIPA_mean_raw)  / RIPA_sd_raw,
+      UDA   = (UDA_raw   - UDA_mean_raw)   / UDA_sd_raw
+    )
+
+  # Compute SWA draws
+  swa_nodam <- compute_swa_draws(grid$incis, grid$RIPA, grid$UDA, post, dam_flag = 0)
+  swa_dam   <- compute_swa_draws(grid$incis, grid$RIPA, grid$UDA, post, dam_flag = 1)
+
+  # Summaries (400 rows)
+  pdp <- bind_rows(
+    summarize_swa(swa_nodam) %>% mutate(dam = "No Dam"),
+    summarize_swa(swa_dam)   %>% mutate(dam = "Dam Present")
+  )
+
+  # Repeat grid twice (400 rows)
+  grid2 <- bind_rows(grid, grid)
+
+  # Bind columns safely
+  bind_cols(grid2, pdp)
+}
+
+
+
+#####
+
+m2_pdp_incis <- build_pdp(
+  focal_raw = incis_raw,
+  focal_name = "incis",
+  incis_raw, RIPA_raw, UDA_raw,
+  damPres_m2_post,
+  incis_mean_raw, incis_sd_raw,
+  RIPA_mean_raw, RIPA_sd_raw,
+  UDA_mean_raw, UDA_sd_raw
+)
+
+m2_pdp_RIPA <- build_pdp(
+  focal_raw = RIPA_raw,
+  focal_name = "RIPA",
+  incis_raw, RIPA_raw, UDA_raw,
+  damPres_m2_post,
+  incis_mean_raw, incis_sd_raw,
+  RIPA_mean_raw, RIPA_sd_raw,
+  UDA_mean_raw, UDA_sd_raw
+)
+
+m2_pdp_UDA <- build_pdp(
+  focal_raw = UDA_raw,
+  focal_name = "UDA",
+  incis_raw, RIPA_raw, UDA_raw,
+  damPres_m2_post,
+  incis_mean_raw, incis_sd_raw,
+  RIPA_mean_raw, RIPA_sd_raw,
+  UDA_mean_raw, UDA_sd_raw
+)
+
+
+
+##########################################
+
+# Plot Function:
+
+plot_pdp <- function(pdp, xvar, xtitle) {
+  ggplot(pdp,
+         aes(x = .data[[xvar]], y = SWA_med, color = dam, fill = dam)) +
+    geom_ribbon(aes(ymin = SWA_lo, ymax = SWA_hi), alpha = 0.2, color = NA) +
+    geom_line(linewidth = 1.2) +   # updated from size = 1.2
+    scale_color_manual(values = c("steelblue", "brown4")) +
+    scale_fill_manual(values = c("steelblue", "brown4")) +
+    scale_y_continuous(labels = scales::comma) +
+    labs(
+      title = paste("Partial Dependence of SWA on", xtitle),
+      subtitle = "Predicted VegArea with 95% credible intervals\nConstrained to empirical covariate range",
+      x = xtitle,
+      y = "Predicted Vegetation Area (m^2)",
+      color = "Dam Presence",
+      fill  = "Dam Presence"
+    ) +
+    theme_minimal(base_size = 14)
+}
+
+
+
+###########################################3
+
+plot_pdp(m2_pdp_incis, "incis_raw", "Channel Incision (raw)")
+plot_pdp(m2_pdp_RIPA,  "RIPA_raw",  "Riparian Area (m²)")
+plot_pdp(m2_pdp_UDA,   "UDA_raw",   "Contributing Drainage Area (km²)")
+
+
+```
+
+
+----
+
+----
+
+----
+
+----
+
+----
+
+----
+
+----
+
+----
+
+----
+
+
+
+VegArea ~ Dam Density
+----
+
+
+**Hurdle HGLMM**
+
+
+**MODEL 3: VegArea ~ damDensity (no Geom.Covar.)**
+
+```{r,echo=FALSE}
+#library(jagsUI)
+
+    sink("HGLMM_m3_Veg_damDensity.jags")
+    
+    cat("
+    model{
+      # NEED priors and hyperpriors first so that downstream nodes can be estimated
+      ##########################################################################
+      # HYPERPRIORS FOR SW AMOUNT (1/2 Normal on SDs):
+    
+      sigma              ~ dnorm(0,1) T(0,)
+      tau                <- pow(sigma, -2)
+    
+      sigma_beta_stream  ~ dnorm(0, 4) T(0,)
+      tau_beta_stream    <- pow(sigma_beta_stream, -2)
+    
+      sigma_beta_year    ~ dnorm(0, 4) T(0,)
+      tau_beta_year      <- pow(sigma_beta_year, -2)
+    
+      sigma_beta_event   ~ dnorm(0, 4) T(0,)
+      tau_beta_event     <- pow(sigma_beta_event, -2)
+    
+      sigma_eta_stream   ~ dnorm(0, 1) T(0,)
+      tau_eta_stream     <- pow(sigma_eta_stream, -2)
+    
+      sigma_eta_event    ~ dnorm(0, 1) T(0,)
+      tau_eta_event      <- pow(sigma_eta_event, -2)
+    
+      sigma_eta_cluster  ~ dnorm(0, 1) T(0,)
+      tau_eta_cluster    <- pow(sigma_eta_cluster, -2)
+    
+      ##########################################################################
+      # FIXED EFFECT PRIORS:
+    
+      # Amount:
+      alpha ~ dnorm(0,0.04)
+      beta_damDen ~ dnorm(0,0.04)
+    
+      ##########################################################################
+      # RANDOM EFFECT PRIORS FOR Veg AMOUNT:
+    
+      for(j in 1:n_stream){
+        beta_stream[j] ~ dnorm(0, tau_beta_stream)
+        eta_stream[j]  ~ dnorm(0, tau_eta_stream)
+      }
+    
+      for(yr in 1:n_year){
+        beta_year[yr] ~ dnorm(0, tau_beta_year)
+      }
+    
+      for(k in 1:n_event){
+        beta_event[k] ~ dnorm(beta_year[event_year[k]], tau_beta_event)
+        eta_event[k]  ~ dnorm(0, tau_eta_event)
+      }
+    
+      for(c in 1:n_cluster){
+        eta_cluster[c] ~ dnorm(0, tau_eta_cluster)
+      }
+    
+      ##########################################################################
+      # MAIN LOOP: PRESENCE, DETECTION, AMOUNT
+    
+      for(i in 1:N){
+    
+        # Presence/absence:
+        
+        y[i] ~ dnorm(mu[i], tau)
+    
+        mu[i] <- alpha
+                    + (beta_damDen
+                      + beta_stream[stream[i]]
+                      + beta_year[year[i]]
+                      + beta_event[event[i]]) * damDen[i]
+                    + eta_stream[stream[i]]
+                    + eta_event[event[i]]
+                    + eta_cluster[cluster[i]]      
+      }
+    }
+    ", fill = TRUE)
+    
+    sink()
+```  
+    
+
+```{r,echo=FALSE}
+hglmm_damDen_m3_data_list <- list(
+  N = N,
+  y = log(y_vegA + 1),
+  stream = stream,
+  year = year,
+  event = event,
+  cluster = cluster,
+  damDen = damDen,
+  n_stream = n_stream,
+  n_year = n_year,
+  n_event = n_event,
+  n_cluster = n_cluster,
+  event_year = event_year_3_4
+)
+
+hglmm_damDen_m3_inits <- function(){
+  list(
+    alpha        = rnorm(1, 0, 1),
+    epsilon      = rnorm(1, 0, 1),
+
+    sigma        = runif(1, 0.1, 2),
+    sigma_zeta_stream  = runif(1, 0.1, 2),
+    sigma_zeta_year    = runif(1, 0.1, 2),
+    sigma_zeta_event   = runif(1, 0.1, 2),
+    sigma_iota_stream  = runif(1, 0.1, 2),
+    sigma_iota_event   = runif(1, 0.1, 2),
+    sigma_iota_cluster = runif(1, 0.1, 2),
+
+    sigma_beta_stream  = runif(1, 0.1, 2),
+    sigma_beta_year    = runif(1, 0.1, 2),
+    sigma_beta_event   = runif(1, 0.1, 2),
+    sigma_eta_stream   = runif(1, 0.1, 2),
+    sigma_eta_event    = runif(1, 0.1, 2),
+    sigma_eta_cluster  = runif(1, 0.1, 2)
+  )
+}
+
+hglmm_damDen_m3_params <- c(
+  "alpha",
+  "mu",
+  "beta_damDen",
+  "beta_stream",
+  "beta_year",
+  "beta_event",
+  "eta_stream",
+  "eta_event",
+  "eta_cluster",
+  "sigma",
+  "sigma_beta_stream",
+  "sigma_beta_year",
+  "sigma_beta_event",
+  "sigma_eta_stream",
+  "sigma_eta_event",
+  "sigma_eta_cluster"
+)
+
+#nchains <- 3
+#nthin <- 5
+#niter <- 100000
+#nburn <- 25000
+
+
+Sys.time()
+
+set.seed(092323)
+
+hglmm_m3_damDen_Veg <- jags(data = hglmm_damDen_m3_data_list,
+                   inits = hglmm_damDen_m3_inits,
+                   parameters.to.save = hglmm_damDen_m3_params,
+                   model.file = "HGLMM_m3_Veg_damDensity.jags",
+                   parallel = T,
+                   n.chains = nchains,
+                   n.thin = nthin,
+                   n.iter = niter,
+                   n.burnin = nburn)
+
+
+Sys.time()
+
+#print(hurdle_damDen_m3_SW) # model with local and watershed dam density as fixed effects
+#print(hurdle_damDen_m3_SW$summary[grep("beta_", rownames(hurdle_damDen_m3_SW$summary)), ])
+#print(hurdle_damDen_m3_SW$summary[grep("zeta_", rownames(hurdle_damDen_m3_SW$summary)), ])
+
+```
+
+
+----
+
+
+DIAGNOSTICS:
+----
+
+
+```{r,echo=FALSE}
+# Extract posterior draws
+
+damDen_m3_post <- hglmm_m3_damDen_Veg$sims.list 
+```
+
+**Assess "Chain health" Rhat + ESS:**
+
+```{r,echo=FALSE} 
+# Choose only the parameters you care about
+params_m3 <- c(
+  "alpha",
+  "beta_damDen",
+  "sigma")
+
+# Gelman–Rubin convergence diagnostic
+gelman.diag(hglmm_m3_damDen_Veg$samples[, params_m3], multivariate = FALSE)
+
+# Effective sample size
+effectiveSize(hglmm_m3_damDen_Veg$samples[, params_m3])
+
+```
+
+    Rhat & Effective Sample Size:
+    
+    Rhat values look good. All near 1.00. Beta_damDen is slower to converge, but
+    still does so nicely.
+    
+    Effective sample sizes look ok for all parameters (note beta_damDen). 
+
+----
+
+**Check traceplots** for critical parameters:
+
+```{r,echo=FALSE} 
+
+par(mfrow = c(2, 2),        # 2 rows, 2 columns
+    mar = c(4, 4, 2, 1),    # smaller margins
+    cex = 0.8)              # shrink text/points a bit
+
+
+tplot_params_m3 <- c("alpha","beta_damDen","sigma","sigma_beta_stream")
+
+
+mcmc_sub_m3 <- hglmm_m3_damDen_Veg$samples[, tplot_params_m3]
+
+coda::traceplot(mcmc_sub_m3)
+```
+
+
+    Traceplots:
+    
+    Traceplots all look sufficiently "grassy," indicating sufficient chain convergence. Though
+    some weirdness with beta_damDen towards the end..?
+
+
+----
+
+Predicted log(SWA) vs observed log(SWA), conditional on SW presence
+
+Goal is 1:1 (ish)
+
+```{r,echo=FALSE} 
+par(mfrow = c(1,1),        # 2 rows, 2 columns
+    mar = c(4, 4, 2, 1),    # smaller margins
+    cex = 0.8) 
+
+# Posterior mean of predicted log(VA + 1)
+m3_mu_veg_post <- apply(hglmm_m3_damDen_Veg$sims.list$mu, 2, mean)
+
+# Observed log vegetation area
+m3_obs_logVA <- log(y_vegA + 1)
+
+# Fit regression on the log scale
+m3_fit_log <- lm(m3_obs_logVA ~ m3_mu_veg_post)
+
+m3_slope_log <- coef(m3_fit_log)[2]
+m3_R2_log    <- summary(m3_fit_log)$r.squared
+
+# Plot
+plot(m3_mu_veg_post,
+     m3_obs_logVA,
+     pch = 16,
+     col = rgb(0,0,1,0.3),
+     xlab = "Model-estimated log(VA + 1)",
+     ylab = "Observed log(VA + 1)")
+
+abline(0, 1, col = "red", lwd = 2)
+
+# Add slope and R² text
+text(x = min(m3_mu_veg_post),
+     y = max(m3_obs_logVA),
+     labels = paste0("Slope = ", round(m3_slope_log, 3)),
+     pos = 4)
+
+```
+
+----
+
+**Random effects shrinkage: **
+
+Goal is centered around 0(ish)
+
+1. beta_stream; random effect of stream on veg area; n=6
+2. beta_event; random effect of sample event on veg area; n=12
+
+```{r, echo=FALSE} 
+par(mfrow = c(2, 1),        # 2 rows, 2 columns
+    mar = c(4, 4, 2, 1),    # smaller margins
+    cex = 0.8)              # shrink text/points a bit
+
+
+boxplot(hglmm_m3_damDen_Veg$sims.list$beta_stream)
+
+boxplot(hglmm_m3_damDen_Veg$sims.list$beta_event)
+```
+
+
+----
+
+----
+
+**Posterior mean dam density effect**
+
+damDen --> vegArea (no geom.covar.)
+
+```{r,echo=FALSE}
+m3_coeffparams <- c(#"alpha",
+            "beta_damDen",
+            "sigma")
+
+m3_coef_df <- hglmm_m3_damDen_Veg$summary[m3_coeffparams, ] %>%
+  as.data.frame() %>%
+  rownames_to_column("parameter") %>%
+  select(parameter, mean, `2.5%`, `97.5%`)
+
+ggplot(m3_coef_df, aes(y = parameter, x = mean)) +
+  geom_point(size = 3) +
+  geom_errorbar(
+    aes(xmin = `2.5%`, xmax = `97.5%`),
+    width = 0.2,
+    orientation = "y"
+  ) +
+  geom_vline(xintercept = 0, color = "black", linewidth = 1) +
+  labs(
+    title = "Posterior Means and 95% Credible Intervals",
+    x = "Effect Size (log scale)",
+    y = ""
+  ) +
+  theme_bw(base_size = 14)
+```
+
+
+```{r,echo=FALSE}
+summary(hglmm_m3_damDen_Veg$sims.list$beta_damDen)
+
+exp(mean(hglmm_m3_damDen_Veg$sims.list$beta_damDen))
+```
+
+    Without geomorphic covariates, dam presence corresponds with a ~ 12-14% increase in surface water area. Again, lots of variation, and notable overlap of 0.
+
+
+----
+
+**Prior-posterior overlap:**
+
+```{r,echo=FALSE}
+par(mfrow = c(2, 2),        # 2 rows, 2 columns
+    mar = c(4, 4, 2, 1),    # smaller margins
+    cex = 0.8) 
+
+damDen_alpha_post_m3 <- hglmm_m3_damDen_Veg$sims.list$alpha
+damDen_beta_post_m3  <- hglmm_m3_damDen_Veg$sims.list$beta_damDen
+damDen_sigBetaStream_post_m3 <- hglmm_m3_damDen_Veg$sims.list$sigma_beta_stream
+
+damDenMod_m3_n <- length(damDen_alpha_post_m3)
+
+damDen_alpha_prior_m3 <- rnorm(damDenMod_m3_n, 0, sqrt(1/0.04))
+damDen_beta_prior_m3  <- rnorm(damDenMod_m3_n, 0, sqrt(1/0.04))
+damDen_sigBetaStream_prior_m3 <- pmax(rnorm(damDenMod_m3_n, 0, 1), 0)
+
+
+# Plot overlap:
+
+#plot_prior_post <- function(prior, post, name) {
+  
+#  df <- tibble(
+#    value = c(prior, post),
+#    dist  = rep(c("Prior", "Posterior"), each = length(prior))
+#  )
+  
+#  ggplot(df, aes(x = value, fill = dist)) +
+#    geom_density(alpha = 0.4) +
+#    scale_fill_manual(values = c("gray60", "steelblue")) +
+#    labs(
+#      title = paste("Prior vs Posterior for", name),
+#      x = name,
+#      y = "Density"
+#    ) +
+#    theme_minimal(base_size = 14)
+#}
+
+plot_prior_post(damDen_alpha_prior_m3, damDen_alpha_post_m3, "alpha_m3")
+plot_prior_post(damDen_beta_prior_m3, damDen_beta_post_m3, "beta_damDen_m3")
+plot_prior_post(damDen_sigBetaStream_prior_m3, damDen_sigBetaStream_post_m3, "sigma_beta_stream_m3")
+```
+
+
+    PPOs still look pretty good.
+
+----
+
+**Change in SWA across damDensity by stream and sampleEvent**
+
+```{r,echo=FALSE}
+
+m3_dam_seq <- seq(min(aoi_HurdleData$dam_km),
+               max(aoi_HurdleData$dam_km),
+               length.out = 50)
+
+# build PDP grid
+m3_pdp_stream <- map_dfr(1:n_stream, function(j) {
+
+  # posterior draws for this stream
+  alpha_j <- damDen_m3_post$alpha
+  beta_j  <- damDen_m3_post$beta_damDen + damDen_m3_post$beta_stream[, j]
+  eta_j   <- damDen_m3_post$eta_stream[, j]
+
+  map_dfr(m3_dam_seq, function(d) {
+
+    mu_draws <- alpha_j + beta_j * d + eta_j
+    va_draws <- exp(mu_draws) - 1
+
+    tibble(
+      stream = j,
+      damDen = d,
+      SWA_med = median(va_draws),
+      SWA_lo  = quantile(va_draws, 0.025),
+      SWA_hi  = quantile(va_draws, 0.975)
+    )
+  })
+})
+
+stream_lookup <- aoi_HurdleData %>%
+  distinct(stream, watershed) %>%
+  arrange(stream)
+
+m3_pdp_stream <- m3_pdp_stream %>%
+  left_join(stream_lookup, by = "stream")
+
+
+
+# plot
+ggplot(m3_pdp_stream, aes(x = watershed, y = SWA_med, color = damDen)) +
+  geom_point(size = 3, alpha = 0.8) +
+  scale_color_viridis_c(option = "plasma") +
+  scale_y_continuous(labels = scales::comma) +
+  labs(
+    title = "Partial Dependence of Vegetation Area on Stream and Dam Density",
+    x = "Stream",
+    y = "Predicted VegArea (m²)",
+    color = "Dam Density"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+
+###############################################################
+################################################################
+
+# build PDP grid
+m3_pdp_event <- map_dfr(1:n_event, function(j) {
+
+  # posterior draws for this stream
+  alpha_j <- damDen_m3_post$alpha
+  beta_j  <- damDen_m3_post$beta_damDen + damDen_m3_post$beta_event[, j]
+  eta_j   <- damDen_m3_post$eta_event[, j]
+
+  map_dfr(m3_dam_seq, function(d) {
+
+    mu_draws <- alpha_j + beta_j * d + eta_j
+    va_draws <- exp(mu_draws) - 1
+
+    tibble(
+      event = j,
+      damDen = d,
+      SWA_med = median(va_draws),
+      SWA_lo  = quantile(va_draws, 0.025),
+      SWA_hi  = quantile(va_draws, 0.975)
+    )
+  })
+})
+
+event_year_lookup <- tibble(
+  event = 1:12,
+  event_label = c(
+    "2019_Aug_1","2019_Sep_1","2019_Aug_2","2019_Sep_2",
+    "2021_Aug_1","2021_Sep_1","2021_Aug_2","2021_Sep_2",
+    "2023_Aug_1","2023_Sep_1","2023_Aug_2","2023_Sep_2"
+  )
+)
+
+
+m3_pdp_event_named <- m3_pdp_event %>%
+  left_join(event_year_lookup, by = "event")
+
+
+
+# plot
+ggplot(m3_pdp_event_named, aes(x = event_label, y = SWA_med, color = damDen)) +
+  geom_point(size = 3, alpha = 0.8) +
+  scale_color_viridis_c(option = "plasma") +
+  scale_y_continuous(labels = scales::comma) +
+  labs(
+    title = "Partial Dependence of Vegetation Area on Sample Event and Dam Density",
+    x = "Sample Event",
+    y = "Predicted VegArea (m²)",
+    color = "Dam Density"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+
+```
+
+
+----
+
+----
+
+----
+
+----
+
+----
+
+
+
+**MODEL 4: SW ~  damDensity + Geom.Covar.**
+
+```{r,echo=FALSE}
+#library(jagsUI)
+
+    sink("HGLMM_hurdle_damDensity_m4.jags")
+    
+    cat("
+    model{
+      # NEED priors and hyperpriors first so that downstream nodes can be estimated
+      
+      ##########################################################################
+      
+      # HYPERPRIORS FOR SW PRESENCE (1/2 Normal on SDs):
+    
+      sigma_zeta_stream  ~ dnorm(0,1) T(0,)
+      tau_zeta_stream    <- pow(sigma_zeta_stream, -2)
+    
+      sigma_zeta_year    ~ dnorm(0,1) T(0,)
+      tau_zeta_year      <- pow(sigma_zeta_year, -2)
+    
+      sigma_zeta_event   ~ dnorm(0,1) T(0,)
+      tau_zeta_event     <- pow(sigma_zeta_event, -2)
+    
+      sigma_iota_stream  ~ dnorm(0,1) T(0,)
+      tau_iota_stream    <- pow(sigma_iota_stream, -2)
+    
+      sigma_iota_event   ~ dnorm(0,1) T(0,)
+      tau_iota_event     <- pow(sigma_iota_event, -2)
+    
+      sigma_iota_cluster ~ dnorm(0,1) T(0,)
+      tau_iota_cluster   <- pow(sigma_iota_cluster, -2)
+    
+      ##########################################################################
+      # HYPERPRIORS FOR SW AMOUNT (1/2 Normal on SDs):
+    
+      sigma              ~ dnorm(0,1) T(0,)
+      tau                <- pow(sigma, -2)
+    
+      sigma_beta_stream  ~ dnorm(0, 4) T(0,)
+      tau_beta_stream    <- pow(sigma_beta_stream, -2)
+    
+      sigma_beta_year    ~ dnorm(0, 4) T(0,)
+      tau_beta_year      <- pow(sigma_beta_year, -2)
+    
+      sigma_beta_event   ~ dnorm(0, 4) T(0,)
+      tau_beta_event     <- pow(sigma_beta_event, -2)
+    
+      sigma_eta_stream   ~ dnorm(0, 1) T(0,)
+      tau_eta_stream     <- pow(sigma_eta_stream, -2)
+    
+      sigma_eta_event    ~ dnorm(0, 1) T(0,)
+      tau_eta_event      <- pow(sigma_eta_event, -2)
+    
+      sigma_eta_cluster  ~ dnorm(0, 1) T(0,)
+      tau_eta_cluster    <- pow(sigma_eta_cluster, -2)
+    
+      ##########################################################################
+      # FIXED EFFECT PRIORS:
+    
+      # Presence/absence:
+      epsilon ~ dnorm(0,0.04)
+      zeta_damDen ~ dnorm(0,0.04)
+      zeta_incis ~ dnorm(0,0.04)
+      zeta_RIPA ~ dnorm(0,0.04)
+      zeta_UDA ~ dnorm(0,0.04)
+    
+      # Amount:
+      alpha ~ dnorm(0,0.04)
+      beta_damDen ~ dnorm(0,0.04)
+      beta_incis ~ dnorm(0,0.04)
+      beta_RIPA ~ dnorm(0,0.04)
+      beta_UDA ~ dnorm(0,0.04)
+    
+      ##########################################################################
+      # RANDOM EFFECT PRIORS FOR SW PRESENCE:
+    
+      for(j in 1:n_stream){
+        zeta_stream[j] ~ dnorm(0, tau_zeta_stream)
+        iota_stream[j] ~ dnorm(0, tau_iota_stream)
+      }
+    
+      for(yr in 1:n_year){
+        zeta_year[yr] ~ dnorm(0, tau_zeta_year)
+      }
+    
+      for(k in 1:n_event){
+        zeta_event[k] ~ dnorm(0, tau_zeta_event)
+        iota_event[k] ~ dnorm(0, tau_iota_event)
+      }
+    
+      for(c in 1:n_cluster){
+        iota_cluster[c] ~ dnorm(0, tau_iota_cluster)
+      }
+    
+      ##########################################################################
+      # RANDOM EFFECT PRIORS FOR SW AMOUNT:
+    
+      for(j in 1:n_stream){
+        beta_stream[j] ~ dnorm(0, tau_beta_stream)
+        eta_stream[j]  ~ dnorm(0, tau_eta_stream)
+      }
+    
+      for(yr in 1:n_year){
+        beta_year[yr] ~ dnorm(0, tau_beta_year)
+      }
+    
+      for(k in 1:n_event){
+        beta_event[k] ~ dnorm(beta_year[event_year[k]], tau_beta_event)
+        eta_event[k]  ~ dnorm(0, tau_eta_event)
+      }
+    
+      for(c in 1:n_cluster){
+        eta_cluster[c] ~ dnorm(0, tau_eta_cluster)
+      }
+    
+      ##########################################################################
+      # DETECTION PRIORS:
+      
+      for(k in 1:n_event){
+      p_TP[k] ~ dnorm(0.76, pow(0.16,-2)) T(0,1)   # empirically derived recall
+      p_FP[k] ~ dnorm(0.01, pow(0.005,-2)) T(0,1)  # empirically derived FPR
+      }
+      
+      ##########################################################################
+      # MAIN LOOP: PRESENCE, DETECTION, AMOUNT
+    
+      for(i in 1:N){
+    
+        # Presence/absence:
+        z[i] ~ dbern(psi[i])
+    
+        logit(psi[i]) <- epsilon
+                         + (zeta_damDen
+                            + zeta_stream[stream[i]]
+                            + zeta_year[year[i]]
+                            + zeta_event[event[i]]) * damDen[i]
+                         + zeta_incis * incis[i]
+                         + zeta_RIPA * RIPA[i]
+                         + zeta_UDA * UDA[i]
+                         + iota_stream[stream[i]]
+                         + iota_event[event[i]]
+                         + iota_cluster[cluster[i]]
+    
+        # Detection:
+        p_eff[i] <- z[i] * p_TP[event[i]] + (1-z[i]) * p_FP[event[i]]
+        y[i]     ~ dbern(p_eff[i])
+    
+        # Amount:
+        y2[i] ~ dnorm(mu[i], tau_eff[i])
+    
+        mu[i] <- z[i] *
+                  (alpha
+                    + (beta_damDen
+                      + beta_stream[stream[i]]
+                      + beta_year[year[i]]
+                      + beta_event[event[i]]) * damDen[i]
+                    + beta_incis * incis[i] 
+                    + beta_RIPA * RIPA[i]
+                    + beta_UDA * UDA[i]
+                    + eta_stream[stream[i]]
+                    + eta_event[event[i]]
+                    + eta_cluster[cluster[i]])
+    
+        tau_eff[i] <- z[i] * tau + (1 - z[i]) * 100
+      }
+    
+    }
+    ", fill = TRUE)
+    
+    sink()
+```   
+    
+
+```{r,echo=FALSE}
+hurdle_damDen_m4_data_list <- list(
+  N = N,
+  y = y,
+  y2 = y2,
+  stream = stream,
+  year = year,
+  event = event,
+  cluster = cluster,
+  damDen = damDen,
+  incis = as.numeric(scale(1-(aoi_HurdleData$TO/90))), # Channel Incision
+  RIPA = as.numeric(scale(aoi_HurdleData$riparian_area_m2)),
+  UDA = as.numeric(scale(aoi_HurdleData$catchment_km2)),
+  n_stream = n_stream,
+  n_year = n_year,
+  n_event = n_event,
+  n_cluster = n_cluster,
+  event_year = event_year_3_4
+)
+
+hurdle_damDen_m4_inits <- function(){
+  list(
+    alpha        = rnorm(1, 0, 1),
+    epsilon      = rnorm(1, 0, 1),
+
+    sigma        = runif(1, 0.1, 2),
+    sigma_zeta_stream  = runif(1, 0.1, 2),
+    sigma_zeta_year    = runif(1, 0.1, 2),
+    sigma_zeta_event   = runif(1, 0.1, 2),
+    sigma_iota_stream  = runif(1, 0.1, 2),
+    sigma_iota_event   = runif(1, 0.1, 2),
+    sigma_iota_cluster = runif(1, 0.1, 2),
+
+    sigma_beta_stream  = runif(1, 0.1, 2),
+    sigma_beta_year    = runif(1, 0.1, 2),
+    sigma_beta_event   = runif(1, 0.1, 2),
+    sigma_eta_stream   = runif(1, 0.1, 2),
+    sigma_eta_event    = runif(1, 0.1, 2),
+    sigma_eta_cluster  = runif(1, 0.1, 2)
+  )
+}
+
+hurdle_damDen_m4_params <- c(
+  "psi",
+  "mu",
+  "epsilon",
+  "alpha",
+  "zeta_damDen",
+  "zeta_incis",
+  "zeta_RIPA",
+  "zeta_UDA",
+  "zeta_stream",
+  "zeta_year",
+  "zeta_event",
+  "iota_stream",
+  "iota_event",
+  "iota_cluster",
+  "beta_damDen",
+  "beta_incis",
+  "beta_RIPA",
+  "beta_UDA",
+  "beta_stream",
+  "beta_year",
+  "beta_event",
+  "eta_stream",
+  "eta_event",
+  "eta_cluster",
+  "sigma",
+  "sigma_zeta_stream",
+  "sigma_zeta_year",
+  "sigma_zeta_event",
+  "sigma_iota_stream",
+  "sigma_iota_event",
+  "sigma_iota_cluster",
+  "sigma_beta_stream",
+  "sigma_beta_year",
+  "sigma_beta_event",
+  "sigma_eta_stream",
+  "sigma_eta_event",
+  "sigma_eta_cluster",
+  "p_TP",
+  "p_FP",
+  "z",
+  "tau_eff"
+)
+
+#nchains <- 3
+#nthin <- 5
+#niter <- 100000
+#nburn <- 25000
+
+
+Sys.time()
+
+hurdle_damDen_m4_SW <- jags(data = hurdle_damDen_m4_data_list,
+                   inits = hurdle_damDen_m4_inits,
+                   parameters.to.save = hurdle_damDen_m4_params,
+                   model.file = "HGLMM_hurdle_damDensity_m4.jags",
+                   parallel = T,
+                   n.chains = nchains,
+                   n.thin = nthin,
+                   n.iter = niter,
+                   n.burnin = nburn)
+
+
+Sys.time()
+
+#print(hurdle_damPres_SW) # model with local and watershed dam density as fixed effects
+#print(hurdle_damPres_SW$summary[grep("beta_", rownames(hurdle_damPres_SW$summary)), ])
+#print(hurdle_damPres_SW$summary[grep("zeta_", rownames(hurdle_damPres_SW$summary)), ])
+
+```
+
+
+----
+
+
+DIAGNOSTICS:
+----
+
+
+```{r,echo=FALSE}
+# Extract posterior draws
+
+damDen_m4_post <- hurdle_damDen_m4_SW$sims.list 
+```
+
+**Assess "Chain health" Rhat + ESS:**
+
+```{r,echo=FALSE} 
+# Choose only the parameters you care about
+params_m4 <- c(
+  "epsilon",
+  "alpha",
+  "zeta_damDen",
+  "beta_damDen",
+  "zeta_incis",
+  "beta_incis",
+  "zeta_RIPA",
+  "beta_RIPA",
+  "zeta_UDA",
+  "beta_UDA",
+  "sigma",
+  "sigma_zeta_stream",
+  "sigma_iota_cluster",
+  "p_TP[1]",
+  "p_FP[1]")
+
+# Gelman–Rubin convergence diagnostic
+gelman.diag(hurdle_damDen_m4_SW$samples[, params_m4], multivariate = FALSE)
+
+# Effective sample size
+effectiveSize(hurdle_damDen_m4_SW$samples[, params_m4])
+
+```
+
+    Rhat & Effective Sample Size:
+    
+    Solid. Rhats near 1.0 (1.03-1.05 is fine); ESS all in the thousands. 
+    beta_damDen still the hardest to estimate
+
+
+----
+
+**Check traceplots** for critical parameters:
+
+```{r,echo=FALSE} 
+
+par(mfrow = c(2, 2),        # 2 rows, 2 columns
+    mar = c(4, 4, 2, 1),    # smaller margins
+    cex = 0.8)              # shrink text/points a bit
+
+
+tplot_params_m4 <- c("alpha","beta_damDen","zeta_damDen", "sigma","sigma_zeta_stream","sigma_beta_stream")
+
+
+mcmc_sub_m4 <- hurdle_damDen_m4_SW$samples[, tplot_params_m4]
+
+coda::traceplot(mcmc_sub_m4)
+```
+
+
+    Traceplots all look good, again see beta_damDen. 
+
+
+----
+
+**Posterior predictive plots:**
+
+Predicted Psi vs observed SW presence
+
+```{r,echo=FALSE} 
+par(mfrow = c(1,1),        # 2 rows, 2 columns
+    mar = c(4, 4, 2, 1),    # smaller margins
+    cex = 0.8)              # shrink text/points a bit
+
+# Posterior mean psi
+psi_post_m4 <- apply(hurdle_damDen_m4_SW$sims.list$psi, 2, mean)
+
+# Compare to observed y
+plot(psi_post_m4, y, pch=16, col=rgb(0,0,0,0.2))
+
+
+```
+
+----
+
+Predicted SW vs observed SW
+
+Goal is 1:1 (ish)
+
+```{r,echo=FALSE} 
+mu_post_m4 <- apply(hurdle_damDen_m4_SW$sims.list$mu, 2, mean)
+
+plot(mu_post_m4[y==1], y2[y==1], pch=16, col=rgb(0,0,1,0.3))
+abline(0,1,col="red")
+
+
+```
+
+----
+
+**Random effects shrinkage: **
+
+Goal is centered around 0(ish)
+
+1. zeta_stream; random effect of stream on sw presence
+2. beta_stream; random effect of stream on sw amount
+3. zeta_event; random effect of sample event on sw presence
+4. beta_event; random effect of sample event on sw amount
+
+```{r, echo=FALSE} 
+par(mfrow = c(2, 2),        # 2 rows, 2 columns
+    mar = c(4, 4, 2, 1),    # smaller margins
+    cex = 0.8)              # shrink text/points a bit
+
+
+boxplot(hurdle_damDen_m4_SW$sims.list$zeta_stream)
+boxplot(hurdle_damDen_m4_SW$sims.list$beta_stream)
+boxplot(hurdle_damDen_m4_SW$sims.list$zeta_event)
+boxplot(hurdle_damDen_m4_SW$sims.list$beta_event)
+```
+
+
+----
+
+----
+
+
+**Posterior mean dam effects:**
+
+damDen --> swPres
+
+```{r,echo=FALSE}
+summary(hurdle_damDen_m4_SW$sims.list$zeta_damDen)
+
+exp(mean(hurdle_damDen_m4_SW$sims.list$zeta_damDen))
+```
+
+    When we account for geomorphic context, a 1 std dev. increase in dam density corresponds with an estimated 3% increase in the odds of surface water presence
+    
+    + 1 sd of damDensity ~= + 3.14 dams/km
+    
+    Effect = NEGLIGIBLE
+
+----
+
+damDen --> swAmount
+
+```{r,echo=FALSE}
+summary(hurdle_damDen_m4_SW$sims.list$beta_damDen)
+
+exp(mean(hurdle_damDen_m4_SW$sims.list$beta_damDen))
+```
+
+    When we account for geomorhpic context, a 1 std dev. increase in dam density corresponds with a ~ 15% increase in surface water area (conditional on SW presence).
+    
+    Again - notable overlap of 0 for ALL global parameter estimates, due to massive variation across landscape/time.
+
+
+----
+
+**Prior-posterior overlap:**
+
+```{r,echo=FALSE}
+par(mfrow = c(2, 2),        # 2 rows, 2 columns
+    mar = c(4, 4, 2, 1),    # smaller margins
+    cex = 0.8) 
+
+damDen_alpha_m4_post <- hurdle_damDen_m4_SW$sims.list$alpha
+damDen_beta_m4_post  <- hurdle_damDen_m4_SW$sims.list$beta_damDen
+damDen_zeta_m4_post  <- hurdle_damDen_m4_SW$sims.list$zeta_damDen
+damDen_sigBetaStream_m4_post <- hurdle_damDen_m4_SW$sims.list$sigma_beta_stream
+
+damDenMod_m4_n <- length(damDen_alpha_m4_post)
+
+damDen_alpha_m4_prior <- rnorm(damDenMod_m4_n, 0, sqrt(1/0.04))
+damDen_beta_m4_prior  <- rnorm(damDenMod_m4_n, 0, sqrt(1/0.04))
+damDen_zeta_m4_prior  <- rnorm(damDenMod_m4_n, 0, sqrt(1/0.04))
+damDen_sigBetaStream_m4_prior <- pmax(rnorm(damDenMod_m4_n, 0, 1), 0)
+
+
+# Plot overlap:
+
+#plot_prior_post <- function(prior, post, name) {
+  
+#  df <- tibble(
+#    value = c(prior, post),
+#    dist  = rep(c("Prior", "Posterior"), each = length(prior))
+#  )
+  
+#  ggplot(df, aes(x = value, fill = dist)) +
+#    geom_density(alpha = 0.4) +
+#    scale_fill_manual(values = c("gray60", "steelblue")) +
+#    labs(
+#      title = paste("Prior vs Posterior for", name),
+#      x = name,
+#      y = "Density"
+#    ) +
+#    theme_minimal(base_size = 14)
+#}
+
+plot_prior_post(damDen_alpha_m4_prior, damDen_alpha_m4_post, "alpha_m4")
+plot_prior_post(damDen_beta_m4_prior, damDen_beta_m4_post, "beta_damDen_m4")
+plot_prior_post(damDen_zeta_m4_prior, damDen_zeta_m4_post, "zeta_damDen_m4")
+plot_prior_post(damDen_sigBetaStream_m4_prior, damDen_sigBetaStream_m4_post, "sigma_beta_stream_m4")
+```
+
+    PPOs still look good pretty good.
+
+----
+
+**Marginal effect** of dam Density on surface water presence, given geomorphic context
+
+**Note** there's a small but negligble positive effect of a 1 SD increase in DamDensity on surface water presence. However, higher dam densities do increase probability of SW presence more notably (empirical range of dam/km is up to +4 standard dev. from mean; 4*0.13 = 0.52 upwards of 52% increase in SWA at highest damDensity) 
+
+```{r,echo=FALSE}
+# Build a grid of raw geomorphic covariate values
+damDen_m4_geom_grid <- tibble(
+  TO_raw = seq(min(aoi_HurdleData$TO),
+               max(aoi_HurdleData$TO), length.out = 50),
+
+  incis_raw = 1 - (TO_raw / 90),   # raw incision scale
+
+  RIPA_raw = seq(min(aoi_HurdleData$riparian_area_m2),
+                 max(aoi_HurdleData$riparian_area_m2), length.out = 50),
+
+  UDA_raw  = seq(min(aoi_HurdleData$catchment_km2),
+                 max(aoi_HurdleData$catchment_km2), length.out = 50)
+) %>%
+  # Convert raw → standardized (to match model scale)
+  mutate(
+    incis = as.numeric(scale(incis_raw)),
+    RIPA  = as.numeric(scale(RIPA_raw)),
+    UDA   = as.numeric(scale(UDA_raw))
+  )
+
+# Make dam density sequence
+damDen_m4_seq <- seq(min(aoi_HurdleData$dam_km),max(aoi_HurdleData$dam_km),length.out=10)
+
+# Compute surface water across dam density sequence
+damDen_m4_compute_psi <- function(damDen_val, geom_grid, damDen_post) {
+
+  eps <- mean(damDen_post$epsilon)
+  zd  <- mean(damDen_post$zeta_damDen)
+  zi  <- mean(damDen_post$zeta_incis)
+  zr  <- mean(damDen_post$zeta_RIPA)
+  zu  <- mean(damDen_post$zeta_UDA)
+
+  geom_grid %>%
+    mutate(
+      psi = plogis(
+        eps +
+        zd * damDen_val +
+        zi * incis +      # standardized incision
+        zr * RIPA +       # standardized RIPA
+        zu * UDA          # standardized UDA
+      ),
+      damDen = damDen_val
+    )
+}
+
+
+```
+
+```{r,echo=FALSE}
+damDen_m4_psi_df <- map_df(damDen_m4_seq,
+                        ~ damDen_m4_compute_psi(.x,
+                                             damDen_m4_geom_grid,
+                                             damDen_m4_post))
+```
+
+```{r,echo=FALSE}
+ggplot(damDen_m4_psi_df, aes(x = incis_raw, y = psi, color = damDen)) +
+  geom_point() +
+  scale_color_viridis_c(option = "plasma") +
+  labs(
+    title = "Marginal Effect of Dam Density on Surface Water Presence",
+    subtitle = "Predicted probability of water presence (psi) across raw incision values",
+    x = "Channel Incision (raw scale: 1 - TO/90)",
+    y = "Probability of Surface Water",
+    color = "Dam Density (dams/km)"
+  ) +
+  theme_minimal(base_size = 14)
+
+```
+
+```{r,echo=FALSE}
+ggplot(damDen_m4_psi_df, aes(x = RIPA_raw, y = psi, color = damDen)) +
+  geom_point() +
+  scale_color_viridis_c(option="plasma") +
+  labs(
+    title = "Marginal Effect of Dam Density on Surface Water Presence",
+    subtitle = "Predicted probability of water (psi) across raw riparian area (m^2)",
+    x = "Riparian Area (m^2)",
+    y = "Probability of Surface Water",
+    color = "Dam Density (dams/km)"
+  ) +
+  theme_minimal(base_size = 14)
+```
+
+```{r,echo=FALSE}
+ggplot(damDen_m4_psi_df, aes(x = UDA_raw, y = psi, color = damDen)) +
+  geom_point() +
+  scale_color_viridis_c(option="plasma") +
+  labs(
+    title = "Marginal Effect of Dam Density on Surface Water Presence",
+    subtitle = "Predicted probability of water (psi) across raw upstream drainage area (km^2)",
+    x = "Upstream Drainage Area (km^2)",
+    y = "Probability of Surface Water",
+    color = "Dam Density (dams/km)"
+  ) +
+  theme_minimal(base_size = 14)
+
+
+```
+
+----
+
+**Partial dependence plots**
+
+Constrain PDP to empirical ranges for SWA and target covariates
+
+```{r,echo=FALSE}
+library(tidyverse)
+library(scales)
+
+# Raw covariates
+incis_m4_raw <- 1 - aoi_HurdleData$TO/90
+RIPA_m4_raw  <- aoi_HurdleData$riparian_area_m2
+UDA_m4_raw   <- aoi_HurdleData$catchment_km2
+#damDen <- aoi_HurdleData$dam_km_std
+damDen_m4_raw <- aoi_HurdleData$dam_km
+damDen_m4_mean_raw <- mean(damDen_m4_raw)
+damDen_m4_sd_raw   <- sd(damDen_m4_raw)
+
+logSWA_m4_mean <- mean(aoi_HurdleData$logSWA)
+logSWA_m4_sd   <- sd(aoi_HurdleData$logSWA)
+
+# Standardization stats
+incis_m4_mean_raw <- mean(incis_m4_raw)
+incis_m4_sd_raw   <- sd(incis_m4_raw)
+
+RIPA_m4_mean_raw  <- mean(RIPA_m4_raw)
+RIPA_m4_sd_raw    <- sd(RIPA_m4_raw)
+
+UDA_m4_mean_raw   <- mean(UDA_m4_raw)
+UDA_m4_sd_raw     <- sd(UDA_m4_raw)
+
+
+##############################3
+
+# Helper Functions to Compute SWA from posterior draws
+compute_swa_draws_damDen <- function(incis, RIPA, UDA, post, damDen_val) {
+  n_draws <- length(post$alpha)
+  swa_mat <- matrix(NA_real_, nrow = length(incis), ncol = n_draws)
+
+  for (j in seq_len(n_draws)) {
+    lp <- post$alpha[j] +
+          post$beta_incis[j] * incis +
+          post$beta_RIPA[j]  * RIPA +
+          post$beta_UDA[j]   * UDA +
+          post$beta_damDen[j] * damDen_val
+
+    swa_mat[, j] <- exp(lp) - 1
+  }
+
+  swa_mat
+}
+
+summarize_swa <- function(swa_mat) {
+  tibble(
+    SWA_med = apply(swa_mat, 1, median),
+    SWA_lo  = apply(swa_mat, 1, quantile, probs = 0.025),
+    SWA_hi  = apply(swa_mat, 1, quantile, probs = 0.975)
+  )
+}
+
+
+
+
+#########################################
+
+# PDP Builder:
+
+build_pdp_damDen <- function(focal_raw, focal_name,
+                      incis_raw, RIPA_raw, UDA_raw,
+                      post,
+                      incis_mean_raw, incis_sd_raw,
+                      RIPA_mean_raw, RIPA_sd_raw,
+                      UDA_mean_raw, UDA_sd_raw,
+                      damDen_raw) {
+
+  # Sequence only across empirical range
+  focal_seq <- seq(min(focal_raw), max(focal_raw), length.out = 200)
+
+  # Conditional medians of other covariates
+  incis_med <- median(incis_raw)
+  RIPA_med  <- median(RIPA_raw)
+  UDA_med   <- median(UDA_raw)
+  
+  # Empirical dam density range (standardized)
+  damDen_seq <- seq(min(damDen_raw), max(damDen_raw), length.out = 10)
+
+  # Build grid (200 rows)
+  grid <- tibble(
+    focal_raw = focal_seq,
+    incis_raw = if (focal_name == "incis") focal_seq else incis_med,
+    RIPA_raw  = if (focal_name == "RIPA")  focal_seq else RIPA_med,
+    UDA_raw   = if (focal_name == "UDA")   focal_seq else UDA_med
+  ) %>%
+    mutate(
+      incis = (incis_raw - incis_mean_raw) / incis_sd_raw,
+      RIPA  = (RIPA_raw  - RIPA_mean_raw)  / RIPA_sd_raw,
+      UDA   = (UDA_raw   - UDA_mean_raw)   / UDA_sd_raw
+    )
+  # Compute PDP curves for each dam density value
+  pdp_list <- map(damDen_seq, function(dd) {
+    swa_mat <- compute_swa_draws_damDen(grid$incis, grid$RIPA, grid$UDA, post,
+                                        (dd - damDen_m4_mean_raw) / damDen_m4_sd_raw)
+    summarize_swa(swa_mat) %>% mutate(damDen = dd)
+  })
+
+  pdp <- bind_rows(pdp_list)
+
+  # Repeat grid for each damDen value
+  grid2 <- bind_rows(replicate(length(damDen_seq), grid, simplify = FALSE))
+
+  bind_cols(grid2, pdp)
+}
+
+
+
+#####
+
+pdp_incis_m4_damDen <- build_pdp_damDen(
+  focal_raw = incis_m4_raw,
+  focal_name = "incis",
+  incis_m4_raw, RIPA_m4_raw, UDA_m4_raw,
+  damDen_m4_post,
+  incis_m4_mean_raw, incis_m4_sd_raw,
+  RIPA_m4_mean_raw, RIPA_m4_sd_raw,
+  UDA_m4_mean_raw, UDA_m4_sd_raw, damDen_m4_raw
+)
+
+pdp_RIPA_m4_damDen <- build_pdp_damDen(
+  focal_raw = RIPA_m4_raw,
+  focal_name = "RIPA",
+  incis_m4_raw, RIPA_m4_raw, UDA_m4_raw,
+  damDen_m4_post,
+  incis_m4_mean_raw, incis_m4_sd_raw,
+  RIPA_m4_mean_raw, RIPA_m4_sd_raw,
+  UDA_m4_mean_raw, UDA_m4_sd_raw, damDen_m4_raw
+)
+
+pdp_UDA_m4_damDen <- build_pdp_damDen(
+  focal_raw = UDA_m4_raw,
+  focal_name = "UDA",
+  incis_raw, RIPA_m4_raw, UDA_m4_raw,
+  damDen_m4_post,
+  incis_m4_mean_raw, incis_m4_sd_raw,
+  RIPA_m4_mean_raw, RIPA_m4_sd_raw,
+  UDA_m4_mean_raw, UDA_m4_sd_raw, damDen_m4_raw
+)
+
+
+
+##########################################3
+
+# Plot Function:
+
+plot_pdp_damDen <- function(pdp, xvar, xtitle) {
+  ggplot(pdp,
+         aes(x = .data[[xvar]], y = SWA_med,
+             color = damDen, fill = damDen)) +
+    #geom_ribbon(aes(ymin = SWA_lo, ymax = SWA_hi), alpha = 0.15, color = NA) +
+    geom_point() +
+    scale_color_viridis_c(option = "plasma") +
+    scale_fill_viridis_c(option = "plasma") +
+    scale_y_continuous(labels = comma) +
+    labs(
+      title = paste("Partial Dependence of SWA on dam density and", xtitle),
+      subtitle = "Across empirical dam density range",
+      x = xtitle,
+      y = "Predicted SWA (m^2)",
+      color = "Dam Density (dams/km)",
+      fill  = "Dam Density (dams/km)"
+    ) +
+    theme_minimal(base_size = 14)
+}
+
+
+
+###########################################3
+
+
+plot_pdp_damDen(pdp_incis_m4_damDen, "incis_raw", "Channel Incision (raw)")
+plot_pdp_damDen(pdp_RIPA_m4_damDen,  "RIPA_raw",  "Riparian Area (m²)")
+plot_pdp_damDen(pdp_UDA_m4_damDen,   "UDA_raw",   "Contributing Drainage Area (km²)")
+
+
+```
+
+----
+
+**Change in SWA across damDensity by stream and sampleEvent**
+
+```{r,echo=FALSE}
+
+m4_dam_seq <- seq(min(aoi_HurdleData$dam_km),
+               max(aoi_HurdleData$dam_km),
+               length.out = 50)
+
+# build PDP grid
+m4_pdp_stream <- map_dfr(1:n_stream, function(j) {
+
+  # posterior draws for this stream
+  alpha_j <- damDen_m4_post$alpha
+  beta_j  <- damDen_m4_post$beta_damDen + damDen_m4_post$beta_stream[, j]
+  eta_j   <- damDen_m4_post$eta_stream[, j]
+
+  map_dfr(m4_dam_seq, function(d) {
+
+    mu_draws <- alpha_j + beta_j * d + eta_j
+    swa_draws <- exp(mu_draws) - 1
+
+    tibble(
+      stream = j,
+      damDen = d,
+      SWA_med = median(swa_draws),
+      SWA_lo  = quantile(swa_draws, 0.025),
+      SWA_hi  = quantile(swa_draws, 0.975)
+    )
+  })
+})
+
+stream_lookup <- aoi_HurdleData %>%
+  distinct(stream, watershed) %>%
+  arrange(stream)
+
+m4_pdp_stream <- m4_pdp_stream %>%
+  left_join(stream_lookup, by = "stream")
+
+
+
+# plot
+ggplot(m4_pdp_stream, aes(x = watershed, y = SWA_med, color = damDen)) +
+  geom_point(size = 3, alpha = 0.8) +
+  scale_color_viridis_c(option = "plasma") +
+  labs(
+    title = "Partial Dependence of SWA on Stream and Dam Density",
+    x = "Stream",
+    y = "Predicted SWA (m²)",
+    color = "Dam Density"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+
+###############################################################
+################################################################
+
+# build PDP grid
+m4_pdp_event <- map_dfr(1:n_event, function(j) {
+
+  # posterior draws for this stream
+  alpha_j <- damDen_m4_post$alpha
+  beta_j  <- damDen_m4_post$beta_damDen + damDen_m4_post$beta_event[, j]
+  eta_j   <- damDen_m4_post$eta_event[, j]
+
+  map_dfr(m4_dam_seq, function(d) {
+
+    mu_draws <- alpha_j + beta_j * d + eta_j
+    swa_draws <- exp(mu_draws) - 1
+
+    tibble(
+      event = j,
+      damDen = d,
+      SWA_med = median(swa_draws),
+      SWA_lo  = quantile(swa_draws, 0.025),
+      SWA_hi  = quantile(swa_draws, 0.975)
+    )
+  })
+})
+
+event_year_lookup <- tibble(
+  event = 1:12,
+  event_label = c(
+    "2019_Aug_1","2019_Sep_1","2019_Aug_2","2019_Sep_2",
+    "2021_Aug_1","2021_Sep_1","2021_Aug_2","2021_Sep_2",
+    "2023_Aug_1","2023_Sep_1","2023_Aug_2","2023_Sep_2"
+  )
+)
+
+
+m4_pdp_event_named <- m4_pdp_event %>%
+  left_join(event_year_lookup, by = "event")
+
+
+
+# plot
+ggplot(m4_pdp_event_named, aes(x = event_label, y = SWA_med, color = damDen)) +
+  geom_point(size = 3, alpha = 0.8) +
+  scale_color_viridis_c(option = "plasma") +
+  labs(
+    title = "Partial Dependence of SWA on Sample Event and Dam Density",
+    x = "Sample Event",
+    y = "Predicted SWA (m²)",
+    color = "Dam Density"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
 
 
 ```
