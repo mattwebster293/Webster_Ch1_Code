@@ -1,0 +1,56 @@
+
+    model{
+      
+      # HYPERPRIORS FOR NDVI (1/2 Normal on SDs):
+    
+      sigma ~ dnorm(0,1) T(0,)
+      tau <- pow(sigma, -2)
+      
+      sigma_eta_stream ~ dnorm(0,1) T(0,)
+      tau_eta_stream <- pow(sigma_eta_stream,-2)
+      
+      sigma_eta_year ~ dnorm(0,1) T(0,)
+      tau_eta_year <- pow(sigma_eta_year,-2)
+      
+      sigma_eta_cluster ~ dnorm(0,1) T(0,)
+      tau_eta_cluster <- pow(sigma_eta_cluster,-2)
+      
+      ##########################################################################
+      # RANDOM EFFECT PRIORS:
+      
+      for(j in 1:n_stream){
+        eta_stream[j]  ~ dnorm(0, tau_eta_stream)
+      }
+      
+      for(j in 1:n_year){
+        eta_year[j] ~ dnorm(0, tau_eta_year)
+      }
+      
+      for(j in 1:n_cluster){
+        eta_cluster[j] ~ dnorm(0, tau_eta_cluster)
+      }
+      
+      ##########################################################################
+      # FIXED EFFECT PRIORS:
+      
+      alpha ~ dnorm(0.32,1)
+      beta_damPres ~ dnorm(0,0.04)
+    
+      ##########################################################################
+      
+      # MAIN LOOP: NDVI
+    
+      for(i in 1:N){
+    
+        # Amount:
+        y[i] ~ dnorm(mu[i], tau)
+    
+        mu[i] <- alpha
+                    + eta_stream[stream[i]]
+                    + eta_year[year[i]]
+                    + eta_cluster[cluster[i]]
+                    + beta_damPres * damPres[i]
+      }
+    
+    }
+    
