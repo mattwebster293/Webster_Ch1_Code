@@ -17,7 +17,7 @@
       
       ##########################################################################
       # RANDOM EFFECT PRIORS:
-      
+    
       for(j in 1:n_stream){
         eta_stream[j]  ~ dnorm(0, tau_eta_stream)
       }
@@ -33,7 +33,7 @@
       ##########################################################################
       # FIXED EFFECT PRIORS:
       
-      alpha ~ dnorm(0.32,1)
+      alpha ~ dnorm(0.32,1)          # grounded on empirical mean
       beta_damPres ~ dnorm(0,0.04)
     
       ##########################################################################

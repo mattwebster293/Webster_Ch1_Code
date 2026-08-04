@@ -12,9 +12,12 @@
       sigma_eta_year ~ dnorm(0,1) T(0,)
       tau_eta_year <- pow(sigma_eta_year,-2)
       
+      sigma_eta_cluster ~ dnorm(0,1) T(0,)
+      tau_eta_cluster <- pow(sigma_eta_cluster,-2)
+      
       ##########################################################################
       # RANDOM EFFECT PRIORS:
-      
+    
       for(j in 1:n_stream){
         eta_stream[j]  ~ dnorm(0, tau_eta_stream)
       }
@@ -23,11 +26,18 @@
         eta_year[j] ~ dnorm(0, tau_eta_year)
       }
       
+      for(j in 1:n_cluster){
+        eta_cluster[j] ~ dnorm(0, tau_eta_cluster)
+      }
+      
       ##########################################################################
       # FIXED EFFECT PRIORS:
       
-      alpha ~ dnorm(0.32,0.5)
+      alpha ~ dnorm(0.32,1)          # grounded on empirical mean
       beta_damPres ~ dnorm(0,0.04)
+      beta_incis ~ dnorm(0,0.04)
+      beta_RIPA ~ dnorm(0,0.04)
+      beta_UDA ~ dnorm(0,0.04)
     
       ##########################################################################
       
@@ -41,7 +51,11 @@
         mu[i] <- alpha
                     + eta_stream[stream[i]]
                     + eta_year[year[i]]
+                    + eta_cluster[cluster[i]]
                     + beta_damPres * damPres[i]
+                    + beta_incis * incis[i]
+                    + beta_RIPA * RIPA[i]
+                    + beta_UDA * UDA[i]
       }
     
     }
