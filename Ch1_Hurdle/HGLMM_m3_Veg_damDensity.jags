@@ -7,20 +7,11 @@
       sigma              ~ dnorm(0,1) T(0,)
       tau                <- pow(sigma, -2)
     
-      sigma_beta_stream  ~ dnorm(0, 4) T(0,)
-      tau_beta_stream    <- pow(sigma_beta_stream, -2)
-    
-      sigma_beta_year    ~ dnorm(0, 4) T(0,)
-      tau_beta_year      <- pow(sigma_beta_year, -2)
-    
-      sigma_beta_event   ~ dnorm(0, 4) T(0,)
-      tau_beta_event     <- pow(sigma_beta_event, -2)
-    
       sigma_eta_stream   ~ dnorm(0, 1) T(0,)
       tau_eta_stream     <- pow(sigma_eta_stream, -2)
-    
-      sigma_eta_event    ~ dnorm(0, 1) T(0,)
-      tau_eta_event      <- pow(sigma_eta_event, -2)
+      
+      sigma_eta_year   ~ dnorm(0, 1) T(0,)
+      tau_eta_year     <- pow(sigma_eta_year, -2)
     
       sigma_eta_cluster  ~ dnorm(0, 1) T(0,)
       tau_eta_cluster    <- pow(sigma_eta_cluster, -2)
@@ -28,25 +19,18 @@
       ##########################################################################
       # FIXED EFFECT PRIORS:
     
-      # Amount:
-      alpha ~ dnorm(0,0.04)
+      alpha ~ dnorm(9.07,0.04)  # within 5 SD of empirical mean log(VA+1)
       beta_damDen ~ dnorm(0,0.04)
     
       ##########################################################################
       # RANDOM EFFECT PRIORS FOR Veg AMOUNT:
     
       for(j in 1:n_stream){
-        beta_stream[j] ~ dnorm(0, tau_beta_stream)
         eta_stream[j]  ~ dnorm(0, tau_eta_stream)
       }
     
       for(yr in 1:n_year){
-        beta_year[yr] ~ dnorm(0, tau_beta_year)
-      }
-    
-      for(k in 1:n_event){
-        beta_event[k] ~ dnorm(beta_year[event_year[k]], tau_beta_event)
-        eta_event[k]  ~ dnorm(0, tau_eta_event)
+        eta_year[yr] ~ dnorm(0, tau_eta_year)
       }
     
       for(c in 1:n_cluster){
@@ -57,18 +41,13 @@
       # MAIN LOOP: PRESENCE, DETECTION, AMOUNT
     
       for(i in 1:N){
-    
-        # Vegetation Amount, y[i] = observed vegArea; mu[i] = global mean vegArea
         
         y[i] ~ dnorm(mu[i], tau)
     
         mu[i] <- alpha
-                    + (beta_damDen
-                      + beta_stream[stream[i]]
-                      + beta_year[year[i]]
-                      + beta_event[event[i]]) * damDen[i]
+                    + beta_damDen * damDen[i]
                     + eta_stream[stream[i]]
-                    + eta_event[event[i]]
+                    + eta_year[year[i]]
                     + eta_cluster[cluster[i]]      
       }
     }
