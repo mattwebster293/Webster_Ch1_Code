@@ -33,7 +33,7 @@
       ##########################################################################
       # FIXED EFFECT PRIORS:
       
-      alpha ~ dnorm(0.32,1)          # grounded on empirical mean
+      alpha ~ dnorm(0.32,0.04)          # within 5 SD of empirical mean NDVI
       beta_damPres ~ dnorm(0,0.04)
     
       ##########################################################################
@@ -50,6 +50,13 @@
                     + eta_year[year[i]]
                     + eta_cluster[cluster[i]]
                     + beta_damPres * damPres[i]
+                    
+      ##########################################################################
+                    
+      # Derived parameter for WAIC computation:
+
+      loglik[i] <- logdensity.norm(y[i], mu[i], tau)
+      
       }
     
     }

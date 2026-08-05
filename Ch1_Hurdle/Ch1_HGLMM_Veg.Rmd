@@ -35,6 +35,7 @@ suppressPackageStartupMessages({
   library(broom.mixed)
   library(coda)
   library(scales)
+  library(loo)
 })
 ```
 
@@ -187,7 +188,7 @@ Effect of damPresence without geomorphic covariates
 
 ```{r,echo=FALSE}
 library(jagsUI)
-```
+
     sink("HGLMM_m1_Veg_damPresence.jags")
     
     cat("
@@ -246,6 +247,13 @@ library(jagsUI)
                     + eta_stream[stream[i]]
                     + eta_year[year[i]]
                     + eta_cluster[cluster[i]]
+      
+      ##########################################################################
+                    
+      # Derived parameter for WAIC computation:
+
+      loglik[i] <- logdensity.norm(y[i], mu[i], tau)
+
       }
     
     }
@@ -253,7 +261,7 @@ library(jagsUI)
     
     sink()
 
-    
+```    
 
 ```{r,echo=FALSE}
 hglmm_m1_veg_damPres_data_list <- list(
@@ -282,7 +290,8 @@ hglmm_m1_veg_damPres_params <- c(
   "sigma",
   "sigma_eta_stream",
   "sigma_eta_year",
-  "sigma_eta_cluster"
+  "sigma_eta_cluster",
+  "loglik"
 )
 
 nchains <- 3
@@ -306,9 +315,6 @@ hglmm_m1_veg_damPres <- jags(data = hglmm_m1_veg_damPres_data_list,
 
 
 Sys.time()
-
-#print(hglmm_m1_veg_damPres) # model with local and watershed dam density as fixed effects
-#print(hglmm_m1_veg_damPres$summary[grep("beta_", rownames(hurdle_damPres_SW$summary)), ])
 
 ```
 
@@ -619,7 +625,7 @@ Effect of damPresence WITH geomorphic covariates
 
 ```{r,echo=FALSE}
 #library(jagsUI)
-```
+
     sink("HGLMM_m2_Veg_damPresence.jags")
     
     cat("
@@ -684,13 +690,19 @@ Effect of damPresence WITH geomorphic covariates
                     + eta_stream[stream[i]]
                     + eta_year[year[i]]
                     + eta_cluster[cluster[i]]
+                    
+      ##########################################################################
+                    
+      # Derived parameter for WAIC computation:
+
+      loglik[i] <- logdensity.norm(y[i], mu[i], tau)
       }
     
     }
     ", fill = TRUE)
     
     sink()
-
+```
     
 
 ```{r,echo=FALSE}
@@ -726,7 +738,8 @@ hglmm_m2_veg_damPres_params <- c(
   "sigma",
   "sigma_eta_stream",
   "sigma_eta_year",
-  "sigma_eta_cluster"
+  "sigma_eta_cluster",
+  "loglik"
 )
 
 #nchains <- 3
@@ -1051,7 +1064,7 @@ ggplot(m2_VA_df, aes(x = Dam, y = VA, fill = Dam)) +
   geom_boxplot(width = 0.15, alpha = 0.8) +
   scale_fill_manual(values = c("steelblue", "brown4")) +
   labs(
-    title = "Predicted Vegetation Area by Dam Presence (Site Medians)",
+    title = "Predicted Vegetation Area by Dam Presence",
     y = "Vegetation Area (m^2)",
     x = ""
   ) +
@@ -1277,7 +1290,7 @@ VegArea ~ Dam Density
 
 ```{r,echo=FALSE}
 #library(jagsUI)
-```
+
     sink("HGLMM_m3_Veg_damDensity.jags")
     
     cat("
@@ -1321,22 +1334,28 @@ VegArea ~ Dam Density
     
       ##########################################################################
       # MAIN LOOP: PRESENCE, DETECTION, AMOUNT
-    
+      
       for(i in 1:N){
         
         y[i] ~ dnorm(mu[i], tau)
-    
+      
         mu[i] <- alpha
                     + beta_damDen * damDen[i]
                     + eta_stream[stream[i]]
                     + eta_year[year[i]]
-                    + eta_cluster[cluster[i]]      
+                    + eta_cluster[cluster[i]]
+                    
+      ##########################################################################
+                    
+      # Derived parameter for WAIC computation:
+      
+      loglik[i] <- logdensity.norm(y[i], mu[i], tau)
       }
     }
     ", fill = TRUE)
     
     sink()
-
+```
     
 
 ```{r,echo=FALSE}
@@ -1366,7 +1385,8 @@ hglmm_damDen_m3_params <- c(
   "sigma",
   "sigma_eta_stream",
   "sigma_eta_year",
-  "sigma_eta_cluster"
+  "sigma_eta_cluster",
+  "loglik"
 )
 
 #nchains <- 3
@@ -1760,7 +1780,7 @@ ggplot(m3_pdp_year_named, aes(x = year_label, y = VA_med, color = damDen)) +
 
 ```{r,echo=FALSE}
 #library(jagsUI)
-```
+
     sink("HGLMM_m4_Veg_damDensity.jags")
     
     cat("
@@ -1822,6 +1842,12 @@ ggplot(m3_pdp_year_named, aes(x = year_label, y = VA_med, color = damDen)) +
                     + eta_stream[stream[i]]
                     + eta_year[year[i]]
                     + eta_cluster[cluster[i]]
+                    
+      ##########################################################################
+                    
+      # Derived parameter for WAIC computation:
+
+      loglik[i] <- logdensity.norm(y[i], mu[i], tau)
       }
     
     }
@@ -1829,7 +1855,7 @@ ggplot(m3_pdp_year_named, aes(x = year_label, y = VA_med, color = damDen)) +
     
     sink()
  
-    
+```    
 
 ```{r,echo=FALSE}
 hglmm_damDen_m4_data_list <- list(
@@ -1864,7 +1890,8 @@ hglmm_damDen_m4_params <- c(
   "sigma",
   "sigma_eta_stream",
   "sigma_eta_event",
-  "sigma_eta_cluster"
+  "sigma_eta_cluster",
+  "loglik"
 )
 
 #nchains <- 3
@@ -2441,3 +2468,55 @@ ggplot(m4_pdp_year_named, aes(x = year_label, y = VA_med, color = damDen)) +
 
 
 ```
+
+
+
+
+
+
+----
+
+
+
+
+
+
+
+
+**Model Comparison**
+```{r,echo=FALSE,warning=FALSE}
+
+# Extract log-likelihood matrices
+ll_m1 <- hglmm_m1_veg_damPres$sims.list$loglik
+ll_m2 <- hglmm_m2_veg_damPres$sims.list$loglik
+ll_m3 <- hglmm_m3_damDen_Veg$sims.list$loglik
+ll_m4 <- hglmm_m4_damDen_Veg$sims.list$loglik
+
+# Compute WAIC
+waic_m1 <- waic(ll_m1)
+waic_m2 <- waic(ll_m2)
+waic_m3 <- waic(ll_m3)
+waic_m4 <- waic(ll_m4)
+
+# Combine into comparison table
+waic_table <- tibble(
+  model = c("m1", "m2", "m3", "m4"),
+  WAIC  = c(waic_m1$estimates["waic", "Estimate"],
+            waic_m2$estimates["waic", "Estimate"],
+            waic_m3$estimates["waic", "Estimate"],
+            waic_m4$estimates["waic", "Estimate"])
+) %>%
+  arrange(WAIC)
+
+waic_table
+
+```
+
+    According to WAIC comparison, all 4 models perform comparably. M4 provides the
+    most complete story, as it covers dam presence/absence via the damDensity gradient
+    as well as geomorphic covariates.
+    
+    Recommendation: use M4 (VA ~ damDensity + geomorphicCovariates) for manuscript
+    results
+    
+    

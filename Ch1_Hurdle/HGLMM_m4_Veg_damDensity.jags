@@ -57,6 +57,12 @@
                     + eta_stream[stream[i]]
                     + eta_year[year[i]]
                     + eta_cluster[cluster[i]]
+                    
+      ##########################################################################
+                    
+      # Derived parameter for WAIC computation:
+
+      loglik[i] <- logdensity.norm(y[i], mu[i], tau)
       }
     
     }
