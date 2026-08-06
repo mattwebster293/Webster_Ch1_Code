@@ -144,48 +144,6 @@ For surface water models, data of interest include:
 
     - Of course there is A LOT of variation in these patterns by stream, year, and sampling event.
 
-----
-
-----
-
-
-```{r,echo=FALSE}
-aoi_HurdleData %>%
-  ggplot(aes(x = logSWA)) +
-  geom_density(fill = "steelblue", alpha = 0.4) +
-  facet_wrap(~ stream, scales = "free_y") +
-  labs(
-    title = "log-SWA distributions by stream",
-    x = "log-SWA",
-    y = "Density"
-  ) +
-  theme_minimal(base_size = 14)
-
-aoi_HurdleData %>%
-  ggplot(aes(x = logSWA)) +
-  geom_density(fill = "steelblue", alpha = 0.4) +
-  facet_wrap(~ year_id, scales = "free_y") +
-  labs(
-    title = "log-SWA distributions by Year",
-    x = "log-SWA",
-    y = "Density"
-  ) +
-  theme_minimal(base_size = 14)
-
-aoi_HurdleData %>%
-  ggplot(aes(x = logSWA)) +
-  geom_density(fill = "steelblue", alpha = 0.4) +
-  facet_wrap(~ sampleEvent_new, scales = "free_y") +
-  labs(
-    title = "log-SWA distributions by sampleEvent",
-    x = "log-SWA",
-    y = "Density"
-  ) +
-  theme_minimal(base_size = 14)
-
-
-```
-
 
 ----
 
@@ -211,9 +169,8 @@ suppressPackageStartupMessages({
 library(jagsUI)
 })
 
-```
     
-    sink("HGLMM_hurdle_damPresence_m1.jags")
+    sink("HGLMM_Hurdle_m1_SW_damPres.jags")
     
     cat("
     model{
@@ -234,6 +191,9 @@ library(jagsUI)
     
       sigma_iota_stream  ~ dnorm(0,1) T(0,)
       tau_iota_stream    <- pow(sigma_iota_stream, -2)
+      
+      sigma_iota_year    ~ dnorm(0,1) T(0,)
+      tau_iota_year      <- pow(sigma_iota_year, -2)
     
       sigma_iota_event   ~ dnorm(0,1) T(0,)
       tau_iota_event     <- pow(sigma_iota_event, -2)
@@ -258,6 +218,9 @@ library(jagsUI)
     
       sigma_eta_stream   ~ dnorm(0, 1) T(0,)
       tau_eta_stream     <- pow(sigma_eta_stream, -2)
+      
+      sigma_eta_year     ~ dnorm(0, 1) T(0,)
+      tau_eta_year       <- pow(sigma_eta_year, -2)
     
       sigma_eta_event    ~ dnorm(0, 1) T(0,)
       tau_eta_event      <- pow(sigma_eta_event, -2)
@@ -286,11 +249,12 @@ library(jagsUI)
     
       for(yr in 1:n_year){
         zeta_year[yr] ~ dnorm(0, tau_zeta_year)
+        iota_year[yr] ~ dnorm(0, tau_iota_year)
       }
     
       for(k in 1:n_event){
-        zeta_event[k] ~ dnorm(0, tau_zeta_event)
-        iota_event[k] ~ dnorm(0, tau_iota_event)
+        zeta_event[k] ~ dnorm(zeta_year[event_year[k]], tau_zeta_event)
+        iota_event[k] ~ dnorm(iota_year[event_year[k]], tau_iota_event)
       }
     
       for(c in 1:n_cluster){
@@ -307,11 +271,12 @@ library(jagsUI)
     
       for(yr in 1:n_year){
         beta_year[yr] ~ dnorm(0, tau_beta_year)
+        eta_year[yr] ~ dnorm(0, tau_eta_year)
       }
     
       for(k in 1:n_event){
         beta_event[k] ~ dnorm(beta_year[event_year[k]], tau_beta_event)
-        eta_event[k]  ~ dnorm(0, tau_eta_event)
+        eta_event[k]  ~ dnorm(eta_year[event_year[k]], tau_eta_event)
       }
     
       for(c in 1:n_cluster){
@@ -367,7 +332,7 @@ library(jagsUI)
     ", fill = TRUE)
     
     sink()
-   
+```   
     
 
 ```{r,echo=FALSE}
@@ -391,25 +356,7 @@ hurdle_damPres_m1_data_list <- list(
 )
 
 hurdle_damPres_m1_inits <- function(){
-  list(
-    alpha        = rnorm(1, 0, 1),
-    epsilon      = rnorm(1, 0, 1),
-
-    sigma        = runif(1, 0.1, 2),
-    sigma_zeta_stream  = runif(1, 0.1, 2),
-    sigma_zeta_year    = runif(1, 0.1, 2),
-    sigma_zeta_event   = runif(1, 0.1, 2),
-    sigma_iota_stream  = runif(1, 0.1, 2),
-    sigma_iota_event   = runif(1, 0.1, 2),
-    sigma_iota_cluster = runif(1, 0.1, 2),
-
-    sigma_beta_stream  = runif(1, 0.1, 2),
-    sigma_beta_year    = runif(1, 0.1, 2),
-    sigma_beta_event   = runif(1, 0.1, 2),
-    sigma_eta_stream   = runif(1, 0.1, 2),
-    sigma_eta_event    = runif(1, 0.1, 2),
-    sigma_eta_cluster  = runif(1, 0.1, 2)
-  )
+  list()
 }
 
 hurdle_damPres_m1_params <- c(
@@ -475,11 +422,6 @@ hurdle_damPres_m1_SW <- jags(data = hurdle_damPres_m1_data_list,
 
 
 Sys.time()
-
-#print(hurdle_damPres_m1_SW) # model with local and watershed dam density as fixed effects
-#print(hurdle_damPres_m1_SW$summary[grep("beta_", rownames(hurdle_damPres_m1_SW$summary)), ])
-#print(hurdle_damPres_m1_SW$summary[grep("zeta_", rownames(hurdle_damPres_m1_SW$summary)), ])
-
 ```
 
 
@@ -487,16 +429,6 @@ Sys.time()
 
 DIAGNOSTICS M1:
 ----
-
-```{r,echo=FALSE}
-# Plotting specifications from Rmarkdown.
-
-par(mfrow = c(2, 2),        # 2 rows, 2 columns
-    mar = c(4, 4, 2, 1),    # smaller margins
-    cex = 0.8)              # shrink text/points a bit
-
-```
-
 
 ```{r,echo=FALSE}
 #Extract posteriors
@@ -518,6 +450,8 @@ params_m1 <- c(
   "beta_damPres",
   "sigma",
   "sigma_zeta_stream",
+  "sigma_beta_stream",
+  "sigma_eta_cluster",
   "sigma_iota_cluster",
   "p_TP[1]",
   "p_FP[1]")
@@ -531,13 +465,11 @@ effectiveSize(hurdle_damPres_m1_SW$samples[, params_m1])
 
 
 
-    Good Rhat values, all around 1.00.
+    Good Rhat values, all around 1.00. Sigma_iota_cluster is slow to converge, this is the 
+    variance in the effect of sample cluster (pairing) on Psi. Still usable. See traceplots.
     
     Mostly high effective sample sizes. 
-    
-    Note: beta_damPres has the most trouble converging; however, Rhat near 1, 
-    and moderate ESS for beta_damPres suggest that the parameter is still 
-    reliably usable. 
+     
 
 
 ----
@@ -545,7 +477,22 @@ effectiveSize(hurdle_damPres_m1_SW$samples[, params_m1])
 **Check traceplots for critical parameters**
 
 ```{r,echo=FALSE}
-tplot_m1_params <- c("alpha","beta_damPres","zeta_damPres", "sigma","sigma_zeta_stream","sigma_beta_stream")
+par(mfrow = c(3, 4),        # 2 rows, 2 columns
+    mar = c(4, 4, 2, 1),    # smaller margins
+    cex = 0.8)              # shrink text/points a bit
+
+
+tplot_m1_params <- c("epsilon",
+  "alpha",
+  "zeta_damPres",
+  "beta_damPres",
+  "sigma",
+  "sigma_zeta_stream",
+  "sigma_beta_stream",
+  "sigma_eta_cluster",
+  "sigma_iota_cluster",
+  "p_TP[1]",
+  "p_FP[1]")
 
 
 m1_mcmc_sub <- hurdle_damPres_m1_SW$samples[, tplot_m1_params]
@@ -585,11 +532,40 @@ Predicted log(SWA) (m1_mu_post) vs detected log(SWA) (y2)
 Goal is 1:1 (ish)
 
 ```{r,echo=FALSE}
-m1_mu_post <- apply(hurdle_damPres_m1_SW$sims.list$mu, 2, mean)
+par(mfrow = c(1,1),        # 2 rows, 2 columns
+    mar = c(4, 4, 2, 1),    # smaller margins
+    cex = 0.8)  
 
-plot(m1_mu_post[y==1], y2[y==1], pch=16, col=rgb(0,0,1,0.3))
-abline(0,1,col="red")
+# Posterior mean of predicted log(VA + 1)
+m1_mu_SW_post <- apply(hurdle_damPres_m1_SW$sims.list$mu, 2, mean)
+
+# Observed log vegetation area
+m1_obs_logSW <- y2
+
+# Fit regression on the log scale
+m1_fit_log <- lm(m1_obs_logSW ~ m1_mu_SW_post)
+
+m1_slope_log <- coef(m1_fit_log)[2]
+m1_R2_log    <- summary(m1_fit_log)$r.squared
+
+# Plot
+plot(m1_mu_SW_post,
+     m1_obs_logSW,
+     pch = 16,
+     col = rgb(0,0,1,0.3),
+     xlab = "Model-estimated log(SWA + 1)",
+     ylab = "Observed log(SWA + 1)")
+
+abline(0, 1, col = "red", lwd = 2)
+
 ```
+
+Slope:
+```{r,echo=FALSE}
+m1_slope_log
+```
+
+    SLOPE = 1 is ideal. 1.007 is pretty dang close. Shows that the model is well fit to the data.
 
 ----
 
@@ -603,67 +579,33 @@ Goal is near 0(ish)
 4. beta_event; random effect of sample event on sw amount
 
 ```{r, echo=FALSE, }
-par(mfrow = c(2, 2),        # 2 rows, 2 columns
+par(mfrow = c(2,5),        # 2 rows, 2 columns
     mar = c(4, 4, 2, 1),    # smaller margins
     cex = 0.8)              # shrink text/points a bit
 
+boxplot(hurdle_damPres_m1_SW$sims.list$iota_stream,
+        main = "iota_stream")
+boxplot(hurdle_damPres_m1_SW$sims.list$eta_stream,
+        main = "eta_stream")
 boxplot(hurdle_damPres_m1_SW$sims.list$zeta_stream,
         main = "zeta_stream")
 boxplot(hurdle_damPres_m1_SW$sims.list$beta_stream,
         main = "beta_stream")
+boxplot(hurdle_damPres_m1_SW$sims.list$zeta_year,
+        main = "zeta_year")
+boxplot(hurdle_damPres_m1_SW$sims.list$beta_year,
+        main = "beta_year")
+boxplot(hurdle_damPres_m1_SW$sims.list$iota_event,
+        main = "iota_event")
+boxplot(hurdle_damPres_m1_SW$sims.list$eta_event,
+        main = "eta_event")
 boxplot(hurdle_damPres_m1_SW$sims.list$zeta_event,
         main = "zeta_event")
 boxplot(hurdle_damPres_m1_SW$sims.list$beta_event,
         main = "beta_event")
-```
 
-<!---
-Hyperpriors on stream effect: goal sd 0.1:2
-
-```{r,echo=FALSE}
-
-summary(hurdle_damPres_m1_SW$sims.list$sigma_zeta_stream)
-summary(hurdle_damPres_m1_SW$sims.list$sigma_beta_stream)
 
 ```
-
-Check detection posteriors: goal is near empirical mean recall
-
-```{r,echo=FALSE}
-summary(hurdle_damPres_m1_SW$sims.list$p_TP)
-
-summary(hurdle_damPres_m1_SW$sims.list$p_FP)
-```
-
-    TP is high and precise; FP is low and precise. This makes sense because these are based on empirical mean() and sd() recall and flase positive rates from the RF classifier (see multiprobability threshod validation).
-
-
-Check z latent states
-
-```{r,echo=FALSE}
-z_post <- apply(hurdle_damPres_m1_SW$sims.list$z, 2, mean)
-
-hist(z_post, main = "Split of posterior z")
-```
-
-    Latent z's split mostly evenly
-
-Check tau_eff behavior:
-
-```{r,echo=FALSE}
-summary(hurdle_damPres_m1_SW$sims.list$tau_eff)
-
-```
-
-    This shows that the tau_eff trick worked: 
-    
-    tau_eff[i] <- z[i] * tau + (1 - z[i]) * 100
-    
-    so when z is 1, tau_eff is reasonable. when z is 0, tau_eff is 100 and the prior distribution is basically flat
-
-Check dam effects:
---->
-
 
 ----
 
@@ -673,13 +615,57 @@ Check dam effects:
 damPres --> swPres (logistic regression)
 
 ```{r,echo=FALSE}
+m1_coeffparams <- c(#"alpha",
+            "zeta_damPres",
+            "beta_damPres",
+            "sigma")
+
+m1_coef_df <- hurdle_damPres_m1_SW$summary[m1_coeffparams, ] %>%
+  as.data.frame() %>%
+  rownames_to_column("parameter") %>%
+  select(parameter, mean, `2.5%`, `97.5%`)
+
+ggplot(m1_coef_df, aes(y = parameter, x = mean)) +
+  geom_point(size = 3) +
+  geom_errorbar(
+    aes(xmin = `2.5%`, xmax = `97.5%`),
+    width = 0.2,
+    orientation = "y"
+  ) +
+  geom_vline(xintercept = 0, color = "black", linewidth = 1) +
+  labs(
+    title = "Posterior Means and 95% Credible Intervals",
+    x = "Effect Size (log scale)",
+    y = ""
+  ) +
+  theme_bw(base_size = 14)
+```
+
+```{r,echo=FALSE}
 summary(hurdle_damPres_m1_SW$sims.list$zeta_damPres)
 
 exp(mean(hurdle_damPres_m1_SW$sims.list$zeta_damPres))
 ```
 
-    When you don't account for geomorphic conditions, dam presence corresponds to an estimated 40-50% increase in 
-    the odds of surface‑water presence.
+```{r,echo=FALSE}
+#library(tidyverse)
+#library(scales)
+par(mfrow = c(1, 1),        # 2 rows, 1 columns
+    mar = c(4, 4, 2, 1),    # smaller margins
+    cex = 0.8)  
+
+#Posterior distribution of damEffect on vegArea:
+
+hist(hurdle_damPres_m1_SW$sims.list$zeta_damPres,
+     breaks = 50,
+     col = "steelblue",
+     main = "Posterior of damPresence effect on logit(Psi)",
+     xlab = "beta_damPres")
+abline(v = mean(hurdle_damPres_m1_SW$sims.list$zeta_damPres), col = "red", lwd = 2)
+```
+
+    When you don't account for geomorphic conditions, dam presence corresponds to an 
+    estimated 40-50% increase in the odds of surface‑water presence.
     
 ----
 
@@ -692,8 +678,25 @@ summary(hurdle_damPres_m1_SW$sims.list$beta_damPres)
 exp(mean(hurdle_damPres_m1_SW$sims.list$beta_damPres))
 ```
 
-    When you don't account for geomorphic conditions, dam presence corresponds to an estimated 30-40% increase 
-    in surface water area.
+```{r,echo=FALSE}
+#library(tidyverse)
+#library(scales)
+par(mfrow = c(1, 1),        # 2 rows, 1 columns
+    mar = c(4, 4, 2, 1),    # smaller margins
+    cex = 0.8)  
+
+#Posterior distribution of damEffect on vegArea:
+
+hist(hurdle_damPres_m1_SW$sims.list$beta_damPres,
+     breaks = 50,
+     col = "steelblue",
+     main = "Posterior of damPresence effect on log(SWA)",
+     xlab = "beta_damPres")
+abline(v = mean(hurdle_damPres_m1_SW$sims.list$beta_damPres), col = "red", lwd = 2)
+```
+    
+    When you don't account for geomorphic conditions, dam presence corresponds to an 
+    estimated 30-40% increase in surface water area.
 
 
 ----
