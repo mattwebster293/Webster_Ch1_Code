@@ -918,41 +918,56 @@ Pretty much normal. No transformation needed
 
 **Check out variation in (response)~damEffect among grouping variables (stream,year,event):**
 
+
+Graphs are produced using "geom_smooth(method = "lm", formula = y ~ x)", which plots/fits a simple linear regression to the y~x scatterplot.
+
 ```{r,echo=FALSE,}
 p1 <- ggplot(aoi_HurdleData,
              aes(x = damPresence, y = logSWA, color = as.factor(stream))) +
   geom_point() +
-  geom_smooth(method = "lm", formula = y ~ x) +
+  geom_smooth(method = "lm", 
+              formula = y ~ x,
+              alpha = 0.1) +
   labs(title = "SWA ~ damPres")
 
 p2 <- ggplot(aoi_HurdleData,
              aes(x = damPresence, y = VA, color = as.factor(stream))) +
   geom_point() +
-  geom_smooth(method = "lm", formula = y ~ x) +
+  geom_smooth(method = "lm", 
+              formula = y ~ x,
+              alpha = 0.1) +
   labs(title = "VA ~ damPres")
 
 p3 <- ggplot(aoi_HurdleData,
              aes(x = damPresence, y = NDVI, color = as.factor(stream))) +
   geom_point() +
-  geom_smooth(method = "lm", formula = y ~ x) +
+  geom_smooth(method = "lm", 
+              formula = y ~ x,
+              alpha = 0.1) +
   labs(title = "NDVI ~ damPres")
 
 p4 <- ggplot(aoi_HurdleData,
              aes(x = dam_km, y = logSWA, color = as.factor(stream))) +
   geom_point() +
-  geom_smooth(method = "lm", formula = y ~ x) +
+  geom_smooth(method = "lm", 
+              formula = y ~ x,
+              alpha = 0.1) +
   labs(title = "SWA ~ damDens")
 
 p5 <- ggplot(aoi_HurdleData,
              aes(x = dam_km, y = VA, color = as.factor(stream))) +
   geom_point() +
-  geom_smooth(method = "lm", formula = y ~ x) +
+  geom_smooth(method = "lm", 
+              formula = y ~ x,
+              alpha = 0.1) +
   labs(title = "VA ~ damDens")
 
 p6 <- ggplot(aoi_HurdleData,
              aes(x = dam_km, y = NDVI, color = as.factor(stream))) +
   geom_point() +
-  geom_smooth(method = "lm", formula = y ~ x) +
+  geom_smooth(method = "lm", 
+              formula = y ~ x,
+              alpha = 0.1) +
   labs(title = "NDVI ~ damDens")
 
 
@@ -962,37 +977,49 @@ p6 <- ggplot(aoi_HurdleData,
 pa <- ggplot(aoi_HurdleData,
              aes(x = damPresence, y = logSWA, color = as.factor(year_id))) +
   geom_point() +
-  geom_smooth(method = "lm", formula = y ~ x) +
+  geom_smooth(method = "lm", 
+              formula = y ~ x,
+              alpha = 0.1) +
   labs(title = "SWA ~ damPres")
 
 pb <- ggplot(aoi_HurdleData,
              aes(x = damPresence, y = VA, color = as.factor(year_id))) +
   geom_point() +
-  geom_smooth(method = "lm", formula = y ~ x) +
+  geom_smooth(method = "lm", 
+              formula = y ~ x,
+              alpha = 0.1) +
   labs(title = "VA ~ damPres")
 
 pc <- ggplot(aoi_HurdleData,
              aes(x = damPresence, y = NDVI, color = as.factor(year_id))) +
   geom_point() +
-  geom_smooth(method = "lm", formula = y ~ x) +
+  geom_smooth(method = "lm", 
+              formula = y ~ x,
+              alpha = 0.1) +
   labs(title = "NDVI ~ damPres")
 
 pd <- ggplot(aoi_HurdleData,
              aes(x = dam_km, y = logSWA, color = as.factor(year_id))) +
   geom_point() +
-  geom_smooth(method = "lm", formula = y ~ x) +
+  geom_smooth(method = "lm", 
+              formula = y ~ x,
+              alpha = 0.1) +
   labs(title = "SWA ~ damDens")
 
 pe <- ggplot(aoi_HurdleData,
              aes(x = dam_km, y = VA, color = as.factor(year_id))) +
   geom_point() +
-  geom_smooth(method = "lm", formula = y ~ x) +
+  geom_smooth(method = "lm", 
+              formula = y ~ x,
+              alpha = 0.1) +
   labs(title = "VA ~ damDens")
 
 pf <- ggplot(aoi_HurdleData,
              aes(x = dam_km, y = NDVI, color = as.factor(year_id))) +
   geom_point() +
-  geom_smooth(method = "lm", formula = y ~ x) +
+  geom_smooth(method = "lm", 
+              formula = y ~ x,
+              alpha = 0.1) +
   labs(title = "NDVI ~ damDens")
 
 
@@ -1002,37 +1029,49 @@ pf <- ggplot(aoi_HurdleData,
 pl <- ggplot(aoi_HurdleData,
              aes(x = damPresence, y = logSWA, color = as.factor(sampleEvent_new))) +
   geom_point() +
-  geom_smooth(method = "lm", formula = y ~ x) +
+  geom_smooth(method = "lm", 
+              formula = y ~ x,
+              alpha = 0.1) +
   labs(title = "SWA ~ damPres")
 
 pm <- ggplot(aoi_HurdleData,
              aes(x = damPresence, y = VA, color = as.factor(sampleEvent_new))) +
   geom_point() +
-  geom_smooth(method = "lm", formula = y ~ x) +
+  geom_smooth(method = "lm", 
+              formula = y ~ x,
+              alpha = 0.1) +
   labs(title = "VA ~ damPres")
 
 pn <- ggplot(aoi_HurdleData,
              aes(x = damPresence, y = NDVI, color = as.factor(sampleEvent_new))) +
   geom_point() +
-  geom_smooth(method = "lm", formula = y ~ x) +
+  geom_smooth(method = "lm", 
+              formula = y ~ x,
+              alpha = 0.1) +
   labs(title = "NDVI ~ damPres")
 
 po <- ggplot(aoi_HurdleData,
              aes(x = dam_km, y = logSWA, color = as.factor(sampleEvent_new))) +
   geom_point() +
-  geom_smooth(method = "lm", formula = y ~ x) +
+  geom_smooth(method = "lm", 
+              formula = y ~ x,
+              alpha = 0.1) +
   labs(title = "SWA ~ damDens")
 
 pp <- ggplot(aoi_HurdleData,
              aes(x = dam_km, y = VA, color = as.factor(sampleEvent_new))) +
   geom_point() +
-  geom_smooth(method = "lm", formula = y ~ x) +
+  geom_smooth(method = "lm", 
+              formula = y ~ x,
+              alpha = 0.1) +
   labs(title = "VA ~ damDens")
 
 pq <- ggplot(aoi_HurdleData,
              aes(x = dam_km, y = NDVI, color = as.factor(sampleEvent_new))) +
   geom_point() +
-  geom_smooth(method = "lm", formula = y ~ x) +
+  geom_smooth(method = "lm", 
+              formula = y ~ x,
+              alpha = 0.1) +
   labs(title = "NDVI ~ damDens")
 
 #####################################################
@@ -1073,7 +1112,8 @@ pq <- ggplot(aoi_HurdleData,
 
     Variation in NDVI among group-levels suggest that random intercepts may 
     be supported, but it is unlikely that random slopes are reasonable. Inclusion
-    leads to unidentifiability.
+    leads to unidentifiability. Also suggests little to no structural difference in
+    NDVI by sample event. (No real seasonal difference in NDVI for Aug-Sep)
     
 ----    
 
