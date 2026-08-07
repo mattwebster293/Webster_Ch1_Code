@@ -236,7 +236,7 @@ library(jagsUI)
       zeta_damPres ~ dnorm(0,0.04)
     
       # Amount:
-      alpha ~ dnorm(0,0.04)
+      alpha ~ dnorm(3.57,0.04)    # SWA intercept within 5 SD of empirical mean
       beta_damPres ~ dnorm(0,0.04)
     
       ##########################################################################
@@ -355,7 +355,7 @@ hurdle_damPres_m1_data_list <- list(
   event_year = event_year_3_4
 )
 
-hurdle_damPres_m1_inits <- function(){
+hurdle_damPres_m1_inits <- function(){ # let jags figure it out.
   list()
 }
 
@@ -373,6 +373,7 @@ hurdle_damPres_m1_params <- c(
   "zeta_event",
   "iota_stream",
   "iota_event",
+  "iota_year",
   "iota_cluster",
   "beta_damPres",
   "beta_incis",
@@ -383,6 +384,7 @@ hurdle_damPres_m1_params <- c(
   "beta_event",
   "eta_stream",
   "eta_event",
+  "eta_year",
   "eta_cluster",
   "sigma",
   "sigma_zeta_stream",
@@ -391,10 +393,12 @@ hurdle_damPres_m1_params <- c(
   "sigma_iota_stream",
   "sigma_iota_event",
   "sigma_iota_cluster",
+  "sigma_iota_year",
   "sigma_beta_stream",
   "sigma_beta_year",
   "sigma_beta_event",
   "sigma_eta_stream",
+  "sigma_eta_year",
   "sigma_eta_event",
   "sigma_eta_cluster",
   "p_TP",
@@ -465,10 +469,11 @@ effectiveSize(hurdle_damPres_m1_SW$samples[, params_m1])
 
 
 
-    Good Rhat values, all around 1.00. Sigma_iota_cluster is slow to converge, this is the 
-    variance in the effect of sample cluster (pairing) on Psi. Still usable. See traceplots.
+    Good Rhat values, all around 1.00.
     
-    Mostly high effective sample sizes. 
+    Mostly high effective sample sizes.
+    
+    Important to anchor alpha_prior around the empirical mean, this helps things stabilize.
      
 
 
@@ -501,9 +506,7 @@ coda::traceplot(m1_mcmc_sub)
 ```
 
 
-    Traceplots are all mostly grassy. Again, see beta_damPres. Slow to 
-    converge; expected, given Rhat and ESS.
-
+    Traceplots are all grassy. Note, sigma_eta_cluster is slow to converge. However, chains are sufficiently overlapping, and Rhat/ESS looks acceptable.
 
 ----
 
@@ -565,7 +568,7 @@ Slope:
 m1_slope_log
 ```
 
-    SLOPE = 1 is ideal. 1.007 is pretty dang close. Shows that the model is well fit to the data.
+    SLOPE = 1 is ideal. 1.008 is pretty dang close. Shows that the model is well fit to the data.
 
 ----
 
@@ -579,7 +582,7 @@ Goal is near 0(ish)
 4. beta_event; random effect of sample event on sw amount
 
 ```{r, echo=FALSE, }
-par(mfrow = c(2,5),        # 2 rows, 2 columns
+par(mfrow = c(3,5),        # 2 rows, 2 columns
     mar = c(4, 4, 2, 1),    # smaller margins
     cex = 0.8)              # shrink text/points a bit
 
@@ -597,8 +600,10 @@ boxplot(hurdle_damPres_m1_SW$sims.list$beta_year,
         main = "beta_year")
 boxplot(hurdle_damPres_m1_SW$sims.list$iota_event,
         main = "iota_event")
+
 boxplot(hurdle_damPres_m1_SW$sims.list$eta_event,
         main = "eta_event")
+
 boxplot(hurdle_damPres_m1_SW$sims.list$zeta_event,
         main = "zeta_event")
 boxplot(hurdle_damPres_m1_SW$sims.list$beta_event,
@@ -696,7 +701,7 @@ abline(v = mean(hurdle_damPres_m1_SW$sims.list$beta_damPres), col = "red", lwd =
 ```
     
     When you don't account for geomorphic conditions, dam presence corresponds to an 
-    estimated 30-40% increase in surface water area.
+    estimated 30-35% increase in surface water area.
 
 
 ----
@@ -718,7 +723,7 @@ damPres_m1_sigBetaStream <- hurdle_damPres_m1_SW$sims.list$sigma_beta_stream
 
 damPres_m1Mod_n <- length(damPres_m1_alpha_post)
 
-damPres_m1_alpha_prior <- rnorm(damPres_m1Mod_n, 0, sqrt(1/0.04))
+damPres_m1_alpha_prior <- rnorm(damPres_m1Mod_n, 3.57, sqrt(1/0.04))
 damPres_m1_beta_prior  <- rnorm(damPres_m1Mod_n, 0, sqrt(1/0.04))
 damPres_m1_zeta_prior  <- rnorm(damPres_m1Mod_n, 0, sqrt(1/0.04))
 damPres_m1_sigBetaStream_prior <- pmax(rnorm(damPres_m1Mod_n, 0, 1), 0)
@@ -776,8 +781,8 @@ Now, include geomorphic covariates:
 
 ```{r,echo=FALSE}
 #library(jagsUI)
-```
-    sink("HGLMM_hurdle_damPresence_m2.jags")
+
+    sink("HGLMM_Hurdle_m2_SW_damPres.jags")
     
     cat("
     model{
@@ -798,6 +803,9 @@ Now, include geomorphic covariates:
     
       sigma_iota_stream  ~ dnorm(0,1) T(0,)
       tau_iota_stream    <- pow(sigma_iota_stream, -2)
+      
+      sigma_iota_year    ~ dnorm(0,1) T(0,)
+      tau_iota_year      <- pow(sigma_iota_year, -2)
     
       sigma_iota_event   ~ dnorm(0,1) T(0,)
       tau_iota_event     <- pow(sigma_iota_event, -2)
@@ -822,6 +830,9 @@ Now, include geomorphic covariates:
     
       sigma_eta_stream   ~ dnorm(0, 1) T(0,)
       tau_eta_stream     <- pow(sigma_eta_stream, -2)
+      
+      sigma_eta_year     ~ dnorm(0,1) T(0,)
+      tau_eta_year     <- pow(sigma_eta_year, -2)
     
       sigma_eta_event    ~ dnorm(0, 1) T(0,)
       tau_eta_event      <- pow(sigma_eta_event, -2)
@@ -840,7 +851,7 @@ Now, include geomorphic covariates:
       zeta_UDA ~ dnorm(0,0.04)
     
       # Amount:
-      alpha ~ dnorm(0,0.04)
+      alpha ~ dnorm(3.57,0.04)   #anchor alpha within 5 SD of empirical mean logSWA
       beta_damPres ~ dnorm(0,0.04)
       beta_incis ~ dnorm(0,0.04)
       beta_RIPA ~ dnorm(0,0.04)
@@ -856,11 +867,12 @@ Now, include geomorphic covariates:
     
       for(yr in 1:n_year){
         zeta_year[yr] ~ dnorm(0, tau_zeta_year)
+        iota_year[yr] ~ dnorm(0, tau_iota_year)
       }
     
       for(k in 1:n_event){
-        zeta_event[k] ~ dnorm(0, tau_zeta_event)
-        iota_event[k] ~ dnorm(0, tau_iota_event)
+        zeta_event[k] ~ dnorm(zeta_year[event_year[k]], tau_zeta_event)
+        iota_event[k] ~ dnorm(iota_year[event_year[k]], tau_iota_event)
       }
     
       for(c in 1:n_cluster){
@@ -877,11 +889,12 @@ Now, include geomorphic covariates:
     
       for(yr in 1:n_year){
         beta_year[yr] ~ dnorm(0, tau_beta_year)
+        eta_year[yr] ~ dnorm(0, tau_eta_year)
       }
     
       for(k in 1:n_event){
         beta_event[k] ~ dnorm(beta_year[event_year[k]], tau_beta_event)
-        eta_event[k]  ~ dnorm(0, tau_eta_event)
+        eta_event[k]  ~ dnorm(eta_year[event_year[k]], tau_eta_event)
       }
     
       for(c in 1:n_cluster){
@@ -943,7 +956,7 @@ Now, include geomorphic covariates:
     ", fill = TRUE)
     
     sink()
-   
+```   
     
 
 ```{r,echo=FALSE}
@@ -1019,12 +1032,14 @@ hurdle_damPres_m2_params <- c(
   "sigma_zeta_event",
   "sigma_iota_stream",
   "sigma_iota_event",
+  "sigma_iota_year",
   "sigma_iota_cluster",
   "sigma_beta_stream",
   "sigma_beta_year",
   "sigma_beta_event",
   "sigma_eta_stream",
   "sigma_eta_event",
+  "sigma_eta_year",
   "sigma_eta_cluster",
   "p_TP",
   "p_FP",
@@ -1042,7 +1057,7 @@ Sys.time()
 hurdle_damPres_m2_SW <- jags(data = hurdle_damPres_m2_data_list,
                    inits = hurdle_damPres_m2_inits,
                    parameters.to.save = hurdle_damPres_m2_params,
-                   model.file = "HGLMM_hurdle_damPresence_m2.jags",
+                   model.file = "HGLMM_Hurdle_m2_SW_damPres.jags",
                    parallel = T,
                    n.chains = nchains,
                    n.thin = nthin,
@@ -1063,15 +1078,6 @@ Sys.time()
 
 DIAGNOSTICS M2:
 ----
-
-```{r,echo=FALSE}
-# Plotting specifications from Rmarkdown.
-
-par(mfrow = c(2, 2),        # 2 rows, 2 columns
-    mar = c(4, 4, 2, 1),    # smaller margins
-    cex = 0.8)              # shrink text/points a bit
-
-```
 
 
 ```{r,echo=FALSE}
@@ -1118,7 +1124,7 @@ effectiveSize(hurdle_damPres_m2_SW$samples[, params])
     
     Mostly high effective sample sizes. 
     
-    Same slow convergence for beta_damPres (hard to estimate)
+    Slow convergence for beta_damPres (means it's harder to estimate)
 
 
 ----
@@ -1126,6 +1132,12 @@ effectiveSize(hurdle_damPres_m2_SW$samples[, params])
 **Check traceplots for critical parameters**
 
 ```{r,echo=FALSE}
+
+par(mfrow = c(3, 2),        # 2 rows, 2 columns
+    mar = c(4, 4, 2, 1),    # smaller margins
+    cex = 0.8)              # shrink text/points a bit
+
+
 m2_tplot_params <- c("alpha","beta_damPres","zeta_damPres", "sigma","sigma_zeta_stream","sigma_beta_stream")
 
 
@@ -1135,8 +1147,8 @@ coda::traceplot(m2_mcmc_sub)
 ```
 
 
-    Traceplots are all mostly grassy. Again, see beta_damPres. REAL slow to 
-    converge; expected, given Rhat and ESS.
+    Traceplots are all mostly grassy. Again, see zeta/beta_damPres. REAL slow to 
+    converge; expected, given model structure.
 
 
 ----
@@ -1166,14 +1178,41 @@ Predicted log(SWA) (mu_post[y==1]) vs detected SWA (y2[y==1]) conditional on SW 
 Goal is 1:1 (ish)
 
 ```{r,echo=FALSE}
-mu_post <- apply(hurdle_damPres_m2_SW$sims.list$mu, 2, mean)
+par(mfrow = c(1,1),        # 2 rows, 2 columns
+    mar = c(4, 4, 2, 1),    # smaller margins
+    cex = 0.8)  
 
-plot(mu_post[y==1], y2[y==1], pch=16, col=rgb(0,0,1,0.3))
-abline(0,1,col="red")
+# Posterior mean of predicted log(VA + 1)
+m2_mu_SW_post <- apply(hurdle_damPres_m2_SW$sims.list$mu, 2, mean)
 
+# Observed log vegetation area
+m2_obs_logSW <- y2
+
+# Fit regression on the log scale
+m2_fit_log <- lm(m2_obs_logSW ~ m2_mu_SW_post)
+
+m2_slope_log <- coef(m2_fit_log)[2]
+m2_R2_log    <- summary(m2_fit_log)$r.squared
+
+# Plot
+plot(m2_mu_SW_post,
+     m2_obs_logSW,
+     pch = 16,
+     col = rgb(0,0,1,0.3),
+     xlab = "Model-estimated log(SWA + 1)",
+     ylab = "Observed log(SWA + 1)")
+
+abline(0, 1, col = "red", lwd = 2)
 
 ```
 
+Slope:
+```{r,echo=FALSE}
+m2_slope_log
+```
+
+
+    1.007 indicates that the model-predicted log(SWA+1) space is very similar to the observed data.
 ----
 
 **Random effects shrinkage: **
@@ -1186,66 +1225,35 @@ Goal is near 0(ish)
 4. beta_event; random effect of sample event on sw amount
 
 ```{r, echo=FALSE, }
-par(mfrow = c(2, 2),        # 2 rows, 2 columns
+par(mfrow = c(3,5),        # 2 rows, 2 columns
     mar = c(4, 4, 2, 1),    # smaller margins
     cex = 0.8)              # shrink text/points a bit
 
+boxplot(hurdle_damPres_m2_SW$sims.list$iota_stream,
+        main = "iota_stream")
+boxplot(hurdle_damPres_m2_SW$sims.list$eta_stream,
+        main = "eta_stream")
 boxplot(hurdle_damPres_m2_SW$sims.list$zeta_stream,
         main = "zeta_stream")
 boxplot(hurdle_damPres_m2_SW$sims.list$beta_stream,
         main = "beta_stream")
+boxplot(hurdle_damPres_m2_SW$sims.list$zeta_year,
+        main = "zeta_year")
+boxplot(hurdle_damPres_m2_SW$sims.list$beta_year,
+        main = "beta_year")
+boxplot(hurdle_damPres_m2_SW$sims.list$iota_event,
+        main = "iota_event")
+
+boxplot(hurdle_damPres_m2_SW$sims.list$eta_event,
+        main = "eta_event")
+
 boxplot(hurdle_damPres_m2_SW$sims.list$zeta_event,
         main = "zeta_event")
 boxplot(hurdle_damPres_m2_SW$sims.list$beta_event,
         main = "beta_event")
-```
 
-<!---
-Hyperpriors on stream effect: goal sd 0.1:2
-
-```{r,echo=FALSE}
-
-summary(hurdle_damPres_m2_SW$sims.list$sigma_zeta_stream)
-summary(hurdle_damPres_m2_SW$sims.list$sigma_beta_stream)
 
 ```
-
-Check detection posteriors: goal is near empirical mean recall
-
-```{r,echo=FALSE}
-summary(hurdle_damPres_m2_SW$sims.list$p_TP)
-
-summary(hurdle_damPres_m2_SW$sims.list$p_FP)
-```
-
-    TP is high and precise; FP is low and precise. This makes sense because these are based on empirical mean() and sd() recall and flase positive rates from the RF classifier (see multiprobability threshod validation).
-
-
-Check z latent states
-
-```{r,echo=FALSE}
-z_post <- apply(hurdle_damPres_m2_SW$sims.list$z, 2, mean)
-
-hist(z_post, main = "Split of posterior z")
-```
-
-    Latent z's split mostly evenly
-
-Check tau_eff behavior:
-
-```{r,echo=FALSE}
-summary(hurdle_damPres_m2_SW$sims.list$tau_eff)
-
-```
-
-    This shows that the tau_eff trick worked: 
-    
-    tau_eff[i] <- z[i] * tau + (1 - z[i]) * 100
-    
-    so when z is 1, tau_eff is reasonable. when z is 0, tau_eff is 100 and the prior distribution is basically flat
-
-Check dam effects:
---->
 
 
 ----
@@ -1253,7 +1261,41 @@ Check dam effects:
 
 **Posterior mean dam effects:**
 
+
 damPres --> swPres (logistic regression)
+
+```{r,echo=FALSE}
+m2_coeffparams <- c(#"alpha",
+            "zeta_damPres",
+            "zeta_incis",
+            "zeta_RIPA",
+            "zeta_UDA",
+            "beta_damPres",
+            "beta_incis",
+            "beta_RIPA",
+            "beta_UDA",
+            "sigma")
+
+m2_coef_df <- hurdle_damPres_m2_SW$summary[m2_coeffparams, ] %>%
+  as.data.frame() %>%
+  rownames_to_column("parameter") %>%
+  select(parameter, mean, `2.5%`, `97.5%`)
+
+ggplot(m2_coef_df, aes(y = parameter, x = mean)) +
+  geom_point(size = 3) +
+  geom_errorbar(
+    aes(xmin = `2.5%`, xmax = `97.5%`),
+    width = 0.2,
+    orientation = "y"
+  ) +
+  geom_vline(xintercept = 0, color = "black", linewidth = 1) +
+  labs(
+    title = "Posterior Means and 95% Credible Intervals",
+    x = "Effect Size (log scale)",
+    y = ""
+  ) +
+  theme_bw(base_size = 14)
+```
 
 ```{r,echo=FALSE}
 summary(hurdle_damPres_m2_SW$sims.list$zeta_damPres)
@@ -1261,12 +1303,28 @@ summary(hurdle_damPres_m2_SW$sims.list$zeta_damPres)
 exp(mean(hurdle_damPres_m2_SW$sims.list$zeta_damPres))
 ```
 
-    When you consider local geomorphic conditions, dam presence increases the odds of surface‑water presence by
-    only about 6% (compared to 40-50% w/o geom.covar.). This indicates that dam presence has a negligible
-    effect on whether water is present at all.
+```{r,echo=FALSE}
+#library(tidyverse)
+#library(scales)
+par(mfrow = c(1, 1),        # 2 rows, 1 columns
+    mar = c(4, 4, 2, 1),    # smaller margins
+    cex = 0.8)  
+
+#Posterior distribution of damEffect on vegArea:
+
+hist(hurdle_damPres_m2_SW$sims.list$zeta_damPres,
+     breaks = 50,
+     col = "steelblue",
+     main = "Posterior of damPresence effect on logit(Psi)",
+     xlab = "beta_damPres")
+abline(v = mean(hurdle_damPres_m2_SW$sims.list$zeta_damPres), col = "red", lwd = 2)
+```
+
+    When you consider local geomorphic conditions, dam presence increases the odds of 
+    surface‑water presence by about 6% (compared to 40-50% w/o geom.covar.). This 
+    indicates that these geomorphic conditions are driving surface water presence, 
+    moreso than dam presence.
     
-
-
 ----
 
 
@@ -1278,13 +1336,28 @@ summary(hurdle_damPres_m2_SW$sims.list$beta_damPres)
 exp(mean(hurdle_damPres_m2_SW$sims.list$beta_damPres))
 ```
 
-    Once geom. covar. are accounted for, dam presence corresponds with an estimated
-    ~20-25% increase in surface water area
+```{r,echo=FALSE}
+#library(tidyverse)
+#library(scales)
+par(mfrow = c(1, 1),        # 2 rows, 1 columns
+    mar = c(4, 4, 2, 1),    # smaller margins
+    cex = 0.8)  
+
+#Posterior distribution of damEffect on vegArea:
+
+hist(hurdle_damPres_m2_SW$sims.list$beta_damPres,
+     breaks = 50,
+     col = "steelblue",
+     main = "Posterior of damPresence effect on log(SWA)",
+     xlab = "beta_damPres")
+abline(v = mean(hurdle_damPres_m2_SW$sims.list$beta_damPres), col = "red", lwd = 2)
+```
+    
+    When you account for geomorphic conditions, dam presence corresponds to an 
+    estimated 20-25%% increase in surface water area. LOTS of variation.
 
 
 ----
-
-
 
 **Prior-posterior overlap:**
 
@@ -1302,7 +1375,7 @@ damPres_m2_sigBetaStream <- hurdle_damPres_m2_SW$sims.list$sigma_beta_stream
 
 damPres_m2Mod_n <- length(damPres_m2_alpha_post)
 
-damPres_m2_alpha_prior <- rnorm(damPres_m2Mod_n, 0, sqrt(1/0.04))
+damPres_m2_alpha_prior <- rnorm(damPres_m2Mod_n, 3.57, sqrt(1/0.04))
 damPres_m2_beta_prior  <- rnorm(damPres_m2Mod_n, 0, sqrt(1/0.04))
 damPres_m2_zeta_prior  <- rnorm(damPres_m2Mod_n, 0, sqrt(1/0.04))
 damPres_m2_sigBetaStream_prior <- pmax(rnorm(damPres_m2Mod_n, 0, 1), 0)
