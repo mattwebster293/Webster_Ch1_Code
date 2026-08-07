@@ -62,7 +62,7 @@
       zeta_damPres ~ dnorm(0,0.04)
     
       # Amount:
-      alpha ~ dnorm(0,0.04)
+      alpha ~ dnorm(3.57,0.04)    # SWA intercept within 5 SD of empirical mean
       beta_damPres ~ dnorm(0,0.04)
     
       ##########################################################################
