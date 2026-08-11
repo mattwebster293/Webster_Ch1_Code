@@ -164,6 +164,12 @@
                     + eta_cluster[cluster[i]])
     
         tau_eff[i] <- z[i] * tau + (1 - z[i]) * 100
+        
+      ##########################################################################
+                    
+      # Derived parameter for WAIC computation:
+
+      loglik[i] <- logdensity.norm(y[i], mu[i], tau)
       }
     
     }
