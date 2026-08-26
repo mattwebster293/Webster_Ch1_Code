@@ -1,0 +1,1029 @@
+---
+title: "Landscape_Application"
+author: "Matt Webster"
+date: "2026-08-20"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+This script is meant to apply model estimates to raw geomorphic/topographic covariate data, in order to create a predictive "heat ribbon" along our study streams that depict absolute change in SWA (or VA) with the addition of *x* dams km^-1.
+
+
+
+----
+
+
+**Data organization**
+    
+
+```{r,echo=FALSE,}
+suppressPackageStartupMessages({
+  library(tidyverse)
+  library(lubridate)
+  library(ggplot2)
+  library(dataRetrieval)
+  library(knitr)
+  library(ggplot2)
+  library(zoo) #for moving window
+  library(stringr)
+  library(vioplot)
+  library(purrr)
+  library(lavaan)
+  library(blavaan)
+  library(ggcorrplot)
+  library(lme4)
+  library(broom.mixed)
+  library(coda)
+  library(scales)
+  library(loo)
+  library(sf)
+  library(jsonlite)
+  library(magrittr)
+  library(slider)
+  library(leaflet)
+
+})
+```
+
+
+**Read in shape files and extract TP_ID ("Input_FID"), and geometry attributes:**
+
+
+    This gives the geometry for the riparian zones of each stream. Recall that riparian
+    zones were created using a 2m vertical buffer from stream flow lines. 
+    
+    The next step will sample geomorphic/topographic covariates within the riparian zone,
+    using a moving window approach.
+    
+    
+```{r,echo=FALSE}
+# Willow:
+wcRiparianGeometries <- suppressMessages(st_read("WC_RIP_GEOMS.shp",quiet=TRUE)) %>% 
+  st_make_valid() %>% 
+  select(Input_FID,
+         geometry) %>% 
+  rename(TP_ID = Input_FID) %>% 
+  st_transform(4326) %>% 
+  filter(TP_ID != 11609) 
+
+
+
+wcRipGeom_Area <- st_transform(wcRiparianGeometries, 32613) %>% 
+  mutate(riparian_area_m2 = as.numeric(st_area(.)),
+         watershed = "WC") %>% 
+  arrange(TP_ID)
+
+
+# Lone Tree:
+ltRiparianGeometries <- suppressMessages(st_read("LT_RIP_GEOMS.shp",quiet = TRUE)) %>%
+  st_make_valid() %>% 
+  select(Input_FID,
+         geometry) %>% 
+  rename(TP_ID = Input_FID) %>% 
+  st_transform(4326)
+
+ltRipGeom_Area <- st_transform(ltRiparianGeometries, 32613) %>% 
+  mutate(riparian_area_m2 = as.numeric(st_area(.)),
+         watershed = "LT") %>% 
+  arrange(TP_ID)
+
+# Brazil:
+brzRiparianGeometries <- suppressMessages(st_read("BRZ_RIP_GEOMS.shp",quiet=T)) %>% 
+  st_make_valid() %>% 
+  select(Input_FID,
+         geometry) %>% 
+  rename(TP_ID = Input_FID) %>% 
+  st_transform(4326) %>%
+  filter(TP_ID!=5682)
+
+brzRipGeom_Area <- st_transform(brzRiparianGeometries, 32613) %>% 
+  mutate(riparian_area_m2 = as.numeric(st_area(.)),
+         watershed = "BRZ") %>% 
+  arrange(TP_ID)
+
+# Larb:
+lrbRiparianGeometries <- suppressMessages(st_read("LRB_RIP_GEOMS.shp",quiet=T)) %>% 
+  st_make_valid() %>% 
+  select(Input_FID,
+         geometry) %>% 
+  rename(TP_ID = Input_FID) %>% 
+  st_transform(4326) %>% 
+  filter(TP_ID != 4271)
+
+lrbRipGeom_Area <- st_transform(lrbRiparianGeometries, 32613) %>% 
+  mutate(riparian_area_m2 = as.numeric(st_area(.)),
+         watershed = "LRB") %>% 
+  arrange(TP_ID)
+
+# Lower Beaver:
+lbvRiparianGeometries <- suppressMessages(st_read("LBV_RIP_GEOMS.shp",quiet=T)) %>% 
+  st_make_valid() %>% 
+  select(Input_FID,
+         geometry) %>%
+  rename(TP_ID = Input_FID) %>% 
+  st_transform(4326)
+
+lbvRipGeom_Area <- st_transform(lbvRiparianGeometries, 32613) %>% 
+  mutate(riparian_area_m2 = as.numeric(st_area(.)),
+         watershed = "LBV") %>% 
+  arrange(TP_ID)
+
+# Upper Beaver:
+ubvRiparianGeometries <- suppressMessages(st_read("ubv_RIP_GEOMS.shp",quiet=T)) %>% 
+  st_make_valid() %>% 
+  select(Input_FID,
+         geometry) %>%
+  rename(TP_ID = Input_FID) %>% 
+  st_transform(4326)
+
+ubvRipGeom_Area <- st_transform(ubvRiparianGeometries, 32613) %>%
+  mutate(riparian_area_m2 = as.numeric(st_area(.)),
+         watershed = "UBV") %>% 
+  arrange(TP_ID) 
+
+
+####################################################################################
+
+
+#### Combine (above) ^^ dataframes into an AOI df:
+
+aoi_ripGEOMs <- bind_rows(brzRipGeom_Area,
+                          lbvRipGeom_Area,
+                          lrbRipGeom_Area,
+                          ltRipGeom_Area,
+                          ubvRipGeom_Area,
+                          wcRipGeom_Area) %>% 
+  group_by(watershed)
+```
+
+
+
+```{r, echo=FALSE}
+
+aoi_geomCovar <- read.csv("aoi_geomorphicCovariates.csv") %>%
+  arrange(TP_ID) %>%
+  
+  # nearest upstream non-NA
+  mutate(
+    upstream = zoo::na.locf(catchment_km2, na.rm = FALSE)
+  ) %>%
+  
+  # nearest downstream non-NA
+  mutate(
+    downstream = zoo::na.locf(catchment_km2, fromLast = TRUE, na.rm = FALSE)
+  ) %>%
+  
+  # fill NA using nearest non-NA neighbors
+  mutate(
+    catchment_km2_filled = case_when(
+      !is.na(catchment_km2) ~ catchment_km2,
+      is.na(catchment_km2) & !is.na(upstream) & !is.na(downstream) ~ (upstream + downstream) / 2,
+      is.na(catchment_km2) & !is.na(upstream) ~ upstream,
+      is.na(catchment_km2) & !is.na(downstream) ~ downstream,
+      TRUE ~ NA_real_
+    )
+  ) %>%
+  
+  select(-upstream, -downstream)
+
+```
+
+
+```{r,echo=FALSE}
+
+# Combine df containing geometries with the df containing covariate information
+
+aoi_forPrediction <- aoi_geomCovar %>% 
+  left_join(aoi_ripGEOMs,
+            by = c("watershed",
+                   "TP_ID")) %>%
+  mutate(incis = 1-(TO/90))
+
+
+aoi_forPrediction <- aoi_forPrediction %>% 
+  mutate(incis_scaled = as.numeric(scale(incis)),
+         ripa_scaled = as.numeric(scale(riparian_area_m2.x)),
+         uda_scaled = as.numeric(scale(catchment_km2_filled)))
+
+
+```
+
+
+**MOVING WINDOW SAMPLING**
+
+    This section uses a moving 250m long window to sample geomorphic/topographic covariates
+    within the riparian zones of each study stream. 250-m was selected because that's what
+    was used as the minimum window size in the dam clustering/paired sampling protocol. 
+    
+    250-m represents the minimum predictable unit. 
+    
+    USE OVERLAPPING WINDOW; this provides a 'heatribbon' along the stream corridor
+    
+
+```{r,echo=FALSE}
+####### NON-OVERLAPPING #########################
+#df_windows <- aoi_forPrediction %>%
+#  arrange(watershed, TP_ID) %>%
+#  group_by(watershed) %>%
+#  mutate(
+#    window_id = ((TP_ID - 1) %/% 25) + 1
+#  ) %>%
+#  group_by(watershed, window_id) %>%
+#  summarise(
+#    TP_ID_start = min(TP_ID),
+#    TP_ID_end   = max(TP_ID),
+#    TO_mean     = mean(TO, na.rm = TRUE),
+#    TO_sd       = sd(TO, na.rm = TRUE),
+#    RIPA_mean   = mean(riparian_area_m2.x, na.rm = TRUE),
+#    RIPA_sd     = sd(riparian_area_m2.x, na.rm = TRUE),
+#    UDA_mean    = mean(catchment_km2_filled, na.rm = TRUE),
+#    UDA_sd      = sd(catchment_km2_filled, na.rm = TRUE),
+#    .groups = "drop"
+#  )
+#################################################
+
+
+######### OVERLAPPING WINDOWS ##################
+
+df_windows <- aoi_forPrediction %>%
+  arrange(watershed, TP_ID) %>%											#get everything in sequential order
+  group_by(watershed) %>%														#create groups (watershed-year)
+  group_modify(~ {																	#operate per watershed-year
+  
+    n <- nrow(.x)																	  #".x" is "watershed-year[i]"; get # of rows
+	
+    window_id <- seq_len(n - 25 + 1)								#define windows (24 less than max number of rows)
+
+    tibble(
+      window_id   = window_id,
+      TP_ID_start = window_id,											#start here
+      TP_ID_end   = window_id + 24,									 #progress upstream +24 rows = 25 trows total = ~250m (each row is 1 unique sequential TP_ID)
+
+      #Perform sliding window sampling
+      incis_mean     = slide_dbl(.x$incis_scaled,   mean, .before = 0, .after = 24)[window_id],
+      incis_sd       = slide_dbl(.x$incis_scaled,   sd,   .before = 0, .after = 24)[window_id],
+
+      RIPA_mean   = slide_dbl(.x$ripa_scaled, mean, .before = 0, .after = 24)[window_id],
+      RIPA_sd     = slide_dbl(.x$ripa_scaled, sd,   .before = 0, .after = 24)[window_id],
+
+      UDA_mean    = slide_dbl(.x$uda_scaled,  mean, .before = 0, .after = 24)[window_id],
+      UDA_sd      = slide_dbl(.x$uda_scaled,  sd,   .before = 0, .after = 24)[window_id]
+    )
+  }) %>%
+  ungroup()
+
+
+
+################################################
+
+# NOW you should have a tibble with:
+
+	# watershed
+	# year
+	# window_id
+	# TP_ID_start
+	# TP_ID_end
+	# incis_mean
+	# incis_sd
+	# RIPA_mean
+	# RIPA_sd
+	# UDA_mean
+	# UDA_sd
+
+str(df_windows)
+	
+# THIS is what you will confront with your posterior estimates to get predicted SWA or VA
+```
+
+
+----
+
+
+
+**Predict SWA/VA based on geomorphic covariates for window[w].**
+
+    Predict SWA or VA for each stream during late August of 2021;
+    This was one of the most water limited periods in our study.
+
+    Predict at damDensity:
+
+    0, 3, 6, 9, 12, 15
+    
+    0 = "baseline"/ no dam condition
+    1 SD increase in damDensity corresponds to ~3.14 dams/km <according to the paired 
+    sampling data>
+    
+    
+```{r,echo=FALSE}
+# Build 2 PREDICTION FUNCTIONs to predict baseline 1)SWA & 2)VA from TO,RIPA,UDA,watershed, and year, for late August sample event
+
+# Define the fixed effect coefficients as estimated by "model 4" posterior means:
+	# alpha
+	# beta_damDen
+	# beta_incis
+	# beta_RIPA
+	# beta_UDA
+	
+coefs_SW_fixed <- c(alpha = 5.776,
+					beta_damDen = 0.147,								
+					beta_incis = -0.770,
+					beta_RIPA = -0.082,
+					beta_UDA = 0.538)
+
+coefs_VEG_fixed <- c(alpha = 9.209,
+					beta_damDen = 0.119,								
+					beta_incis = -0.01,
+					beta_RIPA = 0.271,
+					beta_UDA = 0.008)
+
+coefs_SW_random_BetaStream <- c(BRZ = 0.118,
+							LRB = -0.137,
+							LT = -0.022,
+							LBV  = 0.028,
+							UBV = 0.098,
+							WC = -0.086)
+					
+coefs_SW_random_etaStream <- c(BRZ = 0.247,
+							LRB = 0.229,
+							LT = -0.637,
+							LBV  = -0.520,
+							UBV = -0.121,
+							WC = 0.858)
+
+coefs_VEG_random_etaStream <- c(BRZ = 0.157,
+							LRB = 0.203,
+							LT = -0.253,
+							LBV  = 0.502,
+							UBV = 0.245,
+							WC = -0.865)
+
+coefs_SW_random_BetaYear <- 0.025             #mean(beta_year) for 2021
+
+coefs_SW_random_lateAug21_etaEvent<- -0.052   #mean(eta_event) for last 2 wks of Aug, 2021
+
+coefs_SW_random_lateAug21_betaEvent<- -0.015   #mean(beta_event) for last 2 wks of Aug, 2021
+
+
+coefs_VEG_random_etaYear <- -1.081               #mean(eta_year) for 2021
+
+```
+
+
+
+```{r,echo=FALSE}
+############################
+# PREDICTION FUNCTION
+############################
+
+# SURFACE WATER AREA
+
+# year = 2021
+# event = late August
+
+predict_SW_window <- function(incis_mean, RIPA_mean, UDA_mean,
+                              damDensity,
+                              watershed,
+                              coefs_SW_fixed,
+                              coefs_SW_random_BetaStream,
+                              coefs_SW_random_etaStream,
+                              coefs_SW_random_BetaYear,
+                              coefs_SW_random_lateAug21_etaEvent,
+                              coefs_SW_random_lateAug21_betaEvent,
+                              link = "log") {
+  
+  eta <- coefs_SW_fixed["alpha"] +
+    coefs_SW_fixed["beta_incis"]     * incis_mean +
+    coefs_SW_fixed["beta_RIPA"]      * RIPA_mean +
+    coefs_SW_fixed["beta_UDA"]       * UDA_mean +
+    (coefs_SW_fixed["beta_damDen"]    * damDensity +
+       coefs_SW_random_BetaStream[as.character(watershed)] +
+       coefs_SW_random_BetaYear +
+       coefs_SW_random_lateAug21_betaEvent) +
+    coefs_SW_random_etaStream[as.character(watershed)] +
+    coefs_SW_random_lateAug21_etaEvent
+	
+  SW <- exp(eta) - 1
+  
+  SW
+}
+```
+
+
+----
+
+
+```{r,echo=FALSE}
+# VEGETATION AREA   = log(VA+1)
+
+# year = 2021
+
+predict_VEG_window <- function(incis_mean, RIPA_mean, UDA_mean,
+                              damDensity,
+                              watershed,
+                              coefs_VEG_fixed,
+                              coefs_VEG_random_etaStream,
+                              coefs_VEG_random_etaYear,
+                              link = "log") {
+  
+  eta <- coefs_VEG_fixed["alpha"] +
+    coefs_VEG_fixed["beta_damDen"]    * damDensity +
+    coefs_VEG_fixed["beta_incis"]     * incis_mean +
+    coefs_VEG_fixed["beta_RIPA"]      * RIPA_mean +
+    coefs_VEG_fixed["beta_UDA"]       * UDA_mean +
+    coefs_VEG_random_etaStream[as.character(watershed)] +
+    coefs_VEG_random_etaYear
+	
+  VEG <- exp(eta) - 1
+  
+  VEG
+}
+
+```
+
+----
+
+----
+
+----
+
+----
+
+----
+
+----
+
+----
+
+----
+
+
+```{r,echo=FALSE}
+# Translate z-scaled dam density scale from modeled data to (0,3,6,9,12,15):
+
+damDenTlate <- read.csv("damDensityTranslator.csv")
+#damDenTlate
+```
+
+
+----
+
+----
+
+----
+
+----
+
+----
+
+----
+
+Predict Surface Water & Render Map:
+----
+
+    Modeled for late August (08/15-08/31) surface water area
+    
+    Response variable: log(surfaceWaterArea + 1)
+    
+    Fixed Effects: damDensity + incision + riparianArea + drainageArea
+    
+    Random Effects: stream[s], year[y], event[e] as random slopes; 
+                    stream[s], event[e] as random intercepts
+    
+    NOTE: for these predictive maps, "year" RE was fixed to the estimated 
+          posterior mean for 2021; "event" RE was fixed to the estimated posterior
+          mean for the second survey period Aug/15 - Aug/31.
+
+
+
+```{r,echo=FALSE}
+################################################
+
+# PREDICT SWA and COMPUTE DELTA_SW for each window and dam density
+
+# dam_densities <- c(0,3,6,9,12,15)
+
+df_delta_sw <- df_windows %>%
+  rowwise() %>%
+  mutate(
+    SW_0  = predict_SW_window(incis_mean, RIPA_mean, UDA_mean,
+                              damDensity = -0.9396414,   # 0 dam/km
+                              watershed = watershed,
+                              coefs_SW_fixed = coefs_SW_fixed,
+                              coefs_SW_random_BetaStream =  coefs_SW_random_BetaStream,
+                              coefs_SW_random_etaStream = coefs_SW_random_etaStream,
+                              coefs_SW_random_BetaYear = coefs_SW_random_BetaYear,
+                              coefs_SW_random_lateAug21_etaEvent = coefs_SW_random_lateAug21_etaEvent,
+                              coefs_SW_random_lateAug21_betaEvent = coefs_SW_random_lateAug21_betaEvent
+                              ),
+    SW_3  = predict_SW_window(incis_mean, RIPA_mean, UDA_mean,
+                              damDensity = 0.00609353,   # ~3 dam/km
+                              watershed = watershed,
+                              coefs_SW_fixed = coefs_SW_fixed,
+                              coefs_SW_random_BetaStream =  coefs_SW_random_BetaStream,
+                              coefs_SW_random_etaStream = coefs_SW_random_etaStream,
+                              coefs_SW_random_BetaYear = coefs_SW_random_BetaYear,
+                              coefs_SW_random_lateAug21_etaEvent = coefs_SW_random_lateAug21_etaEvent,
+                              coefs_SW_random_lateAug21_betaEvent = coefs_SW_random_lateAug21_betaEvent
+                              ),
+    SW_6 = predict_SW_window(incis_mean, RIPA_mean, UDA_mean,
+                              damDensity = 0.9383662,   # ~6 dam/km
+                              watershed = watershed,
+                              coefs_SW_fixed = coefs_SW_fixed,
+                              coefs_SW_random_BetaStream =  coefs_SW_random_BetaStream,
+                              coefs_SW_random_etaStream = coefs_SW_random_etaStream,
+                              coefs_SW_random_BetaYear = coefs_SW_random_BetaYear,
+                              coefs_SW_random_lateAug21_etaEvent = coefs_SW_random_lateAug21_etaEvent,
+                              coefs_SW_random_lateAug21_betaEvent = coefs_SW_random_lateAug21_betaEvent
+                             ),
+    SW_9 = predict_SW_window(incis_mean, RIPA_mean, UDA_mean,
+                              damDensity = 1.932580,  # ~9 dam/km
+                              watershed = watershed,
+                              coefs_SW_fixed = coefs_SW_fixed,
+                              coefs_SW_random_BetaStream =  coefs_SW_random_BetaStream,
+                              coefs_SW_random_etaStream = coefs_SW_random_etaStream,
+                              coefs_SW_random_BetaYear = coefs_SW_random_BetaYear,
+                              coefs_SW_random_lateAug21_etaEvent = coefs_SW_random_lateAug21_etaEvent,
+                              coefs_SW_random_lateAug21_betaEvent = coefs_SW_random_lateAug21_betaEvent
+                             ),
+	SW_12 = predict_SW_window(incis_mean, RIPA_mean, UDA_mean,
+	                          damDensity = 2.865453, #~12 dams/km
+                              watershed = watershed,
+                              coefs_SW_fixed = coefs_SW_fixed,
+                              coefs_SW_random_BetaStream =  coefs_SW_random_BetaStream,
+                              coefs_SW_random_etaStream = coefs_SW_random_etaStream,
+                              coefs_SW_random_BetaYear = coefs_SW_random_BetaYear,
+                              coefs_SW_random_lateAug21_etaEvent = coefs_SW_random_lateAug21_etaEvent,
+                              coefs_SW_random_lateAug21_betaEvent = coefs_SW_random_lateAug21_betaEvent
+	                          ),
+    SW_15 = predict_SW_window(incis_mean, RIPA_mean, UDA_mean,
+                              damDensity = 3.881626,   # ~15 dam/km
+                              watershed = watershed,
+                              coefs_SW_fixed = coefs_SW_fixed,
+                              coefs_SW_random_BetaStream =  coefs_SW_random_BetaStream,
+                              coefs_SW_random_etaStream = coefs_SW_random_etaStream,
+                              coefs_SW_random_BetaYear = coefs_SW_random_BetaYear,
+                              coefs_SW_random_lateAug21_etaEvent = coefs_SW_random_lateAug21_etaEvent,
+                              coefs_SW_random_lateAug21_betaEvent = coefs_SW_random_lateAug21_betaEvent
+                              ),
+	delta_SW_3  = SW_3  - SW_0,
+	delta_SW_9 = SW_9 - SW_0,
+	delta_SW_15 = SW_15 - SW_0
+  ) %>%
+  ungroup()
+
+
+
+colnames(df_delta_sw) <- c("watershed",
+                           "window_id",
+                           "TP_ID",
+                           "TP_ID_end",
+                           "incis_mean",
+                           "incis_sd",
+                           "RIPA_mean",
+                           "RIPA_sd",
+                           "UDA_mean",
+                           "UDA_sd",
+                           "SW_0",
+                           "SW_3",
+                           "SW_6",
+                           "SW_9",
+                           "SW_12",
+                           "SW_15",
+                           "delta_SW_3",
+                           "delta_SW_9",
+                           "delta_SW_15")
+```
+
+```{r,echo=FALSE}
+
+df_predSWChange_map <- aoi_forPrediction %>%
+  left_join(
+    df_delta_sw %>%
+      select(watershed, window_id, TP_ID, TP_ID_end,
+             delta_SW_3, delta_SW_9, delta_SW_15),
+    by = c("watershed","TP_ID")
+  ) %>%
+  drop_na() %>% 
+  ungroup() %>% 
+  st_as_sf() %>% 
+  st_transform(4326)
+
+  
+
+```
+
+
+    damDen[0] = baseline; no-dam condition
+    
+    damDen[k] = dammed condition (3,6,9,12,15) dams km^-1
+    
+    dams km^-1 = "dams per kilometer"
+
+
+
+
+
+**Absolute difference in SWA associated with +3 dams km^-1:**
+
+(Predicted surface water area at dam density [k]) - (predicted baseline surface water area)
+
+
+```{r,echo=FALSE}
+pal_full <- RColorBrewer::brewer.pal(11, "Spectral")
+
+# keep only the darker 5 colors (skip the light yellows)
+pal_trimmed <- pal_full[6:11]
+
+palDelt <- colorNumeric(
+  palette = pal_full,
+  domain  = df_predSWChange_map$delta_SW_3
+)
+```
+```{r,echo=FALSE}
+
+leaflet(df_predSWChange_map) %>%
+  addProviderTiles(providers$USGS.USImageryTopo) %>%
+  addPolygons(
+    data = df_predSWChange_map,
+    fillColor = ~palDelt(delta_SW_3),
+    fillOpacity = 0.5,
+    color = "grey40",
+    weight = 0.5,
+    popup = ~paste0(
+      "watershed: ", watershed,
+      "<br>Window: ", window_id,
+      "<br>Absolute difference in SWA with + ~3 dams/km: ", round(delta_SW_3, 2)
+    )
+  ) %>%
+  addLegend("bottomright", pal = palDelt, values = df_predSWChange_map$delta_SW_3,
+            title = "Absolute difference in SWA w/added 3 dams/km") %>%
+  addScaleBar(
+    position = "bottomleft",
+    options = scaleBarOptions(
+      maxWidth = 100,
+      metric = TRUE,
+      imperial = FALSE,
+      updateWhenIdle = TRUE
+    )
+  )
+
+
+```
+
+
+----
+
+
+**Absolute difference in SWA associated with +9 dams km^-1:**
+
+
+```{r,echo=FALSE}
+
+palDelt9 <- colorNumeric(
+  palette = pal_full,
+  domain  = df_predSWChange_map$delta_SW_9
+)
+```
+
+```{r,echo=FALSE}
+
+leaflet(df_predSWChange_map) %>%
+  addProviderTiles(providers$USGS.USImageryTopo) %>%
+  addPolygons(
+    data = df_predSWChange_map,
+    fillColor = ~palDelt9(delta_SW_9),
+    fillOpacity = 0.5,
+    color = "grey40",
+    weight = 0.5,
+    popup = ~paste0(
+      "watershed: ", watershed,
+      "<br>Window: ", window_id,
+      "<br>Absolute difference in SWA with + ~9 dams/km: ", round(delta_SW_9, 2)
+    )
+  ) %>%
+  addLegend("bottomright", pal = palDelt9, values = ~delta_SW_9,
+            title = "Absolute difference in SWA with +9 dams km^-1") %>%
+  addScaleBar(
+    position = "bottomleft",
+    options = scaleBarOptions(
+      maxWidth = 100,
+      metric = TRUE,
+      imperial = FALSE,
+      updateWhenIdle = TRUE
+    )
+  )
+```
+
+
+----
+
+
+**Absolute difference in SWA associated +15 dams km^-1:**
+
+```{r,echo=FALSE}
+#pal_full <- RColorBrewer::brewer.pal(11, "Spectral")
+
+# keep only the darker 5 colors (skip the light yellows)
+#pal_trimmed <- pal_full[6:11]
+
+palDelt15 <- colorNumeric(
+  palette = pal_full,
+  domain  = df_predSWChange_map$delta_SW_15
+)
+```
+```{r,echo=FALSE}
+
+leaflet(df_predSWChange_map) %>%
+  addProviderTiles(providers$USGS.USImageryTopo) %>%
+  addPolygons(
+    data = df_predSWChange_map,
+    fillColor = ~palDelt15(delta_SW_15),
+    fillOpacity = 0.5,
+    color = "grey40",
+    weight = 0.5,
+    popup = ~paste0(
+      "watershed: ", watershed,
+      "<br>Window: ", window_id,
+      "<br>Absolute difference in SWA with + ~15 dams/km: ", round(delta_SW_15, 2)
+    )
+  ) %>%
+  addLegend("bottomright", pal = palDelt15, values = ~delta_SW_15,
+            title = "Absolute difference in SWA w/added 15 dams/km") %>%
+  addScaleBar(
+    position = "bottomleft",
+    options = scaleBarOptions(
+      maxWidth = 100,
+      metric = TRUE,
+      imperial = FALSE,
+      updateWhenIdle = TRUE
+    )
+  )
+
+
+```
+
+
+----
+
+----
+
+----
+
+----
+
+----
+
+----
+
+----
+
+----
+
+----
+
+----
+
+----
+
+Predict Vegetation Area & Render Map:
+----
+
+    Modeled for late August (08/15-08/31) vegetation
+    
+    Response variable: log(vegetationArea + 1)
+    
+    Fixed Effects: damDensity + incision + riparianArea + drainageArea
+    
+    Random Effects: stream[s], year[y]
+      NOTE: for these predictive maps, "year" RE was fixed to the estimated 
+            posterior mean for 2021; no seasonal effect included in veg models
+            due to lack of variation during late summer (Aug-Sep)
+            
+
+```{r,echo=F}
+################################################
+
+# PREDICT VA and COMPUTE DELTA_VA for each window and dam density
+
+# dam_densities <- c(0,3,6,9,12,15)
+
+df_delta_veg <- df_windows %>%
+  rowwise() %>%
+  mutate(
+    VEG_0  = predict_VEG_window(incis_mean, RIPA_mean, UDA_mean,
+                              damDensity = -0.9396414,   # 0 dam/km
+                              watershed = watershed,
+                              coefs_VEG_fixed = coefs_VEG_fixed,
+                              coefs_VEG_random_etaStream = coefs_VEG_random_etaStream,
+                              coefs_VEG_random_etaYear = coefs_VEG_random_etaYear
+                              ),
+    VEG_3  = predict_VEG_window(incis_mean, RIPA_mean, UDA_mean,
+                              damDensity = 0.00609353,   # ~3 dam/km
+                              watershed = watershed,
+                              coefs_VEG_fixed = coefs_VEG_fixed,
+                              coefs_VEG_random_etaStream = coefs_VEG_random_etaStream,
+                              coefs_VEG_random_etaYear = coefs_VEG_random_etaYear
+                              ),
+    VEG_6 = predict_VEG_window(incis_mean, RIPA_mean, UDA_mean,
+                              damDensity = 0.9383662,   # ~6 dam/km
+                              watershed = watershed,
+                              coefs_VEG_fixed = coefs_VEG_fixed,
+                              coefs_VEG_random_etaStream = coefs_VEG_random_etaStream,
+                              coefs_VEG_random_etaYear = coefs_VEG_random_etaYear
+                             ),
+    VEG_9 = predict_VEG_window(incis_mean, RIPA_mean, UDA_mean,
+                              damDensity = 1.932580,  # ~9 dam/km
+                              watershed = watershed,
+                              coefs_VEG_fixed = coefs_VEG_fixed,
+                              coefs_VEG_random_etaStream = coefs_VEG_random_etaStream,
+                              coefs_VEG_random_etaYear = coefs_VEG_random_etaYear
+                             ),
+	VEG_12 = predict_VEG_window(incis_mean, RIPA_mean, UDA_mean,
+	                          damDensity = 2.865453, #~12 dams/km
+                              watershed = watershed,
+                              coefs_VEG_fixed = coefs_VEG_fixed,
+                              coefs_VEG_random_etaStream = coefs_VEG_random_etaStream,
+                              coefs_VEG_random_etaYear = coefs_VEG_random_etaYear
+	                          ),
+    VEG_15 = predict_VEG_window(incis_mean, RIPA_mean, UDA_mean,
+                              damDensity = 3.881626,   # ~15 dam/km
+                              watershed = watershed,
+                              coefs_VEG_fixed = coefs_VEG_fixed,
+                              coefs_VEG_random_etaStream = coefs_VEG_random_etaStream,
+                              coefs_VEG_random_etaYear = coefs_VEG_random_etaYear
+                              ),
+	delta_VEG_3  = VEG_3  - VEG_0,
+	delta_VEG_9 = VEG_9 - VEG_0,
+	delta_VEG_15 = VEG_15 - VEG_0
+  ) %>%
+  ungroup()
+
+
+
+colnames(df_delta_veg) <- c("watershed",
+                           "window_id",
+                           "TP_ID",
+                           "TP_ID_end",
+                           "incis_mean",
+                           "incis_sd",
+                           "RIPA_mean",
+                           "RIPA_sd",
+                           "UDA_mean",
+                           "UDA_sd",
+                           "VEG_0",
+                           "VEG_3",
+                           "VEG_6",
+                           "VEG_9",
+                           "VEG_12",
+                           "VEG_15",
+                           "delta_VEG_3",
+                           "delta_VEG_9",
+                           "delta_VEG_15")
+```
+
+```{r,echo=FALSE}
+
+df_predVEGChange_map <- aoi_forPrediction %>%
+  left_join(
+    df_delta_veg %>%
+      select(watershed, window_id, TP_ID, TP_ID_end,
+             delta_VEG_3, delta_VEG_9, delta_VEG_15),
+    by = c("watershed","TP_ID")
+  ) %>%
+  drop_na() %>% 
+  ungroup() %>% 
+  st_as_sf() %>% 
+  st_transform(4326)
+
+  
+
+```
+
+    damDen[0] = baseline; no-dam condition
+    
+    damDen[k] = dammed condition (3,6,9,12,15) dams km^-1
+    
+    dams km^-1 = "dams per kilometer"
+
+
+
+
+**Absolute difference in VEG associated with +3 dams km^-1:**
+
+```{r,echo=FALSE}
+pal_full <- RColorBrewer::brewer.pal(11, "Spectral")
+
+# keep only the darker 5 colors (skip the light yellows)
+pal_trimmed <- pal_full[6:11]
+
+palDeltVEG_3 <- colorNumeric(
+  palette = pal_full,
+  domain  = df_predVEGChange_map$delta_VEG_3
+)
+```
+```{r,echo=FALSE}
+
+leaflet(df_predVEGChange_map) %>%
+  addProviderTiles(providers$USGS.USImageryTopo) %>%
+  addPolygons(
+    data = df_predVEGChange_map,
+    fillColor = ~palDeltVEG_3(delta_VEG_3),
+    fillOpacity = 0.5,
+    color = "grey40",
+    weight = 0.5,
+    popup = ~paste0(
+      "watershed: ", watershed,
+      "<br>Window: ", window_id,
+      "<br>Absolute difference in VA with + ~3 dams/km: ", round(delta_VEG_3, 2)
+    )
+  ) %>%
+  addLegend("bottomright", pal = palDeltVEG_3, values = df_predVEGChange_map$delta_VEG_3,
+            title = "Absolute difference in VA with +3 dams km^-1")
+
+
+```
+
+
+----
+
+
+**Absolute difference in VEG associated with +9 dams km^-1:**
+
+
+```{r,echo=FALSE}
+
+palDeltVEG_9 <- colorNumeric(
+  palette = pal_full,
+  domain  = df_predVEGChange_map$delta_VEG_9
+)
+```
+
+```{r,echo=FALSE}
+
+leaflet(df_predVEGChange_map) %>%
+  addProviderTiles(providers$USGS.USImageryTopo) %>%
+  addPolygons(
+    data = df_predVEGChange_map,
+    fillColor = ~palDeltVEG_9(delta_VEG_9),
+    fillOpacity = 0.5,
+    color = "grey40",
+    weight = 0.5,
+    popup = ~paste0(
+      "watershed: ", watershed,
+      "<br>Window: ", window_id,
+      "<br>Absolute difference in VA with + ~9 dams km^-1: ", round(delta_VEG_9, 2)
+    )
+  ) %>%
+  addLegend("bottomright", pal = palDeltVEG_9, values = ~delta_VEG_9,
+            title = "Absolute difference in VA with +9 dams km^-1")
+```
+
+
+----
+
+
+**Absolute difference in VEG associated with +15 dams km^-1:**
+
+```{r,echo=FALSE}
+pal_full <- RColorBrewer::brewer.pal(11, "Spectral")
+
+# keep only the darker 5 colors (skip the light yellows)
+pal_trimmed <- pal_full[6:11]
+
+palDeltVEG15 <- colorNumeric(
+  palette = pal_full,
+  domain  = df_predVEGChange_map$delta_VEG_15
+)
+```
+
+```{r,echo=FALSE}
+
+leaflet(df_predVEGChange_map) %>%
+  addProviderTiles(providers$USGS.USImageryTopo) %>%
+  addPolygons(
+    data = df_predVEGChange_map,
+    fillColor = ~palDeltVEG15(delta_VEG_15),
+    fillOpacity = 0.5,
+    color = "grey40",
+    weight = 0.5,
+    popup = ~paste0(
+      "watershed: ", watershed,
+      "<br>Window: ", window_id,
+      "<br>Absolute difference in VA with + ~15 dams km^-1: ", round(delta_VEG_15, 2)
+    )
+  ) %>%
+  addLegend("bottomright", pal = palDeltVEG15, values = ~delta_VEG_15,
+            title = "Absolute difference in VA with +15 dams km^-1") %>%
+  addScaleBar(
+    position = "bottomleft",
+    options = scaleBarOptions(
+      maxWidth = 100,
+      metric = TRUE,
+      imperial = FALSE,
+      updateWhenIdle = TRUE
+    )
+  )
+
+
+```
