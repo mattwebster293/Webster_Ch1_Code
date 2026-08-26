@@ -1,0 +1,280 @@
+APPLY MODEL OUTPUTS TO LANDSCAPE!!!
+
+<START>
+Dataframe called "aoi_tempStat" in the paired sampling code
+
+This dataframe should have columns for:
+	- watershed:
+	- year:
+	- TP_ID:
+	- TO:
+	- RIPA:
+	- UDA:
+
+	
+# dplyr this bitch ^:
+
+aoi_df <- mutate(incis = 1-(TO/90)) %>%
+			  select(as.factor(watershed),
+			  as.factor(year),
+			  TP_ID,
+			  TO,
+			  RIPA,
+			  UDA)
+	   
+	   
+	   
+	   
+# MOVING WINDOW TIM3!!!
+# USE OVERLAPPING WINDOW!!!
+
+
+####### NON-OVERLAPPING #########################
+df_windows <- aoi_df %>%
+  arrange(watershed, year, TP_ID) %>%
+  group_by(watershed, year) %>%
+  mutate(
+    window_id = ((TP_ID - 1) %/% 25) + 1
+  ) %>%
+  group_by(watershed, year, window_id) %>%
+  summarise(
+    TP_ID_start = min(TP_ID),
+    TP_ID_end   = max(TP_ID),
+    TO_mean     = mean(TO, na.rm = TRUE),
+    TO_sd       = sd(TO, na.rm = TRUE),
+    RIPA_mean   = mean(RIPA, na.rm = TRUE),
+    RIPA_sd     = sd(RIPA, na.rm = TRUE),
+    UDA_mean    = mean(UDA, na.rm = TRUE),
+    UDA_sd      = sd(UDA, na.rm = TRUE),
+    .groups = "drop"
+  )
+#################################################
+
+
+######### OVERLAPPING WINDOWS ##################
+
+  
+  
+library(dplyr)
+library(slider)
+
+df_windows <- aoi_df %>%
+  arrange(watershed, year, TP_ID) %>%												#get everything in sequential order
+  group_by(watershed, year) %>%														#create groups (watershed-year)
+  group_modify(~ {																	#operate per watershed-year
+  
+    n <- nrow(.x)																	#".x" is "watershed-year[i]"
+	
+    window_id <- seq_len(n - 25 + 1)												#define windows (24 less than max TP_ID)
+
+    tibble(
+      window_id   = window_id,
+      TP_ID_start = window_id,														#start here
+      TP_ID_end   = window_id + 24,													#progress upstream +24 TP_IDs (25 TP_ID total = ~250m)
+
+      TO_mean     = slide_dbl(.x$TO,   mean, .before = 0, .after = 24)[window_id],
+      TO_sd       = slide_dbl(.x$TO,   sd,   .before = 0, .after = 24)[window_id],
+
+      RIPA_mean   = slide_dbl(.x$RIPA, mean, .before = 0, .after = 24)[window_id],
+      RIPA_sd     = slide_dbl(.x$RIPA, sd,   .before = 0, .after = 24)[window_id],
+
+      UDA_mean    = slide_dbl(.x$UDA,  mean, .before = 0, .after = 24)[window_id],
+      UDA_sd      = slide_dbl(.x$UDA,  sd,   .before = 0, .after = 24)[window_id]
+    )
+  }) %>%
+  ungroup()
+
+
+
+################################################
+
+# NOW you should have a tibble with:
+
+	- watershed
+	- year
+	- window_id
+	- TP_ID_start
+	- TP_ID_end
+	- TO_mean
+	- TO_sd
+	- RIPA_mean
+	- RIPA_sd
+	- UDA_mean
+	- UDA_sd
+	
+# THIS is what you will confront with your posterior estimates to get predicted SWA or VA
+
+################################################
+
+# Build a 2 PREDICTION FUNCTIONs to predict baseline 1)SWA & 2)VA from TO,RIPA,UDA,watershed, and year, for late August sample event
+
+# Define the fixed effect coefficients as estimated by "model 4" posterior means:
+	- alpha
+	- beta_damDen
+	- beta_incis
+	- beta_RIPA
+	- beta_UDA
+	
+coefs_SW_fixed <- c(alpha = mean(m4_post$alpha),
+					beta_damDen = 0.15,								
+					beta_incis = -0.54,
+					beta_RIPA = -0.08,
+					beta_UDA = 0.53)
+					
+coefs_SW_random_stream <- c(brazil = ...,
+							larb = ...,
+							loneTree = ...,
+							lowBeav  = ...,
+							upBeav = ...,
+							willow = ...)
+
+
+
+coefs_SW_random_year <- c('2019' = ...,
+						  '2021' = ...,
+						  '2023' = ...)
+
+
+
+
+
+
+############################
+# PREDICTION FUNCTION
+############################
+
+# SURFACE WATER AREA
+
+predict_SW_window <- function(TO_mean, RIPA_mean, UDA_mean,
+                              damDensity,
+                              stream, year,
+                              coefs_SW_fixed,
+                              coefs_SW_random_stream,
+                              coefs_SW_random_year,
+                              link = "log") {
+  
+  eta <- coefs_SW_fixed["alpha"] +
+    coefs_SW_fixed["beta_incis"]     * TO_mean +
+    coefs_SW_fixed["beta_RIPA"]      * RIPA_mean +
+    coefs_SW_fixed["beta_UDA"]       * UDA_mean +
+    coefs_SW_fixed["beta_damDen"]    * damDensity +
+    coefs_SW_random_stream[as.character(stream)] +
+    coefs_SW_random_year[as.character(year)]
+	
+  SW <- exp(eta)
+  
+  SW
+}
+
+
+################################################
+
+# PREDICT SWA and COMPUTE DELTA_SW for each window and dam density
+
+dam_densities <- c(0,3,6,9,12,15)
+
+df_delta_sw <- df_windows %>%
+  rowwise() %>%
+  mutate(
+    SW_0  = predict_SW_window(TO_mean, RIPA_mean, UDA_mean,
+                              damDensity = 0,
+                              stream = stream,
+                              year = year,
+                              coefs_SW_fixed = coefs_SW_fixed,
+                              coefs_SW_random_stream = coefs_SW_random_stream,
+                              coefs_SW_random_year = coefs_SW_random_year),
+    SW_3  = predict_SW_window(TO_mean, RIPA_mean, UDA_mean,
+                              damDensity = 3,
+                              stream = stream,
+                              year = year,
+                              coefs_SW_fixed = coefs_SW_fixed,
+                              coefs_SW_random_stream = coefs_SW_random_stream,
+                              coefs_SW_random_year = coefs_SW_random_year),
+    SW_6 = predict_SW_window(TO_mean, RIPA_mean, UDA_mean,
+                              damDensity = 6,
+                              stream = stream,
+                              year = year,
+                              coefs_SW_fixed = coefs_SW_fixed,
+                              coefs_SW_random_stream = coefs_SW_random_stream,
+                              coefs_SW_random_year = coefs_SW_random_year),
+    SW_9 = predict_SW_window(TO_mean, RIPA_mean, UDA_mean,
+                              damDensity = 9,
+                              stream = stream,
+                              year = year,
+                              coefs_SW_fixed = coefs_SW_fixed,
+                              coefs_SW_random_stream = coefs_SW_random_stream,
+                              coefs_SW_random_year = coefs_SW_random_year),
+	SW_12 = predict_SW_window(TO_mean, RIPA_mean, UDA_mean,
+                              damDensity = 12,
+                              stream = stream,
+                              year = year,
+                              coefs_SW_fixed = coefs_SW_fixed,
+                              coefs_SW_random_stream = coefs_SW_random_stream,
+                              coefs_SW_random_year = coefs_SW_random_year),
+    SW_15 = predict_SW_window(TO_mean, RIPA_mean, UDA_mean,
+                              damDensity = 15,
+                              stream = stream,
+                              year = year,
+                              coefs_SW_fixed = coefs_SW_fixed,
+                              coefs_SW_random_stream = coefs_SW_random_stream,
+                              coefs_SW_random_year = coefs_SW_random_year),
+    delta_SW_3  = SW_3  - SW_0,
+    delta_SW_6 = SW_6 - SW_0,
+	delta_SW_9 = SW_9 - SW_0,
+	delta_SW_12 = SW_12 - SW_0,
+    delta_SW_15 = SW_15 - SW_0
+  ) %>%
+  ungroup()
+
+
+
+
+###############################################
+# RECONNECT DELTA_SW TO POLYGONS ON THE MAP!!!
+###############################################
+
+
+aoi_RiparianGeometries <- bind_rows(brz_RiparianGeometries,
+									lrb_RiparianGeometries,
+									...,
+									...,
+									...,
+									wc_RiparianGeometries)
+
+df_predDeltaSW_map <- aoi_RiparianGeometries %>%
+  left_join(
+    df_delta_sw %>%
+      select(stream, year, window_id, TP_ID_start, TP_ID_end,
+             delta_SW_3, delta_SW_6, delta_SW_9, delta_SW_12, delta_SW_15),
+    by = c("stream")  # then filter by TP_ID range
+  ) %>%
+  group_by(stream, year, window_id) %>%
+  mutate(
+    in_window = TP_ID >= TP_ID_start & TP_ID <= TP_ID_end
+  ) %>%
+  filter(in_window) %>%
+  ungroup()
+
+
+# MAP IT!!
+
+library(leaflet)
+
+pal <- colorNumeric("RdYlBu", df_predDeltaSW_map$delta_SW_12)
+
+leaflet(df_predDeltaSW_map) %>%
+  addTiles() %>%
+  addPolygons(
+    fillColor = ~pal(delta_SW_12),
+    fillOpacity = 0.7,
+    color = "grey40",
+    weight = 0.5,
+    popup = ~paste0(
+      "Stream: ", stream,
+      "<br>Year: ", year,
+      "<br>Window: ", window_id,
+      "<br>ΔSW (12 dams/km): ", round(delta_SW_12, 2)
+    )
+  ) %>%
+  addLegend("bottomright", pal = pal, values = ~delta_SW_12,
+            title = "ΔSW (12 dams/km)")

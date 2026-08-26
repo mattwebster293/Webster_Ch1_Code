@@ -12,8 +12,35 @@ The purpose of this RMarkdown is to implement hierarchical generalized linear mi
 
 4 models total.
     
+    
+    WAIC indicates that all four models perform comparably well. Given this, I only include code and results for m4, which models the effect of dam density on NDVI, conditional on geomorphic covariates.
+
+----
+
+**HGLMM**
 
 
+    This analysis explores late August vegetation greenness (NDVI) in relation to 
+    beaver dam presence, & density.
+    
+    2 models for dam presence (1 without geomorphic covariates; 1 with geomorphic covariates)
+    2 models for dam density (...^^^...)
+    
+    All 4 models presented herein are constructed in a hierarchical generalized linear 
+    mixed effects model framework with stream, year, and cluster_ID as random intercepts
+    for NDVI. 
+    
+      - NDVI ~ damPresence (no geom.covar.)
+      - NDVI ~ damPresence (geom.covar.)
+      - NDVI ~ damDensity (no geom.covar.)
+      - NDVI ~ damDensity (no geom.covar.)
+    
+    Model structure is paralleled with HGLMMs for veg area.
+    
+    Uses mean(NDVI) for each sample window for 6 watersheds, 3 years, 08/15-08/31
+    
+    
+----
 
 ```{r,echo=FALSE,}
 suppressPackageStartupMessages({
@@ -40,7 +67,6 @@ suppressPackageStartupMessages({
 ```
 
 
-----
 
 
 **Final Data:**
@@ -88,7 +114,7 @@ str(aoi_HurdleData)
 
 ----
 
-    Rough normality of NDVI distribution does not require response transformation prior
+    Rough normality of NDVI distribution does not require response variable transformation prior
     to modeling. 
       
       
@@ -127,32 +153,6 @@ For NDVI models, data of interest include:
     - RIPA: riparian area (m^2); z-standardized; fixed effect on NDVI 
     
     - UDA: upstream drainage area (km ^2); z-standardized; fixed effect on NDVI
-
-
-----
-
-**HGLMM**
-
-
-    This analysis explores late August vegetation greenness (NDVI) in relation to 
-    beaver dam presence, & density.
-    
-    2 models for dam presence (1 without geomorphic covariates; 1 with geomorphic covariates)
-    2 models for dam density (...^^^...)
-    
-    All 4 models presented herein are constructed in a hierarchical generalized linear 
-    mixed effects model framework with stream, year, and cluster_ID as random intercepts
-    for NDVI. 
-    
-      - NDVI ~ damPresence (no geom.covar.)
-      - NDVI ~ damPresence (geom.covar.)
-      - NDVI ~ damDensity (no geom.covar.)
-      - NDVI ~ damDensity (no geom.covar.)
-    
-    Model structure is paralleled with HGLMMs for veg area.
-    
-    Uses mean(NDVI) for each sample window for 6 watersheds, 3 years, 08/15-08/31
-    
     
 ----
 
@@ -160,7 +160,18 @@ For NDVI models, data of interest include:
     
     When we simplify the model, we see that:
     
-    Dams have a slightly positive, though MINISCULE effect on NDVI.
+    Dams have a slightly positive, though MINISCULE effect on NDVI. This makes good sense, as
+    dam presence/density is unlikely to drive massive changes in riparian vegetation structure.
+    It may make yellow willows slightly greener, but it's not changing scrub/grass into lush
+    willow/cottonwood forests. 
+    
+    Dams increase NDVI by ~ 0.01
+    
+    Drainage area is the strongest positive driver of NDVI.
+    
+    Riparian area has a slight negative effect on NDVI (more space includes more non-green veg).
+    
+    Incision has a slight (significant) negative effect on NDVI.
 
 ----
 
@@ -182,6 +193,7 @@ Effect of damPresence without geomorphic covariates
 ----
 
 ```{r,echo=FALSE}
+#library(jagsUI)
 ```
 
     sink("HGLMM_m1_NDVI_damPres.jags")
@@ -312,7 +324,7 @@ Sys.time()
 
 ```
 
-
+<!---
 ----
 
 DIAGNOSTICS:
@@ -585,6 +597,9 @@ ggplot(m1_NDVI_df, aes(x = Dam, y = NDVI, fill = Dam)) +
   theme(legend.position = "none")
 ```
 
+
+--->
+
 ----
 
 ----
@@ -598,6 +613,7 @@ Effect of damPresence WITH geomorphic covariates
 ----
 
 ```{r,echo=FALSE}
+#library(jagsUI)
 ```
     sink("HGLMM_m2_NDVI_damPres.jags")
     
@@ -736,7 +752,7 @@ Sys.time()
 
 ```
 
-
+<!---
 
 ----
 
@@ -1229,6 +1245,9 @@ plot_pdp(m2_pdp_UDA,   "UDA_raw",   "Contributing Drainage Area (km^2)")
 
 ----
 
+--->
+
+
 ----
 
 ----
@@ -1246,7 +1265,7 @@ NDVI ~ Dam Density
 
 ```{r,echo=FALSE}
 #library(jagsUI)
-
+```
     sink("HGLMM_m3_NDVI_damDensity.jags")
     
     cat("
@@ -1312,7 +1331,7 @@ NDVI ~ Dam Density
     ", fill = TRUE)
     
     sink()
-```
+
     
 
 ```{r,echo=FALSE}
@@ -1370,6 +1389,9 @@ hglmm_m3_NDVI_damDen <- jags(data = hglmm_m3_NDVI_damDen_data_list,
 Sys.time()
 
 ```
+
+<!---
+
 
 
 ----
@@ -1501,7 +1523,7 @@ boxplot(hglmm_m3_NDVI_damDen$sims.list$eta_year)
 
 **Posterior mean dam density effect**
 
-damDen --> NDVI (no geom.covar.)
+damDen -> NDVI (no geom.covar.)
 
 ```{r,echo=FALSE}
 m3_coeffparams <- c(#"alpha",
@@ -1724,6 +1746,9 @@ ggplot(m3_pdp_year_named, aes(x = year_label, y = NDVI_med, color = damDen)) +
 
 ----
 
+--->
+
+
 ----
 
 ----
@@ -1736,7 +1761,7 @@ ggplot(m3_pdp_year_named, aes(x = year_label, y = NDVI_med, color = damDen)) +
 
 ```{r,echo=FALSE}
 #library(jagsUI)
-
+```
 
     sink("HGLMM_m4_NDVI_damDensity.jags")
     
@@ -1810,7 +1835,7 @@ ggplot(m3_pdp_year_named, aes(x = year_label, y = NDVI_med, color = damDen)) +
     ", fill = TRUE)
     
     sink()
-```
+
     
 
 ```{r,echo=FALSE}
@@ -1946,6 +1971,7 @@ coda::traceplot(mcmc_sub_m4)
 
 ----
 
+**Posterior predictive plots:**
 
 Predicted NDVI vs observed NDVI
 
@@ -1984,7 +2010,7 @@ Slope:
 m4_slope
 ```
 
-    1.07 is pretty good
+    1.08 is pretty good
 
 ----
 
@@ -2007,6 +2033,59 @@ boxplot(hglmm_m4_NDVI_damDen$sims.list$eta_stream)
 
 
 ----
+
+
+**Prior-posterior overlap:**
+
+```{r,echo=FALSE}
+par(mfrow = c(2, 2),        # 2 rows, 2 columns
+    mar = c(4, 4, 2, 1),    # smaller margins
+    cex = 0.8) 
+
+damDen_alpha_m4_post <- hglmm_m4_NDVI_damDen$sims.list$alpha
+damDen_beta_m4_post  <- hglmm_m4_NDVI_damDen$sims.list$beta_damDen
+damDen_beta_incis_m4_post <- hglmm_m4_NDVI_damDen$sims.list$beta_incis
+damDen_sigEtaStream_m4_post <- hglmm_m4_NDVI_damDen$sims.list$sigma_eta_stream
+
+damDenMod_m4_n <- length(damDen_alpha_m4_post)
+
+damDen_alpha_m4_prior <- rnorm(damDenMod_m4_n, 0.32, sqrt(1/0.04))
+damDen_beta_m4_prior  <- rnorm(damDenMod_m4_n, 0, sqrt(1/0.04))
+damDen_beta_incis_m4_prior  <- rnorm(damDenMod_m4_n, 0, sqrt(1/0.04))
+damDen_sigEtaStream_m4_prior <- pmax(rnorm(damDenMod_m4_n, 0, 1), 0)
+
+
+# Plot overlap:
+
+plot_prior_post <- function(prior, post, name) {
+  
+  df <- tibble(
+    value = c(prior, post),
+    dist  = rep(c("Prior", "Posterior"), each = length(prior))
+  )
+  
+  ggplot(df, aes(x = value, fill = dist)) +
+    geom_density(alpha = 0.4) +
+    scale_fill_manual(values = c("gray60", "steelblue")) +
+    labs(
+      title = paste("Prior vs Posterior for", name),
+      x = name,
+      y = "Density"
+    ) +
+    theme_minimal(base_size = 14)
+}
+
+plot_prior_post(damDen_alpha_m4_prior, damDen_alpha_m4_post, "alpha_m4")
+plot_prior_post(damDen_beta_m4_prior, damDen_beta_m4_post, "beta_damDen_m4")
+plot_prior_post(damDen_beta_incis_m4_prior, damDen_beta_incis_m4_post, "beta_incis_m4")
+plot_prior_post(damDen_sigEtaStream_m4_prior, damDen_sigEtaStream_m4_post, "sigma_eta_stream_m4")
+```
+
+    PPOs still look good pretty good.
+
+----
+
+
 
 ----
 
@@ -2044,90 +2123,125 @@ ggplot(m4_coef_df, aes(y = parameter, x = mean)) +
   theme_bw(base_size = 14)
 ```
 
+
+**Posterior Estimates**
+
+```{r,echo=FALSE}
+
+m4_alpha <- mean(hglmm_m4_NDVI_damDen$sims.list$alpha)
+
+m4_beta_dd <- mean(hglmm_m4_NDVI_damDen$sims.list$beta_damDen)
+
+m4_beta_in <- mean(hglmm_m4_NDVI_damDen$sims.list$beta_incis)
+
+m4_beta_rip <- mean(hglmm_m4_NDVI_damDen$sims.list$beta_RIPA)
+
+m4_beta_uda <- mean(hglmm_m4_NDVI_damDen$sims.list$beta_UDA)
+
+```
+
+```{r,echo=FALSE}
+m4_coeffparams <- c(#"alpha",
+            "beta_damDen",
+            "beta_incis",
+            "beta_RIPA",
+            "beta_UDA",
+            "sigma")
+
+m4_coef_df <- hglmm_m4_NDVI_damDen$summary[m4_coeffparams, ] %>%
+  as.data.frame() %>%
+  rownames_to_column("parameter") %>%
+  select(parameter, mean, `2.5%`, `97.5%`)
+
+ggplot(m4_coef_df, aes(y = parameter, x = mean)) +
+  geom_point(size = 3) +
+  geom_errorbar(
+    aes(xmin = `2.5%`, xmax = `97.5%`),
+    width = 0.2,
+    orientation = "y"
+  ) +
+  geom_vline(xintercept = 0, color = "black", linewidth = 1) +
+  labs(
+    title = "Posterior Means and 95% Credible Intervals",
+    x = "Effect Size (log scale)",
+    y = ""
+  ) +
+  theme_bw(base_size = 14)
+```
+
+----
+
+**Effect of 1 SD increase in dam density on NDVI:**
+
 ```{r,echo=FALSE}
 summary(hglmm_m4_NDVI_damDen$sims.list$beta_damDen)
-
-exp(mean(hglmm_m4_NDVI_damDen$sims.list$beta_damDen))
 ```
+
+    For a 'typical' stream at mean geomorphic covariate conditions, a 1 SD increase 
+    in dam density is associated with an increase of 0.007 on the raw NDVI scale.
+    
+    Dam density's influence on NDVI, though "significantly" positive, is very weak. 
+    
+    
+----
+
+**Estimated effects of geomorphic covariates**
+
+----
+
+**Effect of 1 SD increase in incision on NDVI:**
 
 ```{r,echo=FALSE}
-#library(tidyverse)
-#library(scales)
-
-par(mfrow = c(1, 1),        # 2 rows, 1 columns
-    mar = c(4, 4, 2, 1),    # smaller margins
-    cex = 0.8)  
-#Posterior distribution of damEffect on vegArea:
-
-hist(hglmm_m4_NDVI_damDen$sims.list$beta_damDen,
-     breaks = 50,
-     col = "steelblue",
-     main = "Posterior distribution of damDen effect on NDVI",
-     xlab = "beta_damDen",
-     xlim = c(0,0.025))
-# Add median line
-abline(v = median(hglmm_m4_NDVI_damDen$sims.list$beta_damDen), col = "red", lwd = 2)
-
+summary(hglmm_m4_NDVI_damDen$sims.list$beta_incis)
 ```
 
-    When we account for geomorhpic context, a 1 std dev. increase in dam density 
-    corresponds with a ~ 0.07 increase in vegetation area
+     For a typical stream at mean covariate conditions, a 1 SD increase in incision (~0.1)
+     is associated with a decrease of 0.008 on the raw NDVI scale.
+     
+     Again, though "significantly" negative, the effect of incision on NDVI is VERY weak.
+
+----
+ 
+**Effect of 1 SD increase in riparian area on NDVI:**
+
+```{r,echo=FALSE}
+summary(hglmm_m4_NDVI_damDen$sims.list$beta_RIPA)
+```
+
+
+    For a "typcial" stream under mean geomorphic covariate conditions, a 1 SD increase
+    in riparian area (11000 m^2) is associated with a decrease of 0.006 on the raw 
+    NDVI scale.
     
-    No overlap of 0. Real, but VERY small positive effect on NDVI
+    This estimate also overlaps zero. Interpretation = no effect of RIPA on NDVI.
     
+
+----
+    
+**Effect of 1 SD increase in Upstream Drainage Area on SW amount:**
+
+```{r,echo=FALSE}
+summary(hglmm_m4_NDVI_damDen$sims.list$beta_UDA)
+```
+
+    For a "typical" stream under mean geomorphic covariate conditions, a 1 SD increase
+    in Upstream Drainage Area (UDA) (~1300km^2) is associated an increase of 0.028 on
+    the raw NDVI scale. 
+ 
+    Though strongly positive, and the strongest covariate effect, 0.028 is still a very
+    small change in NDVI. 
+    
+    
+    Take-Away:
+    Beaver dam density is not noticeably changing the vegetation structure within the
+    riparian zone, thus mean NDVI at dammed reaches is not meaningfully different than 
+    mean NDVI at paired undammed reaches. Broader-scale hydrologic processes drive 
+    riparian veg greenness in late August.
 
 
 ----
 
-**Prior-posterior overlap:**
 
-```{r,echo=FALSE}
-par(mfrow = c(2, 2),        # 2 rows, 2 columns
-    mar = c(4, 4, 2, 1),    # smaller margins
-    cex = 0.8) 
-
-damDen_alpha_m4_post <- hglmm_m4_NDVI_damDen$sims.list$alpha
-damDen_beta_m4_post  <- hglmm_m4_NDVI_damDen$sims.list$beta_damDen
-damDen_beta_incis_m4_post <- hglmm_m4_NDVI_damDen$sims.list$beta_incis
-damDen_sigEtaStream_m4_post <- hglmm_m4_NDVI_damDen$sims.list$sigma_eta_stream
-
-damDenMod_m4_n <- length(damDen_alpha_m4_post)
-
-damDen_alpha_m4_prior <- rnorm(damDenMod_m4_n, 0.32, sqrt(1/0.04))
-damDen_beta_m4_prior  <- rnorm(damDenMod_m4_n, 0, sqrt(1/0.04))
-damDen_beta_incis_m4_prior  <- rnorm(damDenMod_m4_n, 0, sqrt(1/0.04))
-damDen_sigEtaStream_m4_prior <- pmax(rnorm(damDenMod_m4_n, 0, 1), 0)
-
-
-# Plot overlap:
-
-#plot_prior_post <- function(prior, post, name) {
-  
-#  df <- tibble(
-#    value = c(prior, post),
-#    dist  = rep(c("Prior", "Posterior"), each = length(prior))
-#  )
-  
-#  ggplot(df, aes(x = value, fill = dist)) +
-#    geom_density(alpha = 0.4) +
-#    scale_fill_manual(values = c("gray60", "steelblue")) +
-#    labs(
-#      title = paste("Prior vs Posterior for", name),
-#      x = name,
-#      y = "Density"
-#    ) +
-#    theme_minimal(base_size = 14)
-#}
-
-plot_prior_post(damDen_alpha_m4_prior, damDen_alpha_m4_post, "alpha_m4")
-plot_prior_post(damDen_beta_m4_prior, damDen_beta_m4_post, "beta_damDen_m4")
-plot_prior_post(damDen_beta_incis_m4_prior, damDen_beta_incis_m4_post, "beta_incis_m4")
-plot_prior_post(damDen_sigEtaStream_m4_prior, damDen_sigEtaStream_m4_post, "sigma_eta_stream_m4")
-```
-
-    PPOs still look good pretty good.
-
-----
 ----
 
 **Partial dependence plots**
@@ -2288,7 +2402,7 @@ plot_pdp_damDen <- function(pdp, xvar, xtitle) {
     scale_fill_viridis_c(option = "plasma") +
     scale_y_continuous(labels = comma) +
     labs(
-      title = paste("Partial Dependence of NDVI on dam density and", xtitle),
+      title = paste("Partial Dependence of NDVI on Dam Density and", xtitle),
       subtitle = "Across empirical dam density range",
       x = xtitle,
       y = "Predicted NDVI",
@@ -2319,6 +2433,7 @@ plot_pdp_damDen(pdp_UDA_m4_damDen,   "UDA_raw",   "Contributing Drainage Area (k
 m4_dam_seq <- seq(min(aoi_HurdleData$dam_km),
                max(aoi_HurdleData$dam_km),
                length.out = 50)
+m4_scaledDamDen_seq <- (m4_dam_seq - damDen_m4_mean_raw) / damDen_m4_sd_raw
 
 # build PDP grid
 m4_pdp_stream <- map_dfr(1:n_stream, function(j) {
@@ -2330,20 +2445,20 @@ m4_pdp_stream <- map_dfr(1:n_stream, function(j) {
   
   eta_j   <- damDen_m4_post$eta_stream[, j] + rowMeans(damDen_m4_post$eta_year)
 
-  map_dfr(m4_dam_seq, function(d) {
+  map2_dfr(m4_dam_seq, m4_scaledDamDen_seq, function(d_raw, d_scaled) {
 
-    mu_draws <- alpha_j + beta_j * d + eta_j
-    NDVI_draws <- mu_draws
+    mu_draws <- alpha_j + beta_j * d_scaled + eta_j
 
     tibble(
       stream = j,
-      damDen = d,
-      NDVI_med = median(NDVI_draws),
-      NDVI_lo  = quantile(NDVI_draws, 0.025),
-      NDVI_hi  = quantile(NDVI_draws, 0.975)
+      damDen = d_raw,
+      NDVI_med = median(mu_draws),
+      NDVI_lo  = quantile(mu_draws, 0.025),
+      NDVI_hi  = quantile(mu_draws, 0.975)
     )
   })
 })
+
 
 stream_lookup <- aoi_HurdleData %>%
   distinct(stream, watershed) %>%
@@ -2381,17 +2496,16 @@ m4_pdp_year <- map_dfr(1:n_year, function(j) {
   
   eta_j   <- damDen_m4_post$eta_year[, j] + rowMeans(damDen_m4_post$eta_stream)
 
-  map_dfr(m4_dam_seq, function(d) {
+  map2_dfr(m4_dam_seq, m4_scaledDamDen_seq, function(d_raw, d_scaled) {
 
-    mu_draws <- alpha_j + beta_j * d + eta_j
-    NDVI_draws <- mu_draws
+    mu_draws <- alpha_j + beta_j * d_scaled + eta_j
 
     tibble(
       year = j,
-      damDen = d,
-      NDVI_med = median(NDVI_draws),
-      NDVI_lo  = quantile(NDVI_draws, 0.025),
-      NDVI_hi  = quantile(NDVI_draws, 0.975)
+      damDen = d_raw,
+      NDVI_med = median(mu_draws),
+      NDVI_lo  = quantile(mu_draws, 0.025),
+      NDVI_hi  = quantile(mu_draws, 0.975)
     )
   })
 })
@@ -2423,8 +2537,6 @@ ggplot(m4_pdp_year_named, aes(x = year_label, y = NDVI_med, color = damDen)) +
   ) +
   theme_minimal(base_size = 14) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
-
-
 ```
 
 

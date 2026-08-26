@@ -13,8 +13,43 @@ The purpose of this RMarkdown is to implement hierarchical generalized linear mi
 
 4 models total.
     
+    WAIC indicates that all four models perform comparably well. Given this, I only include code and results for m4, which models the effect of dam density on vegetation area, conditional on geomorphic covariates. 
+    
+    
+    
+----
+
+**HGLMM**
 
 
+    This analysis explores late August vegetation area in relation to beaver dam presence,
+    & density.
+    
+    2 models for dam presence (1 without geomorphic covariates; 1 with geomorphic covariates)
+    2 models for dam density (...^^^...)
+    
+    All 4 models presented herein are constructed in a hierarchical generalized linear mixed
+    effects model framework. Stream, year, and sample clusterID are included as random intercepts
+    for baseline vegetation area. Random slopes were removed from this analysis, due to lack of 
+    group-level variation to support model complexity. See "Ch1_Model_Data_Setup.Rmd". For
+    the same reason, (lack of variation), sampleEvent was removed as a random effect - no
+    notable difference in VA among sampleEvents.
+    
+    Models herein:
+    
+      - VA ~ damPresence (no geom.covar.)
+      - VA ~ damPresence (geom.covar.)
+      - VA ~ damDensity (no geom.covar.)
+      - VA ~ damDensity (geom.covar.)
+    
+    Model structure is simplified from part 2 from the surface water hurdle models. Model 
+    should be structurally parallel with NDVI model.
+    
+    Uses log(VegArea) for for 6 watersheds, & 3 years.
+    
+    
+----
+    
 
 ```{r,echo=FALSE,}
 suppressPackageStartupMessages({
@@ -45,9 +80,9 @@ suppressPackageStartupMessages({
 
 **Final Data:**
 
-NOTE: This ONLY uses data from 08/15-08/31. This is to avoid issues with pseudo-replication after the omission of random effects for sample event.
-
-Modeling reflects late August effect of beaver dams on vegetation area. Riparian vegetation = mesic resource that is critical for grouse recruitment.
+    NOTE: This ONLY uses data from 08/15-08/31. This is to avoid issues with pseudo-replication after the omission of random effects for sample event.
+    
+    Modeling reflects late August effect of beaver dams on vegetation area. Riparian vegetation = mesic resource that is critical for grouse recruitment.
 
 ```{r,echo=FALSE}
 aoi_HurdleData <- read.csv("aoi_HurdleData.csv") |> 
@@ -122,44 +157,19 @@ For vegetation models, data of interest include:
 
 
 ----
-----
 
-**HGLMM**
-
-
-    This analysis explores late August vegetation area in relation to beaver dam presence,
-    & density.
-    
-    2 models for dam presence (1 without geomorphic covariates; 1 with geomorphic covariates)
-    2 models for dam density (...^^^...)
-    
-    All 4 models presented herein are constructed in a hierarchical generalized linear mixed
-    effects model framework. Stream, year, and sample clusterID are included as random intercepts
-    for baseline vegetation area. Random slopes were removed from this analysis, due to lack of 
-    group-level variation to support model complexity. See "Ch1_Model_Data_Setup.Rmd". For
-    the same reason, (lack of variation), sampleEvent was removed as a random effect - no
-    notable difference in VA among sampleEvents.
-    
-    Models herein:
-    
-      - VA ~ damPresence (no geom.covar.)
-      - VA ~ damPresence (geom.covar.)
-      - VA ~ damDensity (no geom.covar.)
-      - VA ~ damDensity (geom.covar.)
-    
-    Model structure is simplified from part 2 from the surface water hurdle models. Model 
-    should be structurally parallel with NDVI model.
-    
-    Uses log(VegArea) for for 6 watersheds, & 3 years.
-    
-    
-----
 
 **Overall Takeaways**
 
-    ...
-    ...
-    ...
+    Dam presence is associated with ~25% increase in vegetation area
+    
+    1 SD increase in dam density is associated with ~13% increase in vegetation area.
+    
+    1 SD increase in riparian area is associated with a 25-30% increase in vegetation area.
+    
+    Incision and upstream drainage area have negligible influence on vegetation area.
+    
+    Still lots of variation among streams and years. Note the annual differences and the lag effect of early summer 2023 flooding.
 
 ----
 
@@ -188,7 +198,7 @@ Effect of damPresence without geomorphic covariates
 
 ```{r,echo=FALSE}
 library(jagsUI)
-
+```
     sink("HGLMM_m1_Veg_damPresence.jags")
     
     cat("
@@ -214,7 +224,7 @@ library(jagsUI)
       ##########################################################################
       # FIXED EFFECT PRIORS:
       
-      alpha ~ dnorm(9.07, 0.04)
+      alpha ~ dnorm(9.07, 0.04)   # within 5SD of empirical mean
       beta_damPres ~ dnorm(0,0.04)
     
       ##########################################################################
@@ -261,7 +271,7 @@ library(jagsUI)
     
     sink()
 
-```    
+    
 
 ```{r,echo=FALSE}
 hglmm_m1_veg_damPres_data_list <- list(
@@ -318,7 +328,7 @@ Sys.time()
 
 ```
 
-
+<!---
 ----
 
 DIAGNOSTICS:
@@ -602,7 +612,7 @@ ggplot(m1_VA_df, aes(x = Dam, y = VA, fill = Dam)) +
   theme(legend.position = "none")
 ```
 
-
+--->
 ----
 
 ----
@@ -625,7 +635,7 @@ Effect of damPresence WITH geomorphic covariates
 
 ```{r,echo=FALSE}
 #library(jagsUI)
-
+```
     sink("HGLMM_m2_Veg_damPresence.jags")
     
     cat("
@@ -702,7 +712,7 @@ Effect of damPresence WITH geomorphic covariates
     ", fill = TRUE)
     
     sink()
-```
+
     
 
 ```{r,echo=FALSE}
@@ -769,7 +779,7 @@ Sys.time()
 
 ```
 
-
+<!---
 
 ----
 
@@ -1266,6 +1276,7 @@ plot_pdp(m2_pdp_UDA,   "UDA_raw",   "Contributing Drainage Area (km^2)")
 ----
 
 ----
+--->
 
 ----
 
@@ -1290,7 +1301,7 @@ VegArea ~ Dam Density
 
 ```{r,echo=FALSE}
 #library(jagsUI)
-
+```
     sink("HGLMM_m3_Veg_damDensity.jags")
     
     cat("
@@ -1355,7 +1366,7 @@ VegArea ~ Dam Density
     ", fill = TRUE)
     
     sink()
-```
+
     
 
 ```{r,echo=FALSE}
@@ -1415,7 +1426,7 @@ Sys.time()
 
 ```
 
-
+<!---
 ----
 
 
@@ -1545,7 +1556,7 @@ boxplot(hglmm_m3_damDen_Veg$sims.list$eta_year)
 
 **Posterior mean dam density effect**
 
-damDen --> vegArea (no geom.covar.)
+damDen -> vegArea (no geom.covar.)
 
 ```{r,echo=FALSE}
 m3_coeffparams <- c(#"alpha",
@@ -1763,7 +1774,7 @@ ggplot(m3_pdp_year_named, aes(x = year_label, y = VA_med, color = damDen)) +
 
 ```
 
-
+--->
 ----
 
 ----
@@ -1780,7 +1791,7 @@ ggplot(m3_pdp_year_named, aes(x = year_label, y = VA_med, color = damDen)) +
 
 ```{r,echo=FALSE}
 #library(jagsUI)
-
+```
     sink("HGLMM_m4_Veg_damDensity.jags")
     
     cat("
@@ -1855,7 +1866,6 @@ ggplot(m3_pdp_year_named, aes(x = year_label, y = VA_med, color = damDen)) +
     
     sink()
  
-```    
 
 ```{r,echo=FALSE}
 hglmm_damDen_m4_data_list <- list(
@@ -1894,10 +1904,10 @@ hglmm_damDen_m4_params <- c(
   "loglik"
 )
 
-#nchains <- 3
-#nthin <- 5
-#niter <- 100000
-#nburn <- 25000
+nchains <- 3
+nthin <- 5
+niter <- 100000
+nburn <- 25000
 
 
 Sys.time()
@@ -1960,7 +1970,7 @@ effectiveSize(hglmm_m4_damDen_Veg$samples[, params_m4])
     Rhat & Effective Sample Size:
     
     Solid. Rhats near 1.0 (1.03-1.05 is fine); ESS all in the thousands. 
-    beta_damDen still the hardest to estimate
+    beta_damDen is the hardest to estimate
 
 
 ----
@@ -1990,7 +2000,7 @@ coda::traceplot(mcmc_sub_m4)
 ----
 
 
-**Predicted log(SWA) vs observed log(SWA), conditional on SW presence**
+**Predicted log(VA) vs observed log(VA)**
 
 Goal is 1:1 (ish)
 
@@ -2028,7 +2038,7 @@ Slope:
 m4_slope_log
 ```
 
-    1.1 again. Still solid.
+    Near 1 = good
 
 ----
 
@@ -2055,11 +2065,71 @@ boxplot(hglmm_m4_damDen_Veg$sims.list$eta_stream)
 
 ----
 
+**Prior-posterior overlap:**
+
+```{r,echo=FALSE}
+par(mfrow = c(2, 2),        # 2 rows, 2 columns
+    mar = c(4, 4, 2, 1),    # smaller margins
+    cex = 0.8) 
+
+damDen_alpha_m4_post <- hglmm_m4_damDen_Veg$sims.list$alpha
+damDen_beta_m4_post  <- hglmm_m4_damDen_Veg$sims.list$beta_damDen
+damDen_beta_incis_m4_post <- hglmm_m4_damDen_Veg$sims.list$beta_incis
+damDen_sigmaEtaStream_m4_post <- hglmm_m4_damDen_Veg$sims.list$sigma_eta_stream
+
+damDenMod_m4_n <- length(damDen_alpha_m4_post)
+
+damDen_alpha_m4_prior <- rnorm(damDenMod_m4_n, 0, sqrt(1/0.04))
+damDen_beta_m4_prior  <- rnorm(damDenMod_m4_n, 0, sqrt(1/0.04))
+damDen_beta_incis_m4_prior  <- rnorm(damDenMod_m4_n, 0, sqrt(1/0.04))
+damDen_sigmaEtaStream_m4_prior <- pmax(rnorm(damDenMod_m4_n, 0, 1), 0)
+
+
+# Plot overlap:
+
+plot_prior_post <- function(prior, post, name) {
+  
+  df <- tibble(
+    value = c(prior, post),
+    dist  = rep(c("Prior", "Posterior"), each = length(prior))
+  )
+  
+  ggplot(df, aes(x = value, fill = dist)) +
+    geom_density(alpha = 0.4) +
+    scale_fill_manual(values = c("gray60", "steelblue")) +
+    labs(
+      title = paste("Prior vs Posterior for", name),
+      x = name,
+      y = "Density"
+    ) +
+    theme_minimal(base_size = 14)
+}
+
+plot_prior_post(damDen_alpha_m4_prior, damDen_alpha_m4_post, "alpha_m4")
+plot_prior_post(damDen_beta_m4_prior, damDen_beta_m4_post, "beta_damDen_m4")
+plot_prior_post(damDen_beta_incis_m4_prior, damDen_beta_incis_m4_post, "beta_incis_m4")
+plot_prior_post(damDen_sigmaEtaStream_m4_prior, damDen_sigmaEtaStream_m4_post, "sigma_eta_stream_m4")
+```
+
+    PPOs look good pretty good.
+
 ----
 
-**Posterior mean dam density effect**
+**Posterior Estimates**
 
-damDen --> vegArea (with geom.covar.)
+```{r,echo=FALSE}
+
+m4_alpha <- mean(hglmm_m4_damDen_Veg$sims.list$alpha)
+
+m4_beta_dd <- mean(hglmm_m4_damDen_Veg$sims.list$beta_damDen)
+
+m4_beta_in <- mean(hglmm_m4_damDen_Veg$sims.list$beta_incis)
+
+m4_beta_rip <- mean(hglmm_m4_damDen_Veg$sims.list$beta_RIPA)
+
+m4_beta_uda <- mean(hglmm_m4_damDen_Veg$sims.list$beta_UDA)
+
+```
 
 ```{r,echo=FALSE}
 m4_coeffparams <- c(#"alpha",
@@ -2090,90 +2160,116 @@ ggplot(m4_coef_df, aes(y = parameter, x = mean)) +
   theme_bw(base_size = 14)
 ```
 
+----
+
+**Effect of 1 SD increase in dam density on vegetation area:**
 
 ```{r,echo=FALSE}
 summary(hglmm_m4_damDen_Veg$sims.list$beta_damDen)
 
 exp(mean(hglmm_m4_damDen_Veg$sims.list$beta_damDen))
-```
 
-```{r,echo=FALSE}
-#library(tidyverse)
-#library(scales)
+VA_damDen_0 <- exp(m4_alpha)  # with geom covar. at z-scaled mean (0)
+#VA_damDen_0
 
-par(mfrow = c(1, 1),        # 2 rows, 1 columns
-    mar = c(4, 4, 2, 1),    # smaller margins
-    cex = 0.8)  
-#Posterior distribution of damEffect on vegArea:
+VA_damDen_1 <- exp(m4_alpha + 0.126)
+#VA_damDen_1
 
-hist(hglmm_m4_damDen_Veg$sims.list$beta_damDen,
-     breaks = 50,
-     col = "steelblue",
-     main = "Posterior distribution of damDensity effect on log(VA + 1)",
-     xlab = "beta_damDen",
-     xlim = c(0,0.4))
-# Add median line
-abline(v = mean(hglmm_m4_damDen_Veg$sims.list$beta_damDen), col = "red", lwd = 2)
+print("VA change with 1 SD increase in dam density")
+(VA_damDen_1 - VA_damDen_0)
 
 ```
 
-    When we account for geomorhpic context, a 1 std dev. increase in dam density 
-    corresponds with a ~ 10-12% increase in vegetation area
+    A 1 SD increase dam density is associated with ~ 12.6% increase in vegetation area.
+    For a "typical" stream under mean geomorphic covariate conditions, this  12.6% corresponds
+    to an increase of ~ 1273 m^2 of riparian vegetation.
     
-    Slight overlap of 0.
+    Note: at the upper end of the observed dam density range, a typical stream at mean covariate 
+    conditions could see an estimated increase of ~8000 m^2 of riparian vegetation
+    
+    
+----
 
+**Estimated effects of geomorphic covariates**
 
 ----
 
-**Prior-posterior overlap:**
+**Effect of 1 SD increase in incision on vegetation area:**
 
 ```{r,echo=FALSE}
-par(mfrow = c(2, 2),        # 2 rows, 2 columns
-    mar = c(4, 4, 2, 1),    # smaller margins
-    cex = 0.8) 
+summary(hglmm_m4_damDen_Veg$sims.list$beta_incis)
 
-damDen_alpha_m4_post <- hglmm_m4_damDen_Veg$sims.list$alpha
-damDen_beta_m4_post  <- hglmm_m4_damDen_Veg$sims.list$beta_damDen
-damDen_beta_incis_m4_post <- hglmm_m4_damDen_Veg$sims.list$beta_incis
-damDen_sigmaEtaStream_m4_post <- hglmm_m4_damDen_Veg$sims.list$sigma_eta_stream
-
-damDenMod_m4_n <- length(damDen_alpha_m4_post)
-
-damDen_alpha_m4_prior <- rnorm(damDenMod_m4_n, 0, sqrt(1/0.04))
-damDen_beta_m4_prior  <- rnorm(damDenMod_m4_n, 0, sqrt(1/0.04))
-damDen_beta_incis_m4_prior  <- rnorm(damDenMod_m4_n, 0, sqrt(1/0.04))
-damDen_sigmaEtaStream_m4_prior <- pmax(rnorm(damDenMod_m4_n, 0, 1), 0)
+exp(mean(hglmm_m4_damDen_Veg$sims.list$beta_incis))
 
 
-# Plot overlap:
+VA_incis_0 <- exp(m4_alpha)
+#VA_incis_0
 
-#plot_prior_post <- function(prior, post, name) {
-  
-#  df <- tibble(
-#    value = c(prior, post),
-#    dist  = rep(c("Prior", "Posterior"), each = length(prior))
-#  )
-  
-#  ggplot(df, aes(x = value, fill = dist)) +
-#    geom_density(alpha = 0.4) +
-#    scale_fill_manual(values = c("gray60", "steelblue")) +
-#    labs(
-#      title = paste("Prior vs Posterior for", name),
-#      x = name,
-#      y = "Density"
-#    ) +
-#    theme_minimal(base_size = 14)
-#}
+VA_incis_1 <- exp(m4_alpha- 0.01)
+#VA_incis_1
 
-plot_prior_post(damDen_alpha_m4_prior, damDen_alpha_m4_post, "alpha_m4")
-plot_prior_post(damDen_beta_m4_prior, damDen_beta_m4_post, "beta_damDen_m4")
-plot_prior_post(damDen_beta_incis_m4_prior, damDen_beta_incis_m4_post, "beta_incis_m4")
-plot_prior_post(damDen_sigmaEtaStream_m4_prior, damDen_sigmaEtaStream_m4_post, "sigma_eta_stream_m4")
+print("VA change with 1 SD increase in incision")
+(VA_incis_1 - VA_incis_0)
 ```
 
-    PPOs still look good pretty good.
+    A 1 SD increase in incision (~0.1) is associated with a ~1% decrease in vegetation area. 
+    For a typical stream at mean covariate conditions, this corresponds to a decrease in ~ 99 m^2. 
+    
+    <Weak negative effect, heavily overlapping 0.>
 
 ----
+ 
+**Effect of 1 SD increase in riparian area on vegetation area:**
+
+```{r,echo=FALSE}
+summary(hglmm_m4_damDen_Veg$sims.list$beta_RIPA)
+
+exp(mean(hglmm_m4_damDen_Veg$sims.list$beta_RIPA))
+
+
+VA_RIPA_0 <- exp(m4_alpha)
+#SWA_UDA_0
+
+VA_RIPA_1 <- exp(m4_alpha + 0.31)
+#SWA_UDA_1
+
+print("VA change with 1 SD increase in riparian area")
+(VA_RIPA_1 - VA_RIPA_0)
+```
+
+
+    A 1 SD increase in RIPA (11000 m^2) is associated with a ~ 31% increase in vegetation area. 
+    This corresponds with an increase of ~3600 m^2 (for typical stream under mean conditions).
+    
+
+----
+    
+**Effect of 1 SD increase in Upstream Drainage Area on SW amount:**
+
+```{r,echo=FALSE}
+summary(hglmm_m4_damDen_Veg$sims.list$beta_UDA)
+
+exp(mean(hglmm_m4_damDen_Veg$sims.list$beta_UDA))
+
+
+VA_UDA_0 <- exp(m4_alpha)
+#SWA_UDA_0
+
+VA_UDA_1 <- exp(m4_alpha +  0.008)
+#SWA_UDA_1
+
+print("VA change with 1 SD increase in drainage area")
+(VA_UDA_1 - VA_UDA_0)
+
+```
+
+    A 1 SD increase in Upstream Drainage Area (UDA) (~1300km^2) is associated with a 0.8% increase in 
+    vegetation area. This corresponds to an increase of ~ 80 m^2 in VA (m^2) for a 
+    "typical" stream at mean covariate conditions.
+  
+
+----
+
 ----
 
 **Partial dependence plots**
@@ -2358,30 +2454,33 @@ plot_pdp_damDen(pdp_UDA_m4_damDen,   "UDA_raw",   "Contributing Drainage Area (k
 
 ----
 
-**Change in SWA across damDensity by stream and sampleEvent**
+**Change in VA across damDensity by stream and sampleEvent**
+
 
 ```{r,echo=FALSE}
+m4_dam_seq_raw <- seq(min(aoi_HurdleData$dam_km),
+                      max(aoi_HurdleData$dam_km),
+                      length.out = 50)
 
-m4_dam_seq <- seq(min(aoi_HurdleData$dam_km),
-               max(aoi_HurdleData$dam_km),
-               length.out = 50)
+m4_dam_seq_scaled <- (m4_dam_seq_raw - damDen_m4_mean_raw) / damDen_m4_sd_raw
 
-# build PDP grid
 m4_pdp_stream <- map_dfr(1:n_stream, function(j) {
 
-  # posterior draws for this stream
   alpha_j <- damDen_m4_post$alpha
-  beta_j  <- damDen_m4_post$beta_damDen 
-  eta_j   <- damDen_m4_post$eta_stream[, j] + rowMeans(damDen_m4_post$eta_year)
 
-  map_dfr(m4_dam_seq, function(d) {
+  beta_j <- damDen_m4_post$beta_damDen
 
-    mu_draws <- alpha_j + beta_j * d + eta_j
+  eta_j <- damDen_m4_post$eta_stream[, j] +
+           rowMeans(damDen_m4_post$eta_year)
+
+  map2_dfr(m4_dam_seq_raw, m4_dam_seq_scaled, function(d_raw, d_scaled) {
+
+    mu_draws <- alpha_j + beta_j * d_scaled + eta_j
     va_draws <- exp(mu_draws) - 1
 
     tibble(
       stream = j,
-      damDen = d,
+      damDen = d_raw,
       VA_med = median(va_draws),
       VA_lo  = quantile(va_draws, 0.025),
       VA_hi  = quantile(va_draws, 0.975)
@@ -2396,9 +2495,6 @@ stream_lookup <- aoi_HurdleData %>%
 m4_pdp_stream <- m4_pdp_stream %>%
   left_join(stream_lookup, by = "stream")
 
-
-
-# plot
 ggplot(m4_pdp_stream, aes(x = watershed, y = VA_med, color = damDen)) +
   geom_point(size = 3, alpha = 0.8) +
   scale_color_viridis_c(option = "plasma") +
@@ -2406,31 +2502,30 @@ ggplot(m4_pdp_stream, aes(x = watershed, y = VA_med, color = damDen)) +
     title = "Partial Dependence of VA on Stream and Dam Density",
     x = "Stream",
     y = "Predicted VA (m^2)",
-    color = "Dam Density"
+    color = "Dam Density (dams/km)"
   ) +
   theme_minimal(base_size = 14) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
 
-
 ###############################################################
 ################################################################
-
-# build PDP grid
 m4_pdp_year <- map_dfr(1:n_year, function(j) {
 
-  # posterior draws for this stream
   alpha_j <- damDen_m4_post$alpha
-  beta_j  <- damDen_m4_post$beta_damDen
-  eta_j   <- damDen_m4_post$eta_year[, j] + rowMeans(damDen_m4_post$eta_stream)
 
-  map_dfr(m4_dam_seq, function(d) {
+  beta_j <- damDen_m4_post$beta_damDen
 
-    mu_draws <- alpha_j + beta_j * d + eta_j
+  eta_j <- damDen_m4_post$eta_year[,j] +
+           rowMeans(damDen_m4_post$eta_stream)
+
+  map2_dfr(m4_dam_seq_raw, m4_dam_seq_scaled, function(d_raw, d_scaled) {
+
+    mu_draws <- alpha_j + beta_j * d_scaled + eta_j
     va_draws <- exp(mu_draws) - 1
 
     tibble(
       year = j,
-      damDen = d,
+      damDen = d_raw,
       VA_med = median(va_draws),
       VA_lo  = quantile(va_draws, 0.025),
       VA_hi  = quantile(va_draws, 0.975)
@@ -2447,27 +2542,23 @@ year_lookup <- tibble(
   )
 )
 
-
 m4_pdp_year_named <- m4_pdp_year %>%
   left_join(year_lookup, by = "year")
 
-
-
-# plot
 ggplot(m4_pdp_year_named, aes(x = year_label, y = VA_med, color = damDen)) +
   geom_point(size = 3, alpha = 0.8) +
   scale_color_viridis_c(option = "plasma") +
   labs(
     title = "Partial Dependence of VA on Year and Dam Density",
     x = "Year",
-    y = "Predicted VA (m^2)",
-    color = "Dam Density"
+    y = "Predicted VA (m²)",
+    color = "Dam Density (dams/km)"
   ) +
   theme_minimal(base_size = 14) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
 
-
 ```
+
 
 
 

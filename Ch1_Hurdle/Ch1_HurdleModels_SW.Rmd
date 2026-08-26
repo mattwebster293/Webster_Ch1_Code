@@ -12,11 +12,13 @@ The purpose of this RMarkdown is to implement hurdle models for SW ~ damPresence
 
 4 models total.
 
-    WAIC <should> indicates that all four models perform comparably well. Given this, I only
-    include code and results for m4, which models the effect of dam density on surface water,
-    conditional on gemorphic covariates. 
-    
-    All 4 models are structurally parrallel, and results for all 4 models are summarized below..
+    WAIC suggests that models without geomorphic covariates (m1 & m3) perform better than those
+    with geomorphic covariates (m2 & m4), and that dam presence models perform better than their
+    dam density model counterparts. The WAIC metric is concerned with out-of-bag predictive 
+    capabilities of a model set. Since we are not aiming for this to predict SW~beaver relationships
+    outside of our study, and the exclusion of geomorhpic covariates leads to the inflation of 
+    estimated dam effects, I think it's best to gain inference from model 4, as long as parameters
+    are converging relatively well and making good sense.
     
 
 
@@ -40,6 +42,7 @@ suppressPackageStartupMessages({
   library(broom.mixed)
   library(coda)
   library(scales)
+  library(loo)
 })
 ```
 
@@ -435,12 +438,14 @@ nthin <- 5
 niter <- 100000
 nburn <- 25000
 
+set.seed(12345)
+
 Sys.time()
 
 hurdle_damPres_m1_SW <- jags(data = hurdle_damPres_m1_data_list,
                    inits = hurdle_damPres_m1_inits,
                    parameters.to.save = hurdle_damPres_m1_params,
-                   model.file = "HGLMM_hurdle_damPresence_m1.jags",
+                   model.file = "HGLMM_Hurdle_m1_SW_damPres.jags",
                    parallel = T,
                    n.chains = nchains,
                    n.thin = nthin,
@@ -1084,6 +1089,8 @@ hurdle_damPres_m2_params <- c(
 #nthin <- 5
 #niter <- 100000
 #nburn <- 25000
+
+set.seed(12345)
 
 Sys.time()
 
@@ -2008,6 +2015,8 @@ hurdle_damDen_m3_params <- c(
 #nburn <- 25000
 
 
+set.seed(12345)
+
 Sys.time()
 
 hurdle_damDen_m3_SW <- jags(data = hurdle_damDen_m3_data_list,
@@ -2210,7 +2219,7 @@ boxplot(hurdle_damDen_m3_SW$sims.list$beta_event,
 
 **Posterior mean dam effects:**
 
-damDen --> swPres
+damDen -> swPres
 
 ```{r,include=FALSE}
 m3_coeffparams <- c(#"alpha",
@@ -2268,7 +2277,7 @@ abline(v = mean(hurdle_damDen_m3_SW$sims.list$zeta_damDen), col = "red", lwd = 2
 ----
 
 
-damPres --> swAmount (hglmm)
+damPres -> swAmount (hglmm)
 
 ```{r,include=FALSE}
 summary(hurdle_damDen_m3_SW$sims.list$beta_damDen)
@@ -2484,7 +2493,7 @@ ggplot(m3_pdp_event_named, aes(x = event_label, y = SWA_med, color = damDen)) +
 ----
 
 ----
---->
+
 
 
 **MODEL 4: SW ~  damDensity + Geom.Covar.**
@@ -2749,11 +2758,12 @@ hurdle_damDen_m4_params <- c(
   "loglik"
 )
 
-#nchains <- 3
-#nthin <- 5
-#niter <- 100000
-#nburn <- 25000
+nchains <- 3
+nthin <- 5
+niter <- 100000
+nburn <- 25000
 
+set.seed(12345)
 
 Sys.time()
 
@@ -2816,8 +2826,9 @@ effectiveSize(hurdle_damDen_m4_SW$samples[, params_m4])
 
     Rhat & Effective Sample Size:
     
-    Solid. Rhats near 1.0 (1.03-1.05 is fine); ESS all in the thousands. 
-    beta_damDen still the hardest to estimate
+    Acceptable. Most Rhats = 1. zeta_damDen is slow to converge, and having trouble
+    being estimated. It is a REALLY small effect, with LOTS of variation across grouping
+    random variables, so it's hard for the MCMC chains to converge on a single estimate.
 
 
 ----
@@ -2842,7 +2853,8 @@ coda::traceplot(mcmc_sub_m4)
 
     Traceplots all look okay, again see zeta_damDen. Could increase iterations, or tighten prior...?
     
-    See Ogle and Barber (2020) Ensuring identifiability in hierarchical mixed effects Bayesian models
+    Matt: Closely read Ogle and Barber (2020) Ensuring identifiability in hierarchical mixed effects Bayesian models
+    
     for potential ways to improve/considerations re: identifiability...
 
 
@@ -3064,7 +3076,7 @@ ggplot(m4_coef_df, aes(y = parameter, x = mean)) +
   geom_vline(xintercept = 0, color = "black", linewidth = 1) +
   labs(
     title = "Posterior Means and 95% Credible Intervals",
-    x = "Effect Size (log scale)",
+    x = "Effect Size",
     y = ""
   ) +
   theme_bw(base_size = 14)
@@ -3084,10 +3096,10 @@ summary(hurdle_damDen_m4_SW$sims.list$zeta_damDen)
 exp(mean(hurdle_damDen_m4_SW$sims.list$zeta_damDen))
 
 
-p_SW_damDen_0 <- plogis(m4_epsilon + m4_zeta_in + m4_zeta_rip + m4_zeta_uda)
+p_SW_damDen_0 <- plogis(m4_epsilon)
 #p_SW_damDen_0
 
-p_SW_damDen_1 <- plogis(m4_epsilon + m4_zeta_in + m4_zeta_rip + m4_zeta_uda + (4.58*0.036))
+p_SW_damDen_1 <- plogis(m4_epsilon + 0.025)
 #p_SW_damDen_1
 
 print("Change in Psi(SW) with 1 SD increase in dam density")
@@ -3096,8 +3108,8 @@ print("Change in Psi(SW) with 1 SD increase in dam density")
 
 
     For a typical stream at mean covariate conditions, a 1 SD increase dam density is associated
-    with basically no change in the probability of surface water presence (+0.05 change on 
-    log-odds scale corresponds to an increase of 0.4% on the probability scale).
+    with basically no change in the probability of surface water presence (+0.03 change on 
+    log-odds scale corresponds to an increase of 0.5% on the probability scale).
     
     NOTE: HEAVILY OVERLAPS 0. This indicates that there is no consistent influence of damDensity
     across grouping variables (stream,year,event) in the data. Some settings see strong positive
@@ -3113,10 +3125,10 @@ summary(hurdle_damDen_m4_SW$sims.list$beta_damDen)
 exp(mean(hurdle_damDen_m4_SW$sims.list$beta_damDen))
 
 
-SWA_damDen_0 <- exp(m4_alpha + m4_beta_in + m4_beta_rip + m4_beta_uda)
+SWA_damDen_0 <- exp(m4_alpha)
 #SWA_damDen_0
 
-SWA_damDen_1 <- exp(m4_alpha + m4_beta_in + m4_beta_rip + m4_beta_uda + (0.15))
+SWA_damDen_1 <- exp(m4_alpha + 0.15)
 #SWA_damDen_1
 
 print("SWA change with 1 SD increase in dam density")
@@ -3126,10 +3138,10 @@ print("SWA change with 1 SD increase in dam density")
 
     A 1 SD increase dam density is associated with ~ 14-15% increase in log(SWA+1),
     which, for a "typical" stream under mean geomorphic covariate conditions, corresponds
-    to an increase of ~ 35-40 m^2 of SW.
+    to an increase of ~ 50 m^2 of SW.
     
     Note: at the high end of dam density, a typical stream at mean covariate conditions
-    would see an estimated increase of ~180-200 m^2 of SW.
+    would see an estimated increase of ~150-300 m^2 of SW.
     
     NOTE: see above note re: 0 overlap and consistency of damDensity effect across the data
 
@@ -3147,10 +3159,10 @@ summary(hurdle_damDen_m4_SW$sims.list$zeta_incis)
 exp(mean(hurdle_damDen_m4_SW$sims.list$zeta_incis))
 
 
-p_SW_incis_0 <- plogis(m4_epsilon + + m4_zeta_dd + m4_zeta_rip + m4_zeta_uda)
+p_SW_incis_0 <- plogis(m4_epsilon)
 #p_SW_incis_0
 
-p_SW_incis_1 <- plogis(m4_epsilon + m4_zeta_dd + m4_zeta_rip + m4_zeta_uda - 1.32)
+p_SW_incis_1 <- plogis(m4_epsilon - 1.32)
 #p_SW_incis_1
 
 print("Change in Psi(SW) with 1 SD increase in incision")
@@ -3175,10 +3187,10 @@ summary(hurdle_damDen_m4_SW$sims.list$beta_incis)
 exp(mean(hurdle_damDen_m4_SW$sims.list$beta_incis))
 
 
-SWA_incis_0 <- exp(m4_alpha + m4_beta_dd + m4_beta_rip + m4_beta_uda)
+SWA_incis_0 <- exp(m4_alpha)
 #SWA_incis_0
 
-SWA_incis_1 <- exp(m4_alpha + m4_beta_dd + m4_beta_rip + m4_beta_uda - 0.77)
+SWA_incis_1 <- exp(m4_alpha - 0.77)
 #SWA_incis_1
 
 print("SWA change with 1 SD increase in incision")
@@ -3202,10 +3214,10 @@ exp(mean(hurdle_damDen_m4_SW$sims.list$zeta_RIPA))
 
 
 
-p_SW_RIPA_0 <- plogis(m4_epsilon + + m4_zeta_dd + m4_zeta_in + m4_zeta_uda)
+p_SW_RIPA_0 <- plogis(m4_epsilon)
 #p_SW_RIPA_0
 
-p_SW_RIPA_1 <- plogis(m4_epsilon + m4_zeta_dd + m4_zeta_in + m4_zeta_uda + 0.08)
+p_SW_RIPA_1 <- plogis(m4_epsilon + 0.08)
 #p_SW_RIPA_1
 
 print("Change in Psi(SW) with 1 SD increase in riparian area")
@@ -3230,10 +3242,10 @@ exp(mean(hurdle_damDen_m4_SW$sims.list$beta_RIPA))
 
 
 
-SWA_RIPA_0 <- exp(m4_alpha + m4_beta_dd + m4_beta_in + m4_beta_uda)
+SWA_RIPA_0 <- exp(m4_alpha)
 #SWA_UDA_0
 
-SWA_RIPA_1 <- exp(m4_alpha + m4_beta_dd + m4_beta_in + m4_beta_uda - 0.08)
+SWA_RIPA_1 <- exp(m4_alpha - 0.08)
 #SWA_UDA_1
 
 print("SWA change with 1 SD increase in riparian area")
@@ -3245,13 +3257,6 @@ print("SWA change with 1 SD increase in riparian area")
     effect, slightly overlapping 0. This corresponds with a decrease of ~23 m^2
     (for typical stream under mean conditions).
     
-<!---    
-    Potentially: areas with large riparian areas, drain water quickly, and are less likely to 
-    pond, compared to a more confined stream reach (?). Dams don't extend out of the channel,
-    so any non-permanent floodplain/riparian inundation is likely short lived, and not captured
-    in our 2-week composite sattelite imagery. dams aren't big enough to maintain broadscale 
-    riparian/floodplain inundation (?).
---->
 
 ----
 
@@ -3264,10 +3269,10 @@ exp(mean(hurdle_damDen_m4_SW$sims.list$zeta_UDA))
 
 
 
-p_SW_UDA_0 <- plogis(m4_epsilon + + m4_zeta_dd + m4_zeta_in + m4_zeta_rip)
+p_SW_UDA_0 <- plogis(m4_epsilon)
 #p_SW_UDA_0
 
-p_SW_UDA_1 <- plogis(m4_epsilon + m4_zeta_dd + m4_zeta_in + m4_zeta_rip + 2.28)
+p_SW_UDA_1 <- plogis(m4_epsilon + 2.28)
 #p_SW_UDA_1
 
 print("Change in Psi(SW) with 1 SD increase in drainage area")
@@ -3289,10 +3294,10 @@ summary(hurdle_damDen_m4_SW$sims.list$beta_UDA)
 exp(mean(hurdle_damDen_m4_SW$sims.list$beta_UDA))
 
 
-SWA_UDA_0 <- exp(m4_alpha + + m4_beta_dd + m4_beta_in + m4_beta_rip)
+SWA_UDA_0 <- exp(m4_alpha)
 #SWA_UDA_0
 
-SWA_UDA_1 <- exp(m4_alpha + m4_beta_dd + m4_beta_in + m4_beta_rip + 0.538)
+SWA_UDA_1 <- exp(m4_alpha + 0.538)
 #SWA_UDA_1
 
 print("SWA change with 1 SD increase in drainage area")
@@ -3300,7 +3305,7 @@ print("SWA change with 1 SD increase in drainage area")
 
 ```
 
-    A 1 SD increase in Upstream Drainage Area (UDA) is associated with a 71% increase in log(SWA),
+    A 1 SD increase in Upstream Drainage Area (UDA) is associated with a 53% increase in log(SWA),
     conditional on surface water presence. This corresponds to an increase of ~114.38 m^2 in SWA (m^2)
     for a "typical" stream at mean covariate conditions.
 
@@ -3337,8 +3342,8 @@ damDen_m4_geomCovar_grid <- tibble(
   )
 
 # Make dam density sequence
-damDen_m4_seq_raw <- seq(min(aoi_HurdleData$dam_km), max(aoi_HurdleData$dam_km), length.out=20)
-damDen_m4_seq_scaled <- seq(min(aoi_HurdleData$dam_km_std),max(aoi_HurdleData$dam_km_std),length.out=20)
+damDen_m4_seq_raw <- seq(min(aoi_HurdleData$dam_km), max(aoi_HurdleData$dam_km), length.out=50)
+damDen_m4_seq_scaled <- seq(min(aoi_HurdleData$dam_km_std),max(aoi_HurdleData$dam_km_std),length.out=50)
 
 # Compute surface water across dam density sequence
 damDen_m4_compute_psi <- function(damDen, damDen_scaled, geom_grid, damDen_post) {
@@ -3358,7 +3363,8 @@ damDen_m4_compute_psi <- function(damDen, damDen_scaled, geom_grid, damDen_post)
         zr * RIPA +       # standardized RIPA
         zu * UDA          # standardized UDA
       ),
-      damDen = damDen
+      damDen = damDen,
+      damDen_scaled = damDen_scaled
     )
 }
 
@@ -3379,10 +3385,9 @@ ggplot(damDen_m4_psi_df, aes(x = incis_raw, y = psi, color = damDen)) +
   geom_point() +
   scale_color_viridis_c(option = "plasma") +
   labs(
-    title = "Marginal Effect of Dam Density on Surface Water Presence",
-    subtitle = "Predicted probability of water presence (psi) across raw incision values",
+    title = "Marginal Effects of Dam Density and Channel Incision on the Probability of Surface Water Presence",
     x = "Channel Incision (raw scale: 1 - TO/90)",
-    y = "Probability of Surface Water",
+    y = expression("Probability of Surface Water (" * Psi * ")"),
     color = "Dam Density (dams/km)"
   ) +
   theme_minimal(base_size = 14)
@@ -3394,10 +3399,9 @@ ggplot(damDen_m4_psi_df, aes(x = RIPA_raw, y = psi, color = damDen)) +
   geom_point() +
   scale_color_viridis_c(option="plasma") +
   labs(
-    title = "Marginal Effect of Dam Density on Surface Water Presence",
-    subtitle = "Predicted probability of water (psi) across raw riparian area (m^2)",
-    x = "Riparian Area (m^2)",
-    y = "Probability of Surface Water",
+    title = "Marginal Effects of Dam Density and Riparian Area on the Probability of Surface Water Presence",
+    x = expression("Riparian Area" * (m^2)),
+    y = expression("Probability of Surface Water Presence (" * Psi * ")"),
     color = "Dam Density (dams/km)"
   ) +
   theme_minimal(base_size = 14)
@@ -3408,15 +3412,12 @@ ggplot(damDen_m4_psi_df, aes(x = UDA_raw, y = psi, color = damDen)) +
   geom_point() +
   scale_color_viridis_c(option="plasma") +
   labs(
-    title = "Marginal Effect of Dam Density on Surface Water Presence",
-    subtitle = "Predicted probability of water (psi) across raw upstream drainage area (km^2)",
-    x = "Upstream Drainage Area (km^2)",
-    y = "Probability of Surface Water",
+    title = "Marginal Effects of Dam Density and Upstream Drainage Area on the Probability of Surface Water Presence",
+    x = expression("Upstream Drainage Area" * (km^2)),
+    y = expression("Probability of Surface Water Presence (" * Psi * ")"),
     color = "Dam Density (dams/km)"
-  ) +
+    ) +
   theme_minimal(base_size = 14)
-
-
 ```
 
 ----
@@ -3586,7 +3587,7 @@ plot_pdp_damDen <- function(pdp, xvar, xtitle) {
     scale_y_continuous(labels = comma) +
     labs(
       title = paste("Partial Dependence of SWA on dam density and", xtitle),
-      subtitle = "Across empirical dam density range",
+      #subtitle = "Across empirical dam density range",
       x = xtitle,
       y = "Predicted SWA (m^2)",
       color = "Dam Density (dams/km)",
@@ -3597,7 +3598,7 @@ plot_pdp_damDen <- function(pdp, xvar, xtitle) {
 
 
 
-###########################################3
+###########################################
 
 
 plot_pdp_damDen(pdp_incis_m4_damDen, "incis_raw", "Channel Incision (raw)")
@@ -3657,7 +3658,8 @@ ggplot(m4_pdp_stream, aes(x = watershed, y = SWA_med, color = damDen)) +
   geom_point(size = 3, alpha = 0.8) +
   scale_color_viridis_c(option = "plasma") +
   labs(
-    title = "Partial Dependence of SWA on Stream and Dam Density",
+    title = "SWA Conditional on Stream Identity and Dam Density",
+    subtitle = "Predicted SWA across dam density, conditioning on stream random effects and holding geomorphic covariates and event random effectrs at mean values",
     x = "Stream",
     y = "Predicted SWA (m²)",
     color = "Dam Density (dams/km)"
@@ -3711,7 +3713,8 @@ ggplot(m4_pdp_event_named, aes(x = event_label, y = SWA_med, color = damDen)) +
   geom_point(size = 3, alpha = 0.8) +
   scale_color_viridis_c(option = "plasma") +
   labs(
-    title = "Partial Dependence of SWA on Sample Event and Dam Density",
+    title = "SWA Conditional on Sample Event and Dam Density",
+    subtitle = "Predicted SWA across dam density, conditioning on sample event random effects and holding geomorphic covariates and stream random effects at mean values",
     x = "Sample Event",
     y = "Predicted SWA (m²)",
     color = "Dam Density (dams/km)"
@@ -3757,11 +3760,3 @@ waic_table <- tibble(
 waic_table
 
 ```
-
-
-
-    WAIC <should> indicates that all four models perform comparably well. Given this, I only
-    include code and results for m4, which models the effect of dam density on surface water,
-    conditional on gemorphic covariates. 
-    
-    All 4 models are structurally parrallel, and results for all 4 models are summarized below..
