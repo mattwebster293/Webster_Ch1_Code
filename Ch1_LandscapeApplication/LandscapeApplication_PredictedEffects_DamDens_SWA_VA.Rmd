@@ -474,6 +474,20 @@ damDenTlate <- read.csv("damDensityTranslator.csv")
 
 ----
 
+
+NOTE:
+----
+    
+    The only maps presented below represented the predicted difference in surface
+    water or vegetation area bewteen baseline (0 dams km^-1) and 15 dams km^-1. Maps
+    can be displayed at other dam densities, but the RMarkdown file is large and un-
+    wieldy with multiple leaflet maps in it. GitHub doesn't allow backup of files 
+    larger that 100 MB. 
+    
+    15 dams^km-1 is near the max observed dam density in our sample reaches. Even
+    at max observed density, effects are meager.
+
+
 ----
 
 ----
@@ -622,7 +636,7 @@ df_predSWChange_map <- aoi_forPrediction %>%
 
 
 
-
+<!---
 
 **Absolute difference in SWA associated with +3 dams km^-1:**
 
@@ -715,6 +729,7 @@ leaflet(df_predSWChange_map) %>%
   )
 ```
 
+--->
 
 ----
 
@@ -907,7 +922,7 @@ df_predVEGChange_map <- aoi_forPrediction %>%
     dams km^-1 = "dams per kilometer"
 
 
-
+<!---
 
 **Absolute difference in VEG associated with +3 dams km^-1:**
 
@@ -979,8 +994,10 @@ leaflet(df_predVEGChange_map) %>%
             title = "Absolute difference in VA with +9 dams km^-1")
 ```
 
+--->
 
 ----
+
 
 
 **Absolute difference in VEG associated with +15 dams km^-1:**
