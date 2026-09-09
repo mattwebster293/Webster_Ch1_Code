@@ -1,0 +1,28 @@
+{
+    "id": "5B0A167E",
+    "path": "C:/Users/mattw/OneDrive/Desktop/UMT/Data/GEE/Paired_SWA_Sampling_AOI_2021/Paired_SWA_Sampling_AOI.Rmd",
+    "project_path": "Paired_SWA_Sampling_AOI.Rmd",
+    "type": "r_markdown",
+    "hash": "215586610",
+    "contents": "",
+    "dirty": false,
+    "created": 1774803504686.0,
+    "source_on_save": false,
+    "relative_order": 4,
+    "properties": {
+        "tempName": "Untitled1",
+        "source_window_id": "",
+        "Source": "Source",
+        "cursorPosition": "6244,0",
+        "scrollLine": "6215",
+        "chunk_output_type": "console"
+    },
+    "folds": "587|20|640|0|\n",
+    "lastKnownWriteTime": 1774991362,
+    "encoding": "UTF-8",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1774991362668,
+    "read_only": false,
+    "read_only_alternatives": []
+}
