@@ -73,7 +73,8 @@ suppressPackageStartupMessages({
 **Final Data:**
 
 ```{r,echo=FALSE}
-aoi_HurdleData <- read.csv("aoi_HurdleData.csv")
+aoi_HurdleData <- read.csv("aoi_HurdleData_091026Update.csv") %>% 
+  select(!"X")
 
 
 # add year/event index
@@ -87,8 +88,6 @@ event_year_3_4 <- as.numeric(event_year_3_4)
 N <- nrow(aoi_HurdleData)
 y <- aoi_HurdleData$y
 y2 <- aoi_HurdleData$logSWA
-#y_veg <- aoi_HurdleData$y_veg
-#y_vegA <- aoi_HurdleData$VA
 stream <- aoi_HurdleData$stream
 year <- aoi_HurdleData$year_id
 event <- aoi_HurdleData$sampleEvent_new
