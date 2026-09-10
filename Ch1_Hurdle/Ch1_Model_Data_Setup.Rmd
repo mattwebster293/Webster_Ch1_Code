@@ -586,6 +586,10 @@ aoi_GLM_Data <- WC_RelFlow %>%
                          catchment_km2,
                          TO,
                          riparian_area_m2,
+                         riparian_area_m2_0,
+                         riparian_area_m2_10,
+                         riparian_area_m2_20,
+                         riparian_area_m2_30,
                          Nhat,
                          t,
                          surveyPeriod,
@@ -607,6 +611,10 @@ aoi_GLM_Data <- WC_RelFlow %>%
                          catchment_km2,
                          TO,
                          riparian_area_m2,
+                         riparian_area_m2_0,
+                         riparian_area_m2_10,
+                         riparian_area_m2_20,
+                         riparian_area_m2_30,
                          Nhat,
                          t,
                          surveyPeriod,
@@ -628,6 +636,10 @@ aoi_GLM_Data <- WC_RelFlow %>%
                          catchment_km2,
                          TO,
                          riparian_area_m2,
+                         riparian_area_m2_0,
+                         riparian_area_m2_10,
+                         riparian_area_m2_20,
+                         riparian_area_m2_30,
                          Nhat,
                          t,
                          surveyPeriod,
@@ -649,6 +661,10 @@ aoi_GLM_Data <- WC_RelFlow %>%
                          catchment_km2,
                          TO,
                          riparian_area_m2,
+                         riparian_area_m2_0,
+                         riparian_area_m2_10,
+                         riparian_area_m2_20,
+                         riparian_area_m2_30,
                          Nhat,
                          t,
                          surveyPeriod,
@@ -670,6 +686,10 @@ aoi_GLM_Data <- WC_RelFlow %>%
                          catchment_km2,
                          TO,
                          riparian_area_m2,
+                         riparian_area_m2_0,
+                         riparian_area_m2_10,
+                         riparian_area_m2_20,
+                         riparian_area_m2_30,
                          Nhat,
                          t,
                          surveyPeriod,
@@ -691,6 +711,10 @@ aoi_GLM_Data <- WC_RelFlow %>%
                          catchment_km2,
                          TO,
                          riparian_area_m2,
+                         riparian_area_m2_0,
+                         riparian_area_m2_10,
+                         riparian_area_m2_20,
+                         riparian_area_m2_30,
                          Nhat,
                          t,
                          surveyPeriod,
@@ -817,7 +841,7 @@ aoi_HurdleData$dam_km_std <- scale(aoi_HurdleData$dam_km)
 
 str(aoi_HurdleData)
 
-# write.csv(aoi_HurdleData,"aoi_HurdleData.csv")
+write.csv(aoi_HurdleData,"aoi_HurdleData_091026Update.csv")
 
 ```
 

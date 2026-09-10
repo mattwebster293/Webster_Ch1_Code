@@ -10685,6 +10685,14 @@ wc19_sampledSW_Veg <- wc19_sampled %>%
             # total riparian area (m^2) in window
             riparian_area_m2 = sum(riparian_area_m2, na.rm = T),
             
+            riparian_area_m2_0 = sum(Shape_Area_0, na.rm = T),
+            
+            riparian_area_m2_10 = sum(Shape_Area_10, na.rm = T),
+            
+            riparian_area_m2_20 = sum(Shape_Area_20, na.rm = T),
+            
+            riparian_area_m2_30 = sum(Shape_Area_30, na.rm = T),
+            
             # avg TO of window
             TO = mean(TO, na.rm = T),
             
@@ -10708,34 +10716,34 @@ wc19_sampledSW_Veg <- wc19_sampled %>%
             SWA_t8 = sum(SWA_t8, na.rm = T),
             
             # sum total veg area for each window at each buffer
-            VA_0_t5 = sum(Veg_area_veg19_0, na.rm = T),
+            VA_0_t6 = sum(Veg_area_veg19_0, na.rm = T),
            
             
-            VA_10_t5 = sum(Veg_area_veg19_10, na.rm = T),
+            VA_10_t6 = sum(Veg_area_veg19_10, na.rm = T),
             
             
-            VA_20_t5 = sum(Veg_area_veg19_20, na.rm = T),
+            VA_20_t6 = sum(Veg_area_veg19_20, na.rm = T),
             
             
-            VA_30_t5 = sum(Veg_area_veg19_30, na.rm = T),
+            VA_30_t6 = sum(Veg_area_veg19_30, na.rm = T),
             
             
             # mean & sd NDVI for window
-            NDVI_0_t5 = mean(NDVI_veg19_0, na.rm = T),
+            NDVI_0_t6 = mean(NDVI_veg19_0, na.rm = T),
            
             
-            NDVI_10_t5 = mean(NDVI_veg19_10, na.rm = T),
+            NDVI_10_t6 = mean(NDVI_veg19_10, na.rm = T),
             
             
-            NDVI_20_t5 = mean(NDVI_veg19_20, na.rm = T),
+            NDVI_20_t6 = mean(NDVI_veg19_20, na.rm = T),
             
             
-            NDVI_30_t5 = mean(NDVI_veg19_30, na.rm = T),
+            NDVI_30_t6 = mean(NDVI_veg19_30, na.rm = T),
             
-            NDVI_sd_0_t5 = sd(NDVI_veg19_0,na.rm=T),
-            NDVI_sd_10_t5 = sd(NDVI_veg19_10,na.rm=T),
-            NDVI_sd_20_t5 = sd(NDVI_veg19_20,na.rm=T),
-            NDVI_sd_30_t5 = sd(NDVI_veg19_30,na.rm=T),
+            NDVI_sd_0_t6 = sd(NDVI_veg19_0,na.rm=T),
+            NDVI_sd_10_t6 = sd(NDVI_veg19_10,na.rm=T),
+            NDVI_sd_20_t6 = sd(NDVI_veg19_20,na.rm=T),
+            NDVI_sd_30_t6 = sd(NDVI_veg19_30,na.rm=T),
 
             # take max isNull. if 1, then SWA should = NA due to satellite obfuscation;
             
@@ -11056,6 +11064,10 @@ wc19_sampled_Long_Export <- wc19_sampled_Long %>%
          window_length,
          catchment_km2,
          riparian_area_m2,
+         riparian_area_m2_0,
+         riparian_area_m2_10,
+         riparian_area_m2_20,
+         riparian_area_m2_30,
          TO,
          p_window,
          f_window,
@@ -11081,7 +11093,7 @@ wc19_sampled_Long_Export <- wc19_sampled_Long %>%
          containsNull) %>%
   fix_nan()
 
-write.csv(wc19_sampled_Long_Export, "C:\\Users\\mattw\\Desktop\\GIT\\Webster_Ch1_Code\\Paired_Sampling_AOI_AllYears\\WC_2019_DF_Final_Long_090926Update.csv", row.names=FALSE)
+write.csv(wc19_sampled_Long_Export, "C:\\Users\\mattw\\Desktop\\GIT\\Webster_Ch1_Code\\Paired_Sampling_AOI_AllYears_FINAL\\WC_2019_DF_Final_Long_090926Update.csv", row.names=FALSE)
 ```
 
 **2021**
@@ -11149,6 +11161,14 @@ wc21_sampledSW_Veg <- wc21_sampled %>%
             # total riparian area (m^2) in window
             riparian_area_m2 = sum(riparian_area_m2, na.rm = T),
             
+            riparian_area_m2_0 = sum(Shape_Area_0, na.rm = T),
+            
+            riparian_area_m2_10 = sum(Shape_Area_10, na.rm = T),
+            
+            riparian_area_m2_20 = sum(Shape_Area_20, na.rm = T),
+            
+            riparian_area_m2_30 = sum(Shape_Area_30, na.rm = T),
+            
             # avg TO of window
             TO = mean(TO, na.rm = T),
             
@@ -11172,34 +11192,34 @@ wc21_sampledSW_Veg <- wc21_sampled %>%
             SWA_t8 = sum(SWA_t8, na.rm = T),
             
             # sum total veg area for each window at each buffer
-            VA_0_t5 = sum(Veg_area_veg21_0, na.rm = T),
+            VA_0_t6 = sum(Veg_area_veg21_0, na.rm = T),
            
             
-            VA_10_t5 = sum(Veg_area_veg21_10, na.rm = T),
+            VA_10_t6 = sum(Veg_area_veg21_10, na.rm = T),
             
             
-            VA_20_t5 = sum(Veg_area_veg21_20, na.rm = T),
+            VA_20_t6 = sum(Veg_area_veg21_20, na.rm = T),
             
             
-            VA_30_t5 = sum(Veg_area_veg21_30, na.rm = T),
+            VA_30_t6 = sum(Veg_area_veg21_30, na.rm = T),
             
             
             # mean & sd NDVI for window
-            NDVI_0_t5 = mean(NDVI_veg21_0, na.rm = T),
+            NDVI_0_t6 = mean(NDVI_veg21_0, na.rm = T),
            
             
-            NDVI_10_t5 = mean(NDVI_veg21_10, na.rm = T),
+            NDVI_10_t6 = mean(NDVI_veg21_10, na.rm = T),
             
             
-            NDVI_20_t5 = mean(NDVI_veg21_20, na.rm = T),
+            NDVI_20_t6 = mean(NDVI_veg21_20, na.rm = T),
             
             
-            NDVI_30_t5 = mean(NDVI_veg21_30, na.rm = T),
+            NDVI_30_t6 = mean(NDVI_veg21_30, na.rm = T),
             
-            NDVI_sd_0_t5 = sd(NDVI_veg21_0,na.rm=T),
-            NDVI_sd_10_t5 = sd(NDVI_veg21_10,na.rm=T),
-            NDVI_sd_20_t5 = sd(NDVI_veg21_20,na.rm=T),
-            NDVI_sd_30_t5 = sd(NDVI_veg21_30,na.rm=T),
+            NDVI_sd_0_t6 = sd(NDVI_veg21_0,na.rm=T),
+            NDVI_sd_10_t6 = sd(NDVI_veg21_10,na.rm=T),
+            NDVI_sd_20_t6 = sd(NDVI_veg21_20,na.rm=T),
+            NDVI_sd_30_t6 = sd(NDVI_veg21_30,na.rm=T),
 
             # take max isNull. if 1, then SWA should = NA due to satellite obfuscation;
             
@@ -11520,6 +11540,10 @@ wc21_sampled_Long_Export <- wc21_sampled_Long %>%
          window_length,
          catchment_km2,
          riparian_area_m2,
+         riparian_area_m2_0,
+         riparian_area_m2_10,
+         riparian_area_m2_20,
+         riparian_area_m2_30,
          TO,
          p_window,
          f_window,
@@ -11545,7 +11569,7 @@ wc21_sampled_Long_Export <- wc21_sampled_Long %>%
          containsNull) %>%
   fix_nan()
 
-write.csv(wc21_sampled_Long_Export, "C:\\Users\\mattw\\Desktop\\GIT\\Webster_Ch1_Code\\Paired_Sampling_AOI_AllYears\\WC_2021_DF_Final_Long_090926Update.csv", row.names=FALSE)
+write.csv(wc21_sampled_Long_Export, "C:\\Users\\mattw\\Desktop\\GIT\\Webster_Ch1_Code\\Paired_Sampling_AOI_AllYears_FINAL\\WC_2021_DF_Final_Long_090926Update.csv", row.names=FALSE)
 ```
 
 **2023**
@@ -11613,6 +11637,14 @@ wc23_sampledSW_Veg <- wc23_sampled %>%
             # total riparian area (m^2) in window
             riparian_area_m2 = sum(riparian_area_m2, na.rm = T),
             
+            riparian_area_m2_0 = sum(Shape_Area_0, na.rm = T),
+            
+            riparian_area_m2_10 = sum(Shape_Area_10, na.rm = T),
+            
+            riparian_area_m2_20 = sum(Shape_Area_20, na.rm = T),
+            
+            riparian_area_m2_30 = sum(Shape_Area_30, na.rm = T),
+            
             # avg TO of window
             TO = mean(TO, na.rm = T),
             
@@ -11636,34 +11668,34 @@ wc23_sampledSW_Veg <- wc23_sampled %>%
             SWA_t8 = sum(SWA_t8, na.rm = T),
             
             # sum total veg area for each window at each buffer
-            VA_0_t5 = sum(Veg_area_veg23_0, na.rm = T),
+            VA_0_t6 = sum(Veg_area_veg23_0, na.rm = T),
            
             
-            VA_10_t5 = sum(Veg_area_veg23_10, na.rm = T),
+            VA_10_t6 = sum(Veg_area_veg23_10, na.rm = T),
             
             
-            VA_20_t5 = sum(Veg_area_veg23_20, na.rm = T),
+            VA_20_t6 = sum(Veg_area_veg23_20, na.rm = T),
             
             
-            VA_30_t5 = sum(Veg_area_veg23_30, na.rm = T),
+            VA_30_t6 = sum(Veg_area_veg23_30, na.rm = T),
             
             
             # mean & sd NDVI for window
-            NDVI_0_t5 = mean(NDVI_veg23_0, na.rm = T),
+            NDVI_0_t6 = mean(NDVI_veg23_0, na.rm = T),
            
             
-            NDVI_10_t5 = mean(NDVI_veg23_10, na.rm = T),
+            NDVI_10_t6 = mean(NDVI_veg23_10, na.rm = T),
             
             
-            NDVI_20_t5 = mean(NDVI_veg23_20, na.rm = T),
+            NDVI_20_t6 = mean(NDVI_veg23_20, na.rm = T),
             
             
-            NDVI_30_t5 = mean(NDVI_veg23_30, na.rm = T),
+            NDVI_30_t6 = mean(NDVI_veg23_30, na.rm = T),
             
-            NDVI_sd_0_t5 = sd(NDVI_veg23_0,na.rm=T),
-            NDVI_sd_10_t5 = sd(NDVI_veg23_10,na.rm=T),
-            NDVI_sd_20_t5 = sd(NDVI_veg23_20,na.rm=T),
-            NDVI_sd_30_t5 = sd(NDVI_veg23_30,na.rm=T),
+            NDVI_sd_0_t6 = sd(NDVI_veg23_0,na.rm=T),
+            NDVI_sd_10_t6 = sd(NDVI_veg23_10,na.rm=T),
+            NDVI_sd_20_t6 = sd(NDVI_veg23_20,na.rm=T),
+            NDVI_sd_30_t6 = sd(NDVI_veg23_30,na.rm=T),
 
             # take max isNull. if 1, then SWA should = NA due to satellite obfuscation;
             
@@ -11984,6 +12016,10 @@ wc23_sampled_Long_Export <- wc23_sampled_Long %>%
          window_length,
          catchment_km2,
          riparian_area_m2,
+         riparian_area_m2_0,
+         riparian_area_m2_10,
+         riparian_area_m2_20,
+         riparian_area_m2_30,
          TO,
          p_window,
          f_window,
@@ -12009,7 +12045,7 @@ wc23_sampled_Long_Export <- wc23_sampled_Long %>%
          containsNull) %>%
   fix_nan()
 
-write.csv(wc23_sampled_Long_Export, "C:\\Users\\mattw\\Desktop\\GIT\\Webster_Ch1_Code\\Paired_Sampling_AOI_AllYears\\WC_2023_DF_Final_Long_090926Update.csv", row.names=FALSE)
+write.csv(wc23_sampled_Long_Export, "C:\\Users\\mattw\\Desktop\\GIT\\Webster_Ch1_Code\\Paired_Sampling_AOI_AllYears_FINAL\\WC_2023_DF_Final_Long_090926Update.csv", row.names=FALSE)
 ```
 
 
@@ -12090,6 +12126,14 @@ lt19_sampledSW_Veg <- lt19_sampled %>%
             # total riparian area (m^2) in window
             riparian_area_m2 = sum(riparian_area_m2, na.rm = T),
             
+            riparian_area_m2_0 = sum(Shape_Area_0, na.rm = T),
+            
+            riparian_area_m2_10 = sum(Shape_Area_10, na.rm = T),
+            
+            riparian_area_m2_20 = sum(Shape_Area_20, na.rm = T),
+            
+            riparian_area_m2_30 = sum(Shape_Area_30, na.rm = T),
+            
             # avg TO of window
             TO = mean(TO, na.rm = T),
             
@@ -12113,34 +12157,34 @@ lt19_sampledSW_Veg <- lt19_sampled %>%
             SWA_t8 = sum(SWA_t8, na.rm = T),
             
             # sum total veg area for each window at each buffer
-            VA_0_t5 = sum(Veg_area_veg19_0, na.rm = T),
+            VA_0_t6 = sum(Veg_area_veg19_0, na.rm = T),
            
             
-            VA_10_t5 = sum(Veg_area_veg19_10, na.rm = T),
+            VA_10_t6 = sum(Veg_area_veg19_10, na.rm = T),
             
             
-            VA_20_t5 = sum(Veg_area_veg19_20, na.rm = T),
+            VA_20_t6 = sum(Veg_area_veg19_20, na.rm = T),
             
             
-            VA_30_t5 = sum(Veg_area_veg19_30, na.rm = T),
+            VA_30_t6 = sum(Veg_area_veg19_30, na.rm = T),
             
             
             # mean & sd NDVI for window
-            NDVI_0_t5 = mean(NDVI_veg19_0, na.rm = T),
+            NDVI_0_t6 = mean(NDVI_veg19_0, na.rm = T),
            
             
-            NDVI_10_t5 = mean(NDVI_veg19_10, na.rm = T),
+            NDVI_10_t6 = mean(NDVI_veg19_10, na.rm = T),
             
             
-            NDVI_20_t5 = mean(NDVI_veg19_20, na.rm = T),
+            NDVI_20_t6 = mean(NDVI_veg19_20, na.rm = T),
             
             
-            NDVI_30_t5 = mean(NDVI_veg19_30, na.rm = T),
+            NDVI_30_t6 = mean(NDVI_veg19_30, na.rm = T),
             
-            NDVI_sd_0_t5 = sd(NDVI_veg19_0,na.rm=T),
-            NDVI_sd_10_t5 = sd(NDVI_veg19_10,na.rm=T),
-            NDVI_sd_20_t5 = sd(NDVI_veg19_20,na.rm=T),
-            NDVI_sd_30_t5 = sd(NDVI_veg19_30,na.rm=T),
+            NDVI_sd_0_t6 = sd(NDVI_veg19_0,na.rm=T),
+            NDVI_sd_10_t6 = sd(NDVI_veg19_10,na.rm=T),
+            NDVI_sd_20_t6 = sd(NDVI_veg19_20,na.rm=T),
+            NDVI_sd_30_t6 = sd(NDVI_veg19_30,na.rm=T),
 
             # take max isNull. if 1, then SWA should = NA due to satellite obfuscation;
             
@@ -12461,6 +12505,10 @@ lt19_sampled_Long_Export <- lt19_sampled_Long %>%
          window_length,
          catchment_km2,
          riparian_area_m2,
+         riparian_area_m2_0,
+         riparian_area_m2_10,
+         riparian_area_m2_20,
+         riparian_area_m2_30,
          TO,
          p_window,
          f_window,
@@ -12486,7 +12534,7 @@ lt19_sampled_Long_Export <- lt19_sampled_Long %>%
          containsNull) %>%
   fix_nan()
 
-write.csv(lt19_sampled_Long_Export, "C:\\Users\\mattw\\Desktop\\GIT\\Webster_Ch1_Code\\Paired_Sampling_AOI_AllYears\\lt_2019_DF_Final_Long_090926Update.csv", row.names=FALSE)
+write.csv(lt19_sampled_Long_Export, "C:\\Users\\mattw\\Desktop\\GIT\\Webster_Ch1_Code\\Paired_Sampling_AOI_AllYears_FINAL\\lt_2019_DF_Final_Long_090926Update.csv", row.names=FALSE)
 ```
 
 **2021**
@@ -12554,6 +12602,15 @@ lt21_sampledSW_Veg <- lt21_sampled %>%
             # total riparian area (m^2) in window
             riparian_area_m2 = sum(riparian_area_m2, na.rm = T),
             
+            riparian_area_m2_0 = sum(Shape_Area_0, na.rm = T),
+            
+            riparian_area_m2_10 = sum(Shape_Area_10, na.rm = T),
+            
+            riparian_area_m2_20 = sum(Shape_Area_20, na.rm = T),
+            
+            riparian_area_m2_30 = sum(Shape_Area_30, na.rm = T),
+            
+            
             # avg TO of window
             TO = mean(TO, na.rm = T),
             
@@ -12577,34 +12634,34 @@ lt21_sampledSW_Veg <- lt21_sampled %>%
             SWA_t8 = sum(SWA_t8, na.rm = T),
             
             # sum total veg area for each window at each buffer
-            VA_0_t5 = sum(Veg_area_veg21_0, na.rm = T),
+            VA_0_t6 = sum(Veg_area_veg21_0, na.rm = T),
            
             
-            VA_10_t5 = sum(Veg_area_veg21_10, na.rm = T),
+            VA_10_t6 = sum(Veg_area_veg21_10, na.rm = T),
             
             
-            VA_20_t5 = sum(Veg_area_veg21_20, na.rm = T),
+            VA_20_t6 = sum(Veg_area_veg21_20, na.rm = T),
             
             
-            VA_30_t5 = sum(Veg_area_veg21_30, na.rm = T),
+            VA_30_t6 = sum(Veg_area_veg21_30, na.rm = T),
             
             
             # mean & sd NDVI for window
-            NDVI_0_t5 = mean(NDVI_veg21_0, na.rm = T),
+            NDVI_0_t6 = mean(NDVI_veg21_0, na.rm = T),
            
             
-            NDVI_10_t5 = mean(NDVI_veg21_10, na.rm = T),
+            NDVI_10_t6 = mean(NDVI_veg21_10, na.rm = T),
             
             
-            NDVI_20_t5 = mean(NDVI_veg21_20, na.rm = T),
+            NDVI_20_t6 = mean(NDVI_veg21_20, na.rm = T),
             
             
-            NDVI_30_t5 = mean(NDVI_veg21_30, na.rm = T),
+            NDVI_30_t6 = mean(NDVI_veg21_30, na.rm = T),
             
-            NDVI_sd_0_t5 = sd(NDVI_veg21_0,na.rm=T),
-            NDVI_sd_10_t5 = sd(NDVI_veg21_10,na.rm=T),
-            NDVI_sd_20_t5 = sd(NDVI_veg21_20,na.rm=T),
-            NDVI_sd_30_t5 = sd(NDVI_veg21_30,na.rm=T),
+            NDVI_sd_0_t6 = sd(NDVI_veg21_0,na.rm=T),
+            NDVI_sd_10_t6 = sd(NDVI_veg21_10,na.rm=T),
+            NDVI_sd_20_t6 = sd(NDVI_veg21_20,na.rm=T),
+            NDVI_sd_30_t6 = sd(NDVI_veg21_30,na.rm=T),
 
             # take max isNull. if 1, then SWA should = NA due to satellite obfuscation;
             
@@ -12925,6 +12982,10 @@ lt21_sampled_Long_Export <- lt21_sampled_Long %>%
          window_length,
          catchment_km2,
          riparian_area_m2,
+         riparian_area_m2_0,
+         riparian_area_m2_10,
+         riparian_area_m2_20,
+         riparian_area_m2_30,
          TO,
          p_window,
          f_window,
@@ -12950,7 +13011,7 @@ lt21_sampled_Long_Export <- lt21_sampled_Long %>%
          containsNull) %>%
   fix_nan()
 
-write.csv(lt21_sampled_Long_Export, "C:\\Users\\mattw\\Desktop\\GIT\\Webster_Ch1_Code\\Paired_Sampling_AOI_AllYears\\lt_2021_DF_Final_Long_090926Update.csv", row.names=FALSE)
+write.csv(lt21_sampled_Long_Export, "C:\\Users\\mattw\\Desktop\\GIT\\Webster_Ch1_Code\\Paired_Sampling_AOI_AllYears_FINAL\\lt_2021_DF_Final_Long_090926Update.csv", row.names=FALSE)
 ```
 
 **2023**
@@ -13018,6 +13079,14 @@ lt23_sampledSW_Veg <- lt23_sampled %>%
             # total riparian area (m^2) in window
             riparian_area_m2 = sum(riparian_area_m2, na.rm = T),
             
+            riparian_area_m2_0 = sum(Shape_Area_0, na.rm = T),
+            
+            riparian_area_m2_10 = sum(Shape_Area_10, na.rm = T),
+            
+            riparian_area_m2_20 = sum(Shape_Area_20, na.rm = T),
+            
+            riparian_area_m2_30 = sum(Shape_Area_30, na.rm = T),
+            
             # avg TO of window
             TO = mean(TO, na.rm = T),
             
@@ -13041,34 +13110,34 @@ lt23_sampledSW_Veg <- lt23_sampled %>%
             SWA_t8 = sum(SWA_t8, na.rm = T),
             
             # sum total veg area for each window at each buffer
-            VA_0_t5 = sum(Veg_area_veg23_0, na.rm = T),
+            VA_0_t6 = sum(Veg_area_veg23_0, na.rm = T),
            
             
-            VA_10_t5 = sum(Veg_area_veg23_10, na.rm = T),
+            VA_10_t6 = sum(Veg_area_veg23_10, na.rm = T),
             
             
-            VA_20_t5 = sum(Veg_area_veg23_20, na.rm = T),
+            VA_20_t6 = sum(Veg_area_veg23_20, na.rm = T),
             
             
-            VA_30_t5 = sum(Veg_area_veg23_30, na.rm = T),
+            VA_30_t6 = sum(Veg_area_veg23_30, na.rm = T),
             
             
             # mean & sd NDVI for window
-            NDVI_0_t5 = mean(NDVI_veg23_0, na.rm = T),
+            NDVI_0_t6 = mean(NDVI_veg23_0, na.rm = T),
            
             
-            NDVI_10_t5 = mean(NDVI_veg23_10, na.rm = T),
+            NDVI_10_t6 = mean(NDVI_veg23_10, na.rm = T),
             
             
-            NDVI_20_t5 = mean(NDVI_veg23_20, na.rm = T),
+            NDVI_20_t6 = mean(NDVI_veg23_20, na.rm = T),
             
             
-            NDVI_30_t5 = mean(NDVI_veg23_30, na.rm = T),
+            NDVI_30_t6 = mean(NDVI_veg23_30, na.rm = T),
             
-            NDVI_sd_0_t5 = sd(NDVI_veg23_0,na.rm=T),
-            NDVI_sd_10_t5 = sd(NDVI_veg23_10,na.rm=T),
-            NDVI_sd_20_t5 = sd(NDVI_veg23_20,na.rm=T),
-            NDVI_sd_30_t5 = sd(NDVI_veg23_30,na.rm=T),
+            NDVI_sd_0_t6 = sd(NDVI_veg23_0,na.rm=T),
+            NDVI_sd_10_t6 = sd(NDVI_veg23_10,na.rm=T),
+            NDVI_sd_20_t6 = sd(NDVI_veg23_20,na.rm=T),
+            NDVI_sd_30_t6 = sd(NDVI_veg23_30,na.rm=T),
 
             # take max isNull. if 1, then SWA should = NA due to satellite obfuscation;
             
@@ -13389,6 +13458,10 @@ lt23_sampled_Long_Export <- lt23_sampled_Long %>%
          window_length,
          catchment_km2,
          riparian_area_m2,
+         riparian_area_m2_0,
+         riparian_area_m2_10,
+         riparian_area_m2_20,
+         riparian_area_m2_30,
          TO,
          p_window,
          f_window,
@@ -13414,7 +13487,7 @@ lt23_sampled_Long_Export <- lt23_sampled_Long %>%
          containsNull) %>%
   fix_nan()
 
-write.csv(lt23_sampled_Long_Export, "C:\\Users\\mattw\\Desktop\\GIT\\Webster_Ch1_Code\\Paired_Sampling_AOI_AllYears\\lt_2023_DF_Final_Long_090926Update.csv", row.names=FALSE)
+write.csv(lt23_sampled_Long_Export, "C:\\Users\\mattw\\Desktop\\GIT\\Webster_Ch1_Code\\Paired_Sampling_AOI_AllYears_FINAL\\lt_2023_DF_Final_Long_090926Update.csv", row.names=FALSE)
 ```
 
 ----
@@ -13491,6 +13564,14 @@ brz19_sampledSW_Veg <- brz19_sampled %>%
             # total riparian area (m^2) in window
             riparian_area_m2 = sum(riparian_area_m2, na.rm = T),
             
+            riparian_area_m2_0 = sum(Shape_Area_0, na.rm = T),
+            
+            riparian_area_m2_10 = sum(Shape_Area_10, na.rm = T),
+            
+            riparian_area_m2_20 = sum(Shape_Area_20, na.rm = T),
+            
+            riparian_area_m2_30 = sum(Shape_Area_30, na.rm = T),
+            
             # avg TO of window
             TO = mean(TO, na.rm = T),
             
@@ -13514,34 +13595,34 @@ brz19_sampledSW_Veg <- brz19_sampled %>%
             SWA_t8 = sum(SWA_t8, na.rm = T),
             
             # sum total veg area for each window at each buffer
-            VA_0_t5 = sum(Veg_area_veg19_0, na.rm = T),
+            VA_0_t6 = sum(Veg_area_veg19_0, na.rm = T),
            
             
-            VA_10_t5 = sum(Veg_area_veg19_10, na.rm = T),
+            VA_10_t6 = sum(Veg_area_veg19_10, na.rm = T),
             
             
-            VA_20_t5 = sum(Veg_area_veg19_20, na.rm = T),
+            VA_20_t6 = sum(Veg_area_veg19_20, na.rm = T),
             
             
-            VA_30_t5 = sum(Veg_area_veg19_30, na.rm = T),
+            VA_30_t6 = sum(Veg_area_veg19_30, na.rm = T),
             
             
             # mean & sd NDVI for window
-            NDVI_0_t5 = mean(NDVI_veg19_0, na.rm = T),
+            NDVI_0_t6 = mean(NDVI_veg19_0, na.rm = T),
            
             
-            NDVI_10_t5 = mean(NDVI_veg19_10, na.rm = T),
+            NDVI_10_t6 = mean(NDVI_veg19_10, na.rm = T),
             
             
-            NDVI_20_t5 = mean(NDVI_veg19_20, na.rm = T),
+            NDVI_20_t6 = mean(NDVI_veg19_20, na.rm = T),
             
             
-            NDVI_30_t5 = mean(NDVI_veg19_30, na.rm = T),
+            NDVI_30_t6 = mean(NDVI_veg19_30, na.rm = T),
             
-            NDVI_sd_0_t5 = sd(NDVI_veg19_0,na.rm=T),
-            NDVI_sd_10_t5 = sd(NDVI_veg19_10,na.rm=T),
-            NDVI_sd_20_t5 = sd(NDVI_veg19_20,na.rm=T),
-            NDVI_sd_30_t5 = sd(NDVI_veg19_30,na.rm=T),
+            NDVI_sd_0_t6 = sd(NDVI_veg19_0,na.rm=T),
+            NDVI_sd_10_t6 = sd(NDVI_veg19_10,na.rm=T),
+            NDVI_sd_20_t6 = sd(NDVI_veg19_20,na.rm=T),
+            NDVI_sd_30_t6 = sd(NDVI_veg19_30,na.rm=T),
 
             # take max isNull. if 1, then SWA should = NA due to satellite obfuscation;
             
@@ -13862,6 +13943,10 @@ brz19_sampled_Long_Export <- brz19_sampled_Long %>%
          window_length,
          catchment_km2,
          riparian_area_m2,
+         riparian_area_m2_0,
+         riparian_area_m2_10,
+         riparian_area_m2_20,
+         riparian_area_m2_30,
          TO,
          p_window,
          f_window,
@@ -13887,7 +13972,7 @@ brz19_sampled_Long_Export <- brz19_sampled_Long %>%
          containsNull) %>%
   fix_nan()
 
-write.csv(brz19_sampled_Long_Export, "C:\\Users\\mattw\\Desktop\\GIT\\Webster_Ch1_Code\\Paired_Sampling_AOI_AllYears\\brz_2019_DF_Final_Long_090926Update.csv", row.names=FALSE)
+write.csv(brz19_sampled_Long_Export, "C:\\Users\\mattw\\Desktop\\GIT\\Webster_Ch1_Code\\Paired_Sampling_AOI_AllYears_FINAL\\brz_2019_DF_Final_Long_090926Update.csv", row.names=FALSE)
 ```
 
 **2021**
@@ -13955,6 +14040,14 @@ brz21_sampledSW_Veg <- brz21_sampled %>%
             # total riparian area (m^2) in window
             riparian_area_m2 = sum(riparian_area_m2, na.rm = T),
             
+            riparian_area_m2_0 = sum(Shape_Area_0, na.rm = T),
+            
+            riparian_area_m2_10 = sum(Shape_Area_10, na.rm = T),
+            
+            riparian_area_m2_20 = sum(Shape_Area_20, na.rm = T),
+            
+            riparian_area_m2_30 = sum(Shape_Area_30, na.rm = T),
+            
             # avg TO of window
             TO = mean(TO, na.rm = T),
             
@@ -13978,34 +14071,34 @@ brz21_sampledSW_Veg <- brz21_sampled %>%
             SWA_t8 = sum(SWA_t8, na.rm = T),
             
             # sum total veg area for each window at each buffer
-            VA_0_t5 = sum(Veg_area_veg21_0, na.rm = T),
+            VA_0_t6 = sum(Veg_area_veg21_0, na.rm = T),
            
             
-            VA_10_t5 = sum(Veg_area_veg21_10, na.rm = T),
+            VA_10_t6 = sum(Veg_area_veg21_10, na.rm = T),
             
             
-            VA_20_t5 = sum(Veg_area_veg21_20, na.rm = T),
+            VA_20_t6 = sum(Veg_area_veg21_20, na.rm = T),
             
             
-            VA_30_t5 = sum(Veg_area_veg21_30, na.rm = T),
+            VA_30_t6 = sum(Veg_area_veg21_30, na.rm = T),
             
             
             # mean & sd NDVI for window
-            NDVI_0_t5 = mean(NDVI_veg21_0, na.rm = T),
+            NDVI_0_t6 = mean(NDVI_veg21_0, na.rm = T),
            
             
-            NDVI_10_t5 = mean(NDVI_veg21_10, na.rm = T),
+            NDVI_10_t6 = mean(NDVI_veg21_10, na.rm = T),
             
             
-            NDVI_20_t5 = mean(NDVI_veg21_20, na.rm = T),
+            NDVI_20_t6 = mean(NDVI_veg21_20, na.rm = T),
             
             
-            NDVI_30_t5 = mean(NDVI_veg21_30, na.rm = T),
+            NDVI_30_t6 = mean(NDVI_veg21_30, na.rm = T),
             
-            NDVI_sd_0_t5 = sd(NDVI_veg21_0,na.rm=T),
-            NDVI_sd_10_t5 = sd(NDVI_veg21_10,na.rm=T),
-            NDVI_sd_20_t5 = sd(NDVI_veg21_20,na.rm=T),
-            NDVI_sd_30_t5 = sd(NDVI_veg21_30,na.rm=T),
+            NDVI_sd_0_t6 = sd(NDVI_veg21_0,na.rm=T),
+            NDVI_sd_10_t6 = sd(NDVI_veg21_10,na.rm=T),
+            NDVI_sd_20_t6 = sd(NDVI_veg21_20,na.rm=T),
+            NDVI_sd_30_t6 = sd(NDVI_veg21_30,na.rm=T),
 
             # take max isNull. if 1, then SWA should = NA due to satellite obfuscation;
             
@@ -14326,6 +14419,10 @@ brz21_sampled_Long_Export <- brz21_sampled_Long %>%
          window_length,
          catchment_km2,
          riparian_area_m2,
+         riparian_area_m2_0,
+         riparian_area_m2_10,
+         riparian_area_m2_20,
+         riparian_area_m2_30,
          TO,
          p_window,
          f_window,
@@ -14351,7 +14448,7 @@ brz21_sampled_Long_Export <- brz21_sampled_Long %>%
          containsNull) %>%
   fix_nan()
 
-write.csv(brz21_sampled_Long_Export, "C:\\Users\\mattw\\Desktop\\GIT\\Webster_Ch1_Code\\Paired_Sampling_AOI_AllYears\\brz_2021_DF_Final_Long_090926Update.csv", row.names=FALSE)
+write.csv(brz21_sampled_Long_Export, "C:\\Users\\mattw\\Desktop\\GIT\\Webster_Ch1_Code\\Paired_Sampling_AOI_AllYears_FINAL\\brz_2021_DF_Final_Long_090926Update.csv", row.names=FALSE)
 ```
 
 **2023**
@@ -14419,6 +14516,14 @@ brz23_sampledSW_Veg <- brz23_sampled %>%
             # total riparian area (m^2) in window
             riparian_area_m2 = sum(riparian_area_m2, na.rm = T),
             
+            riparian_area_m2_0 = sum(Shape_Area_0, na.rm = T),
+            
+            riparian_area_m2_10 = sum(Shape_Area_10, na.rm = T),
+            
+            riparian_area_m2_20 = sum(Shape_Area_20, na.rm = T),
+            
+            riparian_area_m2_30 = sum(Shape_Area_30, na.rm = T),
+            
             # avg TO of window
             TO = mean(TO, na.rm = T),
             
@@ -14442,34 +14547,34 @@ brz23_sampledSW_Veg <- brz23_sampled %>%
             SWA_t8 = sum(SWA_t8, na.rm = T),
             
             # sum total veg area for each window at each buffer
-            VA_0_t5 = sum(Veg_area_veg23_0, na.rm = T),
+            VA_0_t6 = sum(Veg_area_veg23_0, na.rm = T),
            
             
-            VA_10_t5 = sum(Veg_area_veg23_10, na.rm = T),
+            VA_10_t6 = sum(Veg_area_veg23_10, na.rm = T),
             
             
-            VA_20_t5 = sum(Veg_area_veg23_20, na.rm = T),
+            VA_20_t6 = sum(Veg_area_veg23_20, na.rm = T),
             
             
-            VA_30_t5 = sum(Veg_area_veg23_30, na.rm = T),
+            VA_30_t6 = sum(Veg_area_veg23_30, na.rm = T),
             
             
             # mean & sd NDVI for window
-            NDVI_0_t5 = mean(NDVI_veg23_0, na.rm = T),
+            NDVI_0_t6 = mean(NDVI_veg23_0, na.rm = T),
            
             
-            NDVI_10_t5 = mean(NDVI_veg23_10, na.rm = T),
+            NDVI_10_t6 = mean(NDVI_veg23_10, na.rm = T),
             
             
-            NDVI_20_t5 = mean(NDVI_veg23_20, na.rm = T),
+            NDVI_20_t6 = mean(NDVI_veg23_20, na.rm = T),
             
             
-            NDVI_30_t5 = mean(NDVI_veg23_30, na.rm = T),
+            NDVI_30_t6 = mean(NDVI_veg23_30, na.rm = T),
             
-            NDVI_sd_0_t5 = sd(NDVI_veg23_0,na.rm=T),
-            NDVI_sd_10_t5 = sd(NDVI_veg23_10,na.rm=T),
-            NDVI_sd_20_t5 = sd(NDVI_veg23_20,na.rm=T),
-            NDVI_sd_30_t5 = sd(NDVI_veg23_30,na.rm=T),
+            NDVI_sd_0_t6 = sd(NDVI_veg23_0,na.rm=T),
+            NDVI_sd_10_t6 = sd(NDVI_veg23_10,na.rm=T),
+            NDVI_sd_20_t6 = sd(NDVI_veg23_20,na.rm=T),
+            NDVI_sd_30_t6 = sd(NDVI_veg23_30,na.rm=T),
 
             # take max isNull. if 1, then SWA should = NA due to satellite obfuscation;
             
@@ -14790,6 +14895,10 @@ brz23_sampled_Long_Export <- brz23_sampled_Long %>%
          window_length,
          catchment_km2,
          riparian_area_m2,
+         riparian_area_m2_0,
+         riparian_area_m2_10,
+         riparian_area_m2_20,
+         riparian_area_m2_30,
          TO,
          p_window,
          f_window,
@@ -14815,7 +14924,7 @@ brz23_sampled_Long_Export <- brz23_sampled_Long %>%
          containsNull) %>%
   fix_nan()
 
-write.csv(brz23_sampled_Long_Export, "C:\\Users\\mattw\\Desktop\\GIT\\Webster_Ch1_Code\\Paired_Sampling_AOI_AllYears\\brz_2023_DF_Final_Long_090926Update.csv", row.names=FALSE)
+write.csv(brz23_sampled_Long_Export, "C:\\Users\\mattw\\Desktop\\GIT\\Webster_Ch1_Code\\Paired_Sampling_AOI_AllYears_FINAL\\brz_2023_DF_Final_Long_090926Update.csv", row.names=FALSE)
 ```
 
 ----
@@ -14892,6 +15001,14 @@ lrb19_sampledSW_Veg <- lrb19_sampled %>%
             # total riparian area (m^2) in window
             riparian_area_m2 = sum(riparian_area_m2, na.rm = T),
             
+            riparian_area_m2_0 = sum(Shape_Area_0, na.rm = T),
+            
+            riparian_area_m2_10 = sum(Shape_Area_10, na.rm = T),
+            
+            riparian_area_m2_20 = sum(Shape_Area_20, na.rm = T),
+            
+            riparian_area_m2_30 = sum(Shape_Area_30, na.rm = T),
+            
             # avg TO of window
             TO = mean(TO, na.rm = T),
             
@@ -14915,34 +15032,34 @@ lrb19_sampledSW_Veg <- lrb19_sampled %>%
             SWA_t8 = sum(SWA_t8, na.rm = T),
             
             # sum total veg area for each window at each buffer
-            VA_0_t5 = sum(Veg_area_veg19_0, na.rm = T),
+            VA_0_t6 = sum(Veg_area_veg19_0, na.rm = T),
            
             
-            VA_10_t5 = sum(Veg_area_veg19_10, na.rm = T),
+            VA_10_t6 = sum(Veg_area_veg19_10, na.rm = T),
             
             
-            VA_20_t5 = sum(Veg_area_veg19_20, na.rm = T),
+            VA_20_t6 = sum(Veg_area_veg19_20, na.rm = T),
             
             
-            VA_30_t5 = sum(Veg_area_veg19_30, na.rm = T),
+            VA_30_t6 = sum(Veg_area_veg19_30, na.rm = T),
             
             
             # mean & sd NDVI for window
-            NDVI_0_t5 = mean(NDVI_veg19_0, na.rm = T),
+            NDVI_0_t6 = mean(NDVI_veg19_0, na.rm = T),
            
             
-            NDVI_10_t5 = mean(NDVI_veg19_10, na.rm = T),
+            NDVI_10_t6 = mean(NDVI_veg19_10, na.rm = T),
             
             
-            NDVI_20_t5 = mean(NDVI_veg19_20, na.rm = T),
+            NDVI_20_t6 = mean(NDVI_veg19_20, na.rm = T),
             
             
-            NDVI_30_t5 = mean(NDVI_veg19_30, na.rm = T),
+            NDVI_30_t6 = mean(NDVI_veg19_30, na.rm = T),
             
-            NDVI_sd_0_t5 = sd(NDVI_veg19_0,na.rm=T),
-            NDVI_sd_10_t5 = sd(NDVI_veg19_10,na.rm=T),
-            NDVI_sd_20_t5 = sd(NDVI_veg19_20,na.rm=T),
-            NDVI_sd_30_t5 = sd(NDVI_veg19_30,na.rm=T),
+            NDVI_sd_0_t6 = sd(NDVI_veg19_0,na.rm=T),
+            NDVI_sd_10_t6 = sd(NDVI_veg19_10,na.rm=T),
+            NDVI_sd_20_t6 = sd(NDVI_veg19_20,na.rm=T),
+            NDVI_sd_30_t6 = sd(NDVI_veg19_30,na.rm=T),
 
             # take max isNull. if 1, then SWA should = NA due to satellite obfuscation;
             
@@ -15263,6 +15380,10 @@ lrb19_sampled_Long_Export <- lrb19_sampled_Long %>%
          window_length,
          catchment_km2,
          riparian_area_m2,
+         riparian_area_m2_0,
+         riparian_area_m2_10,
+         riparian_area_m2_20,
+         riparian_area_m2_30,
          TO,
          p_window,
          f_window,
@@ -15288,7 +15409,7 @@ lrb19_sampled_Long_Export <- lrb19_sampled_Long %>%
          containsNull) %>%
   fix_nan()
 
-write.csv(lrb19_sampled_Long_Export, "C:\\Users\\mattw\\Desktop\\GIT\\Webster_Ch1_Code\\Paired_Sampling_AOI_AllYears\\lrb_2019_DF_Final_Long_090926Update.csv", row.names=FALSE)
+write.csv(lrb19_sampled_Long_Export, "C:\\Users\\mattw\\Desktop\\GIT\\Webster_Ch1_Code\\Paired_Sampling_AOI_AllYears_FINAL\\lrb_2019_DF_Final_Long_090926Update.csv", row.names=FALSE)
 ```
 
 **2021**
@@ -15356,6 +15477,14 @@ lrb21_sampledSW_Veg <- lrb21_sampled %>%
             # total riparian area (m^2) in window
             riparian_area_m2 = sum(riparian_area_m2, na.rm = T),
             
+            riparian_area_m2_0 = sum(Shape_Area_0, na.rm = T),
+            
+            riparian_area_m2_10 = sum(Shape_Area_10, na.rm = T),
+            
+            riparian_area_m2_20 = sum(Shape_Area_20, na.rm = T),
+            
+            riparian_area_m2_30 = sum(Shape_Area_30, na.rm = T),
+            
             # avg TO of window
             TO = mean(TO, na.rm = T),
             
@@ -15379,34 +15508,34 @@ lrb21_sampledSW_Veg <- lrb21_sampled %>%
             SWA_t8 = sum(SWA_t8, na.rm = T),
             
             # sum total veg area for each window at each buffer
-            VA_0_t5 = sum(Veg_area_veg21_0, na.rm = T),
+            VA_0_t6 = sum(Veg_area_veg21_0, na.rm = T),
            
             
-            VA_10_t5 = sum(Veg_area_veg21_10, na.rm = T),
+            VA_10_t6 = sum(Veg_area_veg21_10, na.rm = T),
             
             
-            VA_20_t5 = sum(Veg_area_veg21_20, na.rm = T),
+            VA_20_t6 = sum(Veg_area_veg21_20, na.rm = T),
             
             
-            VA_30_t5 = sum(Veg_area_veg21_30, na.rm = T),
+            VA_30_t6 = sum(Veg_area_veg21_30, na.rm = T),
             
             
             # mean & sd NDVI for window
-            NDVI_0_t5 = mean(NDVI_veg21_0, na.rm = T),
+            NDVI_0_t6 = mean(NDVI_veg21_0, na.rm = T),
            
             
-            NDVI_10_t5 = mean(NDVI_veg21_10, na.rm = T),
+            NDVI_10_t6 = mean(NDVI_veg21_10, na.rm = T),
             
             
-            NDVI_20_t5 = mean(NDVI_veg21_20, na.rm = T),
+            NDVI_20_t6 = mean(NDVI_veg21_20, na.rm = T),
             
             
-            NDVI_30_t5 = mean(NDVI_veg21_30, na.rm = T),
+            NDVI_30_t6 = mean(NDVI_veg21_30, na.rm = T),
             
-            NDVI_sd_0_t5 = sd(NDVI_veg21_0,na.rm=T),
-            NDVI_sd_10_t5 = sd(NDVI_veg21_10,na.rm=T),
-            NDVI_sd_20_t5 = sd(NDVI_veg21_20,na.rm=T),
-            NDVI_sd_30_t5 = sd(NDVI_veg21_30,na.rm=T),
+            NDVI_sd_0_t6 = sd(NDVI_veg21_0,na.rm=T),
+            NDVI_sd_10_t6 = sd(NDVI_veg21_10,na.rm=T),
+            NDVI_sd_20_t6 = sd(NDVI_veg21_20,na.rm=T),
+            NDVI_sd_30_t6 = sd(NDVI_veg21_30,na.rm=T),
 
             # take max isNull. if 1, then SWA should = NA due to satellite obfuscation;
             
@@ -15727,6 +15856,10 @@ lrb21_sampled_Long_Export <- lrb21_sampled_Long %>%
          window_length,
          catchment_km2,
          riparian_area_m2,
+         riparian_area_m2_0,
+         riparian_area_m2_10,
+         riparian_area_m2_20,
+         riparian_area_m2_30,
          TO,
          p_window,
          f_window,
@@ -15752,7 +15885,7 @@ lrb21_sampled_Long_Export <- lrb21_sampled_Long %>%
          containsNull) %>%
   fix_nan()
 
-write.csv(lrb21_sampled_Long_Export, "C:\\Users\\mattw\\Desktop\\GIT\\Webster_Ch1_Code\\Paired_Sampling_AOI_AllYears\\lrb_2021_DF_Final_Long_090926Update.csv", row.names=FALSE)
+write.csv(lrb21_sampled_Long_Export, "C:\\Users\\mattw\\Desktop\\GIT\\Webster_Ch1_Code\\Paired_Sampling_AOI_AllYears_FINAL\\lrb_2021_DF_Final_Long_090926Update.csv", row.names=FALSE)
 ```
 
 **2023**
@@ -15820,6 +15953,14 @@ lrb23_sampledSW_Veg <- lrb23_sampled %>%
             # total riparian area (m^2) in window
             riparian_area_m2 = sum(riparian_area_m2, na.rm = T),
             
+            riparian_area_m2_0 = sum(Shape_Area_0, na.rm = T),
+            
+            riparian_area_m2_10 = sum(Shape_Area_10, na.rm = T),
+            
+            riparian_area_m2_20 = sum(Shape_Area_20, na.rm = T),
+            
+            riparian_area_m2_30 = sum(Shape_Area_30, na.rm = T),
+            
             # avg TO of window
             TO = mean(TO, na.rm = T),
             
@@ -15843,34 +15984,34 @@ lrb23_sampledSW_Veg <- lrb23_sampled %>%
             SWA_t8 = sum(SWA_t8, na.rm = T),
             
             # sum total veg area for each window at each buffer
-            VA_0_t5 = sum(Veg_area_veg23_0, na.rm = T),
+            VA_0_t6 = sum(Veg_area_veg23_0, na.rm = T),
            
             
-            VA_10_t5 = sum(Veg_area_veg23_10, na.rm = T),
+            VA_10_t6 = sum(Veg_area_veg23_10, na.rm = T),
             
             
-            VA_20_t5 = sum(Veg_area_veg23_20, na.rm = T),
+            VA_20_t6 = sum(Veg_area_veg23_20, na.rm = T),
             
             
-            VA_30_t5 = sum(Veg_area_veg23_30, na.rm = T),
+            VA_30_t6 = sum(Veg_area_veg23_30, na.rm = T),
             
             
             # mean & sd NDVI for window
-            NDVI_0_t5 = mean(NDVI_veg23_0, na.rm = T),
+            NDVI_0_t6 = mean(NDVI_veg23_0, na.rm = T),
            
             
-            NDVI_10_t5 = mean(NDVI_veg23_10, na.rm = T),
+            NDVI_10_t6 = mean(NDVI_veg23_10, na.rm = T),
             
             
-            NDVI_20_t5 = mean(NDVI_veg23_20, na.rm = T),
+            NDVI_20_t6 = mean(NDVI_veg23_20, na.rm = T),
             
             
-            NDVI_30_t5 = mean(NDVI_veg23_30, na.rm = T),
+            NDVI_30_t6 = mean(NDVI_veg23_30, na.rm = T),
             
-            NDVI_sd_0_t5 = sd(NDVI_veg23_0,na.rm=T),
-            NDVI_sd_10_t5 = sd(NDVI_veg23_10,na.rm=T),
-            NDVI_sd_20_t5 = sd(NDVI_veg23_20,na.rm=T),
-            NDVI_sd_30_t5 = sd(NDVI_veg23_30,na.rm=T),
+            NDVI_sd_0_t6 = sd(NDVI_veg23_0,na.rm=T),
+            NDVI_sd_10_t6 = sd(NDVI_veg23_10,na.rm=T),
+            NDVI_sd_20_t6 = sd(NDVI_veg23_20,na.rm=T),
+            NDVI_sd_30_t6 = sd(NDVI_veg23_30,na.rm=T),
 
             # take max isNull. if 1, then SWA should = NA due to satellite obfuscation;
             
@@ -16191,6 +16332,10 @@ lrb23_sampled_Long_Export <- lrb23_sampled_Long %>%
          window_length,
          catchment_km2,
          riparian_area_m2,
+         riparian_area_m2_0,
+         riparian_area_m2_10,
+         riparian_area_m2_20,
+         riparian_area_m2_30,
          TO,
          p_window,
          f_window,
@@ -16216,7 +16361,7 @@ lrb23_sampled_Long_Export <- lrb23_sampled_Long %>%
          containsNull) %>%
   fix_nan()
 
-write.csv(lrb23_sampled_Long_Export, "C:\\Users\\mattw\\Desktop\\GIT\\Webster_Ch1_Code\\Paired_Sampling_AOI_AllYears\\lrb_2023_DF_Final_Long_090926Update.csv", row.names=FALSE)
+write.csv(lrb23_sampled_Long_Export, "C:\\Users\\mattw\\Desktop\\GIT\\Webster_Ch1_Code\\Paired_Sampling_AOI_AllYears_FINAL\\lrb_2023_DF_Final_Long_090926Update.csv", row.names=FALSE)
 ```
 ----
 ----
@@ -16292,6 +16437,14 @@ lbv19_sampledSW_Veg <- lbv19_sampled %>%
             # total riparian area (m^2) in window
             riparian_area_m2 = sum(riparian_area_m2, na.rm = T),
             
+            riparian_area_m2_0 = sum(Shape_Area_0, na.rm = T),
+            
+            riparian_area_m2_10 = sum(Shape_Area_10, na.rm = T),
+            
+            riparian_area_m2_20 = sum(Shape_Area_20, na.rm = T),
+            
+            riparian_area_m2_30 = sum(Shape_Area_30, na.rm = T),
+            
             # avg TO of window
             TO = mean(TO, na.rm = T),
             
@@ -16315,34 +16468,34 @@ lbv19_sampledSW_Veg <- lbv19_sampled %>%
             SWA_t8 = sum(SWA_t8, na.rm = T),
             
             # sum total veg area for each window at each buffer
-            VA_0_t5 = sum(Veg_area_veg19_0, na.rm = T),
+            VA_0_t6 = sum(Veg_area_veg19_0, na.rm = T),
            
             
-            VA_10_t5 = sum(Veg_area_veg19_10, na.rm = T),
+            VA_10_t6 = sum(Veg_area_veg19_10, na.rm = T),
             
             
-            VA_20_t5 = sum(Veg_area_veg19_20, na.rm = T),
+            VA_20_t6 = sum(Veg_area_veg19_20, na.rm = T),
             
             
-            VA_30_t5 = sum(Veg_area_veg19_30, na.rm = T),
+            VA_30_t6 = sum(Veg_area_veg19_30, na.rm = T),
             
             
             # mean & sd NDVI for window
-            NDVI_0_t5 = mean(NDVI_veg19_0, na.rm = T),
+            NDVI_0_t6 = mean(NDVI_veg19_0, na.rm = T),
            
             
-            NDVI_10_t5 = mean(NDVI_veg19_10, na.rm = T),
+            NDVI_10_t6 = mean(NDVI_veg19_10, na.rm = T),
             
             
-            NDVI_20_t5 = mean(NDVI_veg19_20, na.rm = T),
+            NDVI_20_t6 = mean(NDVI_veg19_20, na.rm = T),
             
             
-            NDVI_30_t5 = mean(NDVI_veg19_30, na.rm = T),
+            NDVI_30_t6 = mean(NDVI_veg19_30, na.rm = T),
             
-            NDVI_sd_0_t5 = sd(NDVI_veg19_0,na.rm=T),
-            NDVI_sd_10_t5 = sd(NDVI_veg19_10,na.rm=T),
-            NDVI_sd_20_t5 = sd(NDVI_veg19_20,na.rm=T),
-            NDVI_sd_30_t5 = sd(NDVI_veg19_30,na.rm=T),
+            NDVI_sd_0_t6 = sd(NDVI_veg19_0,na.rm=T),
+            NDVI_sd_10_t6 = sd(NDVI_veg19_10,na.rm=T),
+            NDVI_sd_20_t6 = sd(NDVI_veg19_20,na.rm=T),
+            NDVI_sd_30_t6 = sd(NDVI_veg19_30,na.rm=T),
 
             # take max isNull. if 1, then SWA should = NA due to satellite obfuscation;
             
@@ -16663,6 +16816,10 @@ lbv19_sampled_Long_Export <- lbv19_sampled_Long %>%
          window_length,
          catchment_km2,
          riparian_area_m2,
+         riparian_area_m2_0,
+         riparian_area_m2_10,
+         riparian_area_m2_20,
+         riparian_area_m2_30,
          TO,
          p_window,
          f_window,
@@ -16688,7 +16845,7 @@ lbv19_sampled_Long_Export <- lbv19_sampled_Long %>%
          containsNull) %>%
   fix_nan()
 
-write.csv(lbv19_sampled_Long_Export, "C:\\Users\\mattw\\Desktop\\GIT\\Webster_Ch1_Code\\Paired_Sampling_AOI_AllYears\\lbv_2019_DF_Final_Long_090926Update.csv", row.names=FALSE)
+write.csv(lbv19_sampled_Long_Export, "C:\\Users\\mattw\\Desktop\\GIT\\Webster_Ch1_Code\\Paired_Sampling_AOI_AllYears_FINAL\\lbv_2019_DF_Final_Long_090926Update.csv", row.names=FALSE)
 ```
 
 **2021**
@@ -16756,6 +16913,14 @@ lbv21_sampledSW_Veg <- lbv21_sampled %>%
             # total riparian area (m^2) in window
             riparian_area_m2 = sum(riparian_area_m2, na.rm = T),
             
+            riparian_area_m2_0 = sum(Shape_Area_0, na.rm = T),
+            
+            riparian_area_m2_10 = sum(Shape_Area_10, na.rm = T),
+            
+            riparian_area_m2_20 = sum(Shape_Area_20, na.rm = T),
+            
+            riparian_area_m2_30 = sum(Shape_Area_30, na.rm = T),
+            
             # avg TO of window
             TO = mean(TO, na.rm = T),
             
@@ -16779,34 +16944,34 @@ lbv21_sampledSW_Veg <- lbv21_sampled %>%
             SWA_t8 = sum(SWA_t8, na.rm = T),
             
             # sum total veg area for each window at each buffer
-            VA_0_t5 = sum(Veg_area_veg21_0, na.rm = T),
+            VA_0_t6 = sum(Veg_area_veg21_0, na.rm = T),
            
             
-            VA_10_t5 = sum(Veg_area_veg21_10, na.rm = T),
+            VA_10_t6 = sum(Veg_area_veg21_10, na.rm = T),
             
             
-            VA_20_t5 = sum(Veg_area_veg21_20, na.rm = T),
+            VA_20_t6 = sum(Veg_area_veg21_20, na.rm = T),
             
             
-            VA_30_t5 = sum(Veg_area_veg21_30, na.rm = T),
+            VA_30_t6 = sum(Veg_area_veg21_30, na.rm = T),
             
             
             # mean & sd NDVI for window
-            NDVI_0_t5 = mean(NDVI_veg21_0, na.rm = T),
+            NDVI_0_t6 = mean(NDVI_veg21_0, na.rm = T),
            
             
-            NDVI_10_t5 = mean(NDVI_veg21_10, na.rm = T),
+            NDVI_10_t6 = mean(NDVI_veg21_10, na.rm = T),
             
             
-            NDVI_20_t5 = mean(NDVI_veg21_20, na.rm = T),
+            NDVI_20_t6 = mean(NDVI_veg21_20, na.rm = T),
             
             
-            NDVI_30_t5 = mean(NDVI_veg21_30, na.rm = T),
+            NDVI_30_t6 = mean(NDVI_veg21_30, na.rm = T),
             
-            NDVI_sd_0_t5 = sd(NDVI_veg21_0,na.rm=T),
-            NDVI_sd_10_t5 = sd(NDVI_veg21_10,na.rm=T),
-            NDVI_sd_20_t5 = sd(NDVI_veg21_20,na.rm=T),
-            NDVI_sd_30_t5 = sd(NDVI_veg21_30,na.rm=T),
+            NDVI_sd_0_t6 = sd(NDVI_veg21_0,na.rm=T),
+            NDVI_sd_10_t6 = sd(NDVI_veg21_10,na.rm=T),
+            NDVI_sd_20_t6 = sd(NDVI_veg21_20,na.rm=T),
+            NDVI_sd_30_t6 = sd(NDVI_veg21_30,na.rm=T),
 
             # take max isNull. if 1, then SWA should = NA due to satellite obfuscation;
             
@@ -17127,6 +17292,10 @@ lbv21_sampled_Long_Export <- lbv21_sampled_Long %>%
          window_length,
          catchment_km2,
          riparian_area_m2,
+         riparian_area_m2_0,
+         riparian_area_m2_10,
+         riparian_area_m2_20,
+         riparian_area_m2_30,
          TO,
          p_window,
          f_window,
@@ -17152,7 +17321,7 @@ lbv21_sampled_Long_Export <- lbv21_sampled_Long %>%
          containsNull) %>%
   fix_nan()
 
-write.csv(lbv21_sampled_Long_Export, "C:\\Users\\mattw\\Desktop\\GIT\\Webster_Ch1_Code\\Paired_Sampling_AOI_AllYears\\lbv_2021_DF_Final_Long_090926Update.csv", row.names=FALSE)
+write.csv(lbv21_sampled_Long_Export, "C:\\Users\\mattw\\Desktop\\GIT\\Webster_Ch1_Code\\Paired_Sampling_AOI_AllYears_FINAL\\lbv_2021_DF_Final_Long_090926Update.csv", row.names=FALSE)
 ```
 
 **2023**
@@ -17220,6 +17389,14 @@ lbv23_sampledSW_Veg <- lbv23_sampled %>%
             # total riparian area (m^2) in window
             riparian_area_m2 = sum(riparian_area_m2, na.rm = T),
             
+            riparian_area_m2_0 = sum(Shape_Area_0, na.rm = T),
+            
+            riparian_area_m2_10 = sum(Shape_Area_10, na.rm = T),
+            
+            riparian_area_m2_20 = sum(Shape_Area_20, na.rm = T),
+            
+            riparian_area_m2_30 = sum(Shape_Area_30, na.rm = T),
+            
             # avg TO of window
             TO = mean(TO, na.rm = T),
             
@@ -17243,34 +17420,34 @@ lbv23_sampledSW_Veg <- lbv23_sampled %>%
             SWA_t8 = sum(SWA_t8, na.rm = T),
             
             # sum total veg area for each window at each buffer
-            VA_0_t5 = sum(Veg_area_veg23_0, na.rm = T),
+            VA_0_t6 = sum(Veg_area_veg23_0, na.rm = T),
            
             
-            VA_10_t5 = sum(Veg_area_veg23_10, na.rm = T),
+            VA_10_t6 = sum(Veg_area_veg23_10, na.rm = T),
             
             
-            VA_20_t5 = sum(Veg_area_veg23_20, na.rm = T),
+            VA_20_t6 = sum(Veg_area_veg23_20, na.rm = T),
             
             
-            VA_30_t5 = sum(Veg_area_veg23_30, na.rm = T),
+            VA_30_t6 = sum(Veg_area_veg23_30, na.rm = T),
             
             
             # mean & sd NDVI for window
-            NDVI_0_t5 = mean(NDVI_veg23_0, na.rm = T),
+            NDVI_0_t6 = mean(NDVI_veg23_0, na.rm = T),
            
             
-            NDVI_10_t5 = mean(NDVI_veg23_10, na.rm = T),
+            NDVI_10_t6 = mean(NDVI_veg23_10, na.rm = T),
             
             
-            NDVI_20_t5 = mean(NDVI_veg23_20, na.rm = T),
+            NDVI_20_t6 = mean(NDVI_veg23_20, na.rm = T),
             
             
-            NDVI_30_t5 = mean(NDVI_veg23_30, na.rm = T),
+            NDVI_30_t6 = mean(NDVI_veg23_30, na.rm = T),
             
-            NDVI_sd_0_t5 = sd(NDVI_veg23_0,na.rm=T),
-            NDVI_sd_10_t5 = sd(NDVI_veg23_10,na.rm=T),
-            NDVI_sd_20_t5 = sd(NDVI_veg23_20,na.rm=T),
-            NDVI_sd_30_t5 = sd(NDVI_veg23_30,na.rm=T),
+            NDVI_sd_0_t6 = sd(NDVI_veg23_0,na.rm=T),
+            NDVI_sd_10_t6 = sd(NDVI_veg23_10,na.rm=T),
+            NDVI_sd_20_t6 = sd(NDVI_veg23_20,na.rm=T),
+            NDVI_sd_30_t6 = sd(NDVI_veg23_30,na.rm=T),
 
             # take max isNull. if 1, then SWA should = NA due to satellite obfuscation;
             
@@ -17591,6 +17768,10 @@ lbv23_sampled_Long_Export <- lbv23_sampled_Long %>%
          window_length,
          catchment_km2,
          riparian_area_m2,
+         riparian_area_m2_0,
+         riparian_area_m2_10,
+         riparian_area_m2_20,
+         riparian_area_m2_30,
          TO,
          p_window,
          f_window,
@@ -17616,7 +17797,7 @@ lbv23_sampled_Long_Export <- lbv23_sampled_Long %>%
          containsNull) %>%
   fix_nan()
 
-write.csv(lbv23_sampled_Long_Export, "C:\\Users\\mattw\\Desktop\\GIT\\Webster_Ch1_Code\\Paired_Sampling_AOI_AllYears\\lbv_2023_DF_Final_Long_090926Update.csv", row.names=FALSE)
+write.csv(lbv23_sampled_Long_Export, "C:\\Users\\mattw\\Desktop\\GIT\\Webster_Ch1_Code\\Paired_Sampling_AOI_AllYears_FINAL\\lbv_2023_DF_Final_Long_090926Update.csv", row.names=FALSE)
 ```
 ----
 ----
@@ -17691,6 +17872,14 @@ ubv19_sampledSW_Veg <- ubv19_sampled %>%
             # total riparian area (m^2) in window
             riparian_area_m2 = sum(riparian_area_m2, na.rm = T),
             
+            riparian_area_m2_0 = sum(Shape_Area_0, na.rm = T),
+            
+            riparian_area_m2_10 = sum(Shape_Area_10, na.rm = T),
+            
+            riparian_area_m2_20 = sum(Shape_Area_20, na.rm = T),
+            
+            riparian_area_m2_30 = sum(Shape_Area_30, na.rm = T),
+            
             # avg TO of window
             TO = mean(TO, na.rm = T),
             
@@ -17714,34 +17903,34 @@ ubv19_sampledSW_Veg <- ubv19_sampled %>%
             SWA_t8 = sum(SWA_t8, na.rm = T),
             
             # sum total veg area for each window at each buffer
-            VA_0_t5 = sum(Veg_area_veg19_0, na.rm = T),
+            VA_0_t6 = sum(Veg_area_veg19_0, na.rm = T),
            
             
-            VA_10_t5 = sum(Veg_area_veg19_10, na.rm = T),
+            VA_10_t6 = sum(Veg_area_veg19_10, na.rm = T),
             
             
-            VA_20_t5 = sum(Veg_area_veg19_20, na.rm = T),
+            VA_20_t6 = sum(Veg_area_veg19_20, na.rm = T),
             
             
-            VA_30_t5 = sum(Veg_area_veg19_30, na.rm = T),
+            VA_30_t6 = sum(Veg_area_veg19_30, na.rm = T),
             
             
             # mean & sd NDVI for window
-            NDVI_0_t5 = mean(NDVI_veg19_0, na.rm = T),
+            NDVI_0_t6 = mean(NDVI_veg19_0, na.rm = T),
            
             
-            NDVI_10_t5 = mean(NDVI_veg19_10, na.rm = T),
+            NDVI_10_t6 = mean(NDVI_veg19_10, na.rm = T),
             
             
-            NDVI_20_t5 = mean(NDVI_veg19_20, na.rm = T),
+            NDVI_20_t6 = mean(NDVI_veg19_20, na.rm = T),
             
             
-            NDVI_30_t5 = mean(NDVI_veg19_30, na.rm = T),
+            NDVI_30_t6 = mean(NDVI_veg19_30, na.rm = T),
             
-            NDVI_sd_0_t5 = sd(NDVI_veg19_0,na.rm=T),
-            NDVI_sd_10_t5 = sd(NDVI_veg19_10,na.rm=T),
-            NDVI_sd_20_t5 = sd(NDVI_veg19_20,na.rm=T),
-            NDVI_sd_30_t5 = sd(NDVI_veg19_30,na.rm=T),
+            NDVI_sd_0_t6 = sd(NDVI_veg19_0,na.rm=T),
+            NDVI_sd_10_t6 = sd(NDVI_veg19_10,na.rm=T),
+            NDVI_sd_20_t6 = sd(NDVI_veg19_20,na.rm=T),
+            NDVI_sd_30_t6 = sd(NDVI_veg19_30,na.rm=T),
 
             # take max isNull. if 1, then SWA should = NA due to satellite obfuscation;
             
@@ -18062,6 +18251,10 @@ ubv19_sampled_Long_Export <- ubv19_sampled_Long %>%
          window_length,
          catchment_km2,
          riparian_area_m2,
+         riparian_area_m2_0,
+         riparian_area_m2_10,
+         riparian_area_m2_20,
+         riparian_area_m2_30,
          TO,
          p_window,
          f_window,
@@ -18087,7 +18280,7 @@ ubv19_sampled_Long_Export <- ubv19_sampled_Long %>%
          containsNull) %>%
   fix_nan()
 
-write.csv(ubv19_sampled_Long_Export, "C:\\Users\\mattw\\Desktop\\GIT\\Webster_Ch1_Code\\Paired_Sampling_AOI_AllYears\\ubv_2019_DF_Final_Long_090926Update.csv", row.names=FALSE)
+write.csv(ubv19_sampled_Long_Export, "C:\\Users\\mattw\\Desktop\\GIT\\Webster_Ch1_Code\\Paired_Sampling_AOI_AllYears_FINAL\\ubv_2019_DF_Final_Long_090926Update.csv", row.names=FALSE)
 ```
 
 **2021**
@@ -18155,6 +18348,14 @@ ubv21_sampledSW_Veg <- ubv21_sampled %>%
             # total riparian area (m^2) in window
             riparian_area_m2 = sum(riparian_area_m2, na.rm = T),
             
+            riparian_area_m2_0 = sum(Shape_Area_0, na.rm = T),
+            
+            riparian_area_m2_10 = sum(Shape_Area_10, na.rm = T),
+            
+            riparian_area_m2_20 = sum(Shape_Area_20, na.rm = T),
+            
+            riparian_area_m2_30 = sum(Shape_Area_30, na.rm = T),
+            
             # avg TO of window
             TO = mean(TO, na.rm = T),
             
@@ -18178,34 +18379,34 @@ ubv21_sampledSW_Veg <- ubv21_sampled %>%
             SWA_t8 = sum(SWA_t8, na.rm = T),
             
             # sum total veg area for each window at each buffer
-            VA_0_t5 = sum(Veg_area_veg21_0, na.rm = T),
+            VA_0_t6 = sum(Veg_area_veg21_0, na.rm = T),
            
             
-            VA_10_t5 = sum(Veg_area_veg21_10, na.rm = T),
+            VA_10_t6 = sum(Veg_area_veg21_10, na.rm = T),
             
             
-            VA_20_t5 = sum(Veg_area_veg21_20, na.rm = T),
+            VA_20_t6 = sum(Veg_area_veg21_20, na.rm = T),
             
             
-            VA_30_t5 = sum(Veg_area_veg21_30, na.rm = T),
+            VA_30_t6 = sum(Veg_area_veg21_30, na.rm = T),
             
             
             # mean & sd NDVI for window
-            NDVI_0_t5 = mean(NDVI_veg21_0, na.rm = T),
+            NDVI_0_t6 = mean(NDVI_veg21_0, na.rm = T),
            
             
-            NDVI_10_t5 = mean(NDVI_veg21_10, na.rm = T),
+            NDVI_10_t6 = mean(NDVI_veg21_10, na.rm = T),
             
             
-            NDVI_20_t5 = mean(NDVI_veg21_20, na.rm = T),
+            NDVI_20_t6 = mean(NDVI_veg21_20, na.rm = T),
             
             
-            NDVI_30_t5 = mean(NDVI_veg21_30, na.rm = T),
+            NDVI_30_t6 = mean(NDVI_veg21_30, na.rm = T),
             
-            NDVI_sd_0_t5 = sd(NDVI_veg21_0,na.rm=T),
-            NDVI_sd_10_t5 = sd(NDVI_veg21_10,na.rm=T),
-            NDVI_sd_20_t5 = sd(NDVI_veg21_20,na.rm=T),
-            NDVI_sd_30_t5 = sd(NDVI_veg21_30,na.rm=T),
+            NDVI_sd_0_t6 = sd(NDVI_veg21_0,na.rm=T),
+            NDVI_sd_10_t6 = sd(NDVI_veg21_10,na.rm=T),
+            NDVI_sd_20_t6 = sd(NDVI_veg21_20,na.rm=T),
+            NDVI_sd_30_t6 = sd(NDVI_veg21_30,na.rm=T),
 
             # take max isNull. if 1, then SWA should = NA due to satellite obfuscation;
             
@@ -18526,6 +18727,10 @@ ubv21_sampled_Long_Export <- ubv21_sampled_Long %>%
          window_length,
          catchment_km2,
          riparian_area_m2,
+         riparian_area_m2_0,
+         riparian_area_m2_10,
+         riparian_area_m2_20,
+         riparian_area_m2_30,
          TO,
          p_window,
          f_window,
@@ -18551,7 +18756,7 @@ ubv21_sampled_Long_Export <- ubv21_sampled_Long %>%
          containsNull) %>%
   fix_nan()
 
-write.csv(ubv21_sampled_Long_Export, "C:\\Users\\mattw\\Desktop\\GIT\\Webster_Ch1_Code\\Paired_Sampling_AOI_AllYears\\ubv_2021_DF_Final_Long_090926Update.csv", row.names=FALSE)
+write.csv(ubv21_sampled_Long_Export, "C:\\Users\\mattw\\Desktop\\GIT\\Webster_Ch1_Code\\Paired_Sampling_AOI_AllYears_FINAL\\ubv_2021_DF_Final_Long_090926Update.csv", row.names=FALSE)
 ```
 
 **2023**
@@ -18619,6 +18824,14 @@ ubv23_sampledSW_Veg <- ubv23_sampled %>%
             # total riparian area (m^2) in window
             riparian_area_m2 = sum(riparian_area_m2, na.rm = T),
             
+            riparian_area_m2_0 = sum(Shape_Area_0, na.rm = T),
+            
+            riparian_area_m2_10 = sum(Shape_Area_10, na.rm = T),
+            
+            riparian_area_m2_20 = sum(Shape_Area_20, na.rm = T),
+            
+            riparian_area_m2_30 = sum(Shape_Area_30, na.rm = T),
+            
             # avg TO of window
             TO = mean(TO, na.rm = T),
             
@@ -18642,34 +18855,34 @@ ubv23_sampledSW_Veg <- ubv23_sampled %>%
             SWA_t8 = sum(SWA_t8, na.rm = T),
             
             # sum total veg area for each window at each buffer
-            VA_0_t5 = sum(Veg_area_veg23_0, na.rm = T),
+            VA_0_t6 = sum(Veg_area_veg23_0, na.rm = T),
            
             
-            VA_10_t5 = sum(Veg_area_veg23_10, na.rm = T),
+            VA_10_t6 = sum(Veg_area_veg23_10, na.rm = T),
             
             
-            VA_20_t5 = sum(Veg_area_veg23_20, na.rm = T),
+            VA_20_t6 = sum(Veg_area_veg23_20, na.rm = T),
             
             
-            VA_30_t5 = sum(Veg_area_veg23_30, na.rm = T),
+            VA_30_t6 = sum(Veg_area_veg23_30, na.rm = T),
             
             
             # mean & sd NDVI for window
-            NDVI_0_t5 = mean(NDVI_veg23_0, na.rm = T),
+            NDVI_0_t6 = mean(NDVI_veg23_0, na.rm = T),
            
             
-            NDVI_10_t5 = mean(NDVI_veg23_10, na.rm = T),
+            NDVI_10_t6 = mean(NDVI_veg23_10, na.rm = T),
             
             
-            NDVI_20_t5 = mean(NDVI_veg23_20, na.rm = T),
+            NDVI_20_t6 = mean(NDVI_veg23_20, na.rm = T),
             
             
-            NDVI_30_t5 = mean(NDVI_veg23_30, na.rm = T),
+            NDVI_30_t6 = mean(NDVI_veg23_30, na.rm = T),
             
-            NDVI_sd_0_t5 = sd(NDVI_veg23_0,na.rm=T),
-            NDVI_sd_10_t5 = sd(NDVI_veg23_10,na.rm=T),
-            NDVI_sd_20_t5 = sd(NDVI_veg23_20,na.rm=T),
-            NDVI_sd_30_t5 = sd(NDVI_veg23_30,na.rm=T),
+            NDVI_sd_0_t6 = sd(NDVI_veg23_0,na.rm=T),
+            NDVI_sd_10_t6 = sd(NDVI_veg23_10,na.rm=T),
+            NDVI_sd_20_t6 = sd(NDVI_veg23_20,na.rm=T),
+            NDVI_sd_30_t6 = sd(NDVI_veg23_30,na.rm=T),
 
             # take max isNull. if 1, then SWA should = NA due to satellite obfuscation;
             
@@ -18990,6 +19203,10 @@ ubv23_sampled_Long_Export <- ubv23_sampled_Long %>%
          window_length,
          catchment_km2,
          riparian_area_m2,
+         riparian_area_m2_0,
+         riparian_area_m2_10,
+         riparian_area_m2_20,
+         riparian_area_m2_30,
          TO,
          p_window,
          f_window,
@@ -19015,7 +19232,7 @@ ubv23_sampled_Long_Export <- ubv23_sampled_Long %>%
          containsNull) %>%
   fix_nan()
 
-write.csv(ubv23_sampled_Long_Export, "C:\\Users\\mattw\\Desktop\\GIT\\Webster_Ch1_Code\\Paired_Sampling_AOI_AllYears\\ubv_2023_DF_Final_Long_090926Update.csv", row.names=FALSE)
+write.csv(ubv23_sampled_Long_Export, "C:\\Users\\mattw\\Desktop\\GIT\\Webster_Ch1_Code\\Paired_Sampling_AOI_AllYears_FINAL\\ubv_2023_DF_Final_Long_090926Update.csv", row.names=FALSE)
 ```
 
 
