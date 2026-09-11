@@ -2176,25 +2176,25 @@ M4_30-m Buffer:
 # SAVE THE MODEL OUTPUTS SO YOU DON'T HAVE TO RUN THEM EVERY TIME!!
 
 #saveRDS(hglmm_m4_0_damDen_Veg,
-#        "hglmm_m4_0_damDen_Veg.rds")
+#        "C:\Users\mattw\Desktop\Ch1_ModelOutputs\hglmm_m4_0_damDen_Veg.rds")
 
 #saveRDS(hglmm_m4_10_damDen_Veg,
-#        "hglmm_m4_10_damDen_Veg.rds")
+#        "C:\Users\mattw\Desktop\Ch1_ModelOutputs\hglmm_m4_10_damDen_Veg.rds")
 
 #saveRDS(hglmm_m4_20_damDen_Veg,
-#        "hglmm_m4_20_damDen_Veg.rds")
+#        "C:\Users\mattw\Desktop\Ch1_ModelOutputs\hglmm_m4_20_damDen_Veg.rds")
 
 #saveRDS(hglmm_m4_30_damDen_Veg,
-#        "hglmm_m4_30_damDen_Veg.rds")
+#        "C:\Users\mattw\Desktop\Ch1_ModelOutputs\hglmm_m4_30_damDen_Veg.rds")
 
 
-hglmm_m4_0_damDen_Veg <- readRDS("hglmm_m4_0_damDen_Veg.rds")
+#hglmm_m4_0_damDen_Veg <- readRDS("C:\Users\mattw\Desktop\Ch1_ModelOutputs\hglmm_m4_0_damDen_Veg.rds")
 
-hglmm_m4_10_damDen_Veg <- readRDS("hglmm_m4_10_damDen_Veg.rds")
+#hglmm_m4_10_damDen_Veg <- readRDS("C:\Users\mattw\Desktop\Ch1_ModelOutputs\hglmm_m4_10_damDen_Veg.rds")
 
-hglmm_m4_20_damDen_Veg <- readRDS("hglmm_m4_20_damDen_Veg.rds")
+#hglmm_m4_20_damDen_Veg <- readRDS("C:\Users\mattw\Desktop\Ch1_ModelOutputs\hglmm_m4_20_damDen_Veg.rds")
 
-hglmm_m4_30_damDen_Veg <- readRDS("hglmm_m4_30_damDen_Veg.rds")
+#hglmm_m4_30_damDen_Veg <- readRDS("C:\Users\mattw\Desktop\Ch1_ModelOutputs\hglmm_m4_30_damDen_Veg.rds")
 ```
 
 

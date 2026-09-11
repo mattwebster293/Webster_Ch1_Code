@@ -2785,11 +2785,10 @@ ggplot(m3_pdp_event_named, aes(x = event_label, y = SWA_med, color = damDen)) +
 ```{r,echo=FALSE}
 # SAVE THE MODEL OUTPUT SO YOU DON'T HAVE TO RUN IT EVERY TIME!!
 
-#saveRDS(hurdle_damDen_m4_SW,
-#        "hurdle_damDen_m4_SW_model.rds")
+#saveRDS(hurdle_damDen_m4_SW, "C:\Users\mattw\Desktop\Ch1_ModelOutputs\hurdle_damDen_m4_SW_model.rds")
 
 
-hurdle_damDen_m4_SW <- readRDS("hurdle_damDen_m4_SW_model.rds")
+# hurdle_damDen_m4_SW <- readRDS("C:\Users\mattw\Desktop\Ch1_ModelOutputs\hurdle_damDen_m4_SW_model.rds")
 ```
 
 
