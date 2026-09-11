@@ -840,7 +840,9 @@ aoi_HurdleData$y <- ifelse(aoi_glm_data_mod_refined$SWA>0,1,0)
 aoi_HurdleData$dam_km_std <- scale(aoi_HurdleData$dam_km)
 
 str(aoi_HurdleData)
+```
 
+```{r,echo=FALSE}
 write.csv(aoi_HurdleData,"aoi_HurdleData_091026Update.csv")
 
 ```

@@ -91,7 +91,7 @@ y2 <- aoi_HurdleData$logSWA
 stream <- aoi_HurdleData$stream
 year <- aoi_HurdleData$year_id
 event <- aoi_HurdleData$sampleEvent_new
-cluster <- aoi_HurdleData$clusterID_num
+cluster <- as.numeric(as.factor(aoi_HurdleData$clusterID_unique))
 damPres <- aoi_HurdleData$damPresence
 damDen <- as.numeric(aoi_HurdleData$dam_km_std)
 damDen_raw <- aoi_HurdleData$dam_km
@@ -99,7 +99,7 @@ damDen_raw <- aoi_HurdleData$dam_km
 n_stream <- length(unique(aoi_HurdleData$stream))
 n_year <- length(unique(aoi_HurdleData$year_id))
 n_event <- length(unique(aoi_HurdleData$sampleEvent_new))
-n_cluster <- length(unique(aoi_HurdleData$clusterID_num))
+n_cluster <- length(unique(as.numeric(as.factor(aoi_HurdleData$clusterID_unique))))
 
 str(aoi_HurdleData)
 ```
@@ -2685,100 +2685,115 @@ ggplot(m3_pdp_event_named, aes(x = event_label, y = SWA_med, color = damDen)) +
     
 
 ```{r,echo=FALSE}
-hurdle_damDen_m4_data_list <- list(
-  N = N,
-  y = y,
-  y2 = y2,
-  stream = stream,
-  year = year,
-  event = event,
-  cluster = cluster,
-  damDen = damDen,
-  incis = as.numeric(scale(1-(aoi_HurdleData$TO/90))), # Channel Incision
-  RIPA = as.numeric(scale(aoi_HurdleData$riparian_area_m2)),
-  UDA = as.numeric(scale(aoi_HurdleData$catchment_km2)),
-  n_stream = n_stream,
-  n_year = n_year,
-  n_event = n_event,
-  n_cluster = n_cluster,
-  event_year = event_year_3_4
-)
+# hurdle_damDen_m4_data_list <- list(
+#   N = N,
+#   y = y,
+#   y2 = y2,
+#   stream = stream,
+#   year = year,
+#   event = event,
+#   cluster = cluster,
+#   damDen = damDen,
+#   incis = as.numeric(scale(1-(aoi_HurdleData$TO/90))), # Channel Incision
+#   RIPA = as.numeric(scale(aoi_HurdleData$riparian_area_m2)),
+#   UDA = as.numeric(scale(aoi_HurdleData$catchment_km2)),
+#   n_stream = n_stream,
+#   n_year = n_year,
+#   n_event = n_event,
+#   n_cluster = n_cluster,
+#   event_year = event_year_3_4
+# )
 
-hurdle_damDen_m4_inits <- function(){
-  list()
-}
+# hurdle_damDen_m4_inits <- function(){
+#   list()
+# }
 
-hurdle_damDen_m4_params <- c(
-  "psi",
-  "mu",
-  "epsilon",
-  "alpha",
-  "zeta_damDen",
-  "zeta_incis",
-  "zeta_RIPA",
-  "zeta_UDA",
-  "zeta_stream",
-  "zeta_year",
-  "zeta_event",
-  "iota_stream",
-  "iota_year",
-  "iota_event",
-  "iota_cluster",
-  "beta_damDen",
-  "beta_incis",
-  "beta_RIPA",
-  "beta_UDA",
-  "beta_stream",
-  "beta_year",
-  "beta_event",
-  "eta_stream",
-  "eta_year",
-  "eta_event",
-  "eta_cluster",
-  "sigma",
-  "sigma_zeta_stream",
-  "sigma_zeta_year",
-  "sigma_zeta_event",
-  "sigma_iota_stream",
-  "sigma_iota_year",
-  "sigma_iota_event",
-  "sigma_iota_cluster",
-  "sigma_beta_stream",
-  "sigma_beta_year",
-  "sigma_beta_event",
-  "sigma_eta_stream",
-  "sigma_eta_year",
-  "sigma_eta_event",
-  "sigma_eta_cluster",
-  "p_TP",
-  "p_FP",
-  "z",
-  "tau_eff",
-  "loglik"
-)
+# hurdle_damDen_m4_params <- c(
+#   "psi",
+#   "mu",
+#   "epsilon",
+#   "alpha",
+#   "zeta_damDen",
+#   "zeta_incis",
+#   "zeta_RIPA",
+#   "zeta_UDA",
+#   "zeta_stream",
+#   "zeta_year",
+#   "zeta_event",
+#   "iota_stream",
+#   "iota_year",
+#   "iota_event",
+#   "iota_cluster",
+#   "beta_damDen",
+#   "beta_incis",
+#   "beta_RIPA",
+#   "beta_UDA",
+#   "beta_stream",
+#   "beta_year",
+#   "beta_event",
+#   "eta_stream",
+#   "eta_year",
+#   "eta_event",
+#   "eta_cluster",
+#   "sigma",
+#   "sigma_zeta_stream",
+#   "sigma_zeta_year",
+#   "sigma_zeta_event",
+#   "sigma_iota_stream",
+#   "sigma_iota_year",
+#   "sigma_iota_event",
+#   "sigma_iota_cluster",
+#   "sigma_beta_stream",
+#   "sigma_beta_year",
+#   "sigma_beta_event",
+#   "sigma_eta_stream",
+#   "sigma_eta_year",
+#   "sigma_eta_event",
+#   "sigma_eta_cluster",
+#   "p_TP",
+#   "p_FP",
+#   "z",
+#   "tau_eff",
+#   "loglik"
+# )
 
-nchains <- 3
-nthin <- 5
-niter <- 100000
-nburn <- 25000
+# nchains <- 3
+# nthin <- 5
+# niter <- 100000
+# nburn <- 25000
 
-set.seed(12345)
+# set.seed(12345)
 
-Sys.time()
+# Sys.time()
 
-hurdle_damDen_m4_SW <- jags(data = hurdle_damDen_m4_data_list,
-                   inits = hurdle_damDen_m4_inits,
-                   parameters.to.save = hurdle_damDen_m4_params,
-                   model.file = "HGLMM_Hurdle_m4_SW_DamDen.jags",
-                   parallel = T,
-                   n.chains = nchains,
-                   n.thin = nthin,
-                   n.iter = niter,
-                   n.burnin = nburn)
+# hurdle_damDen_m4_SW <- jags(data = hurdle_damDen_m4_data_list,
+  #                  inits = hurdle_damDen_m4_inits,
+  #                  parameters.to.save = hurdle_damDen_m4_params,
+  #                  model.file = "HGLMM_Hurdle_m4_SW_DamDen.jags",
+  #                  parallel = T,
+  #                  n.chains = nchains,
+  #                  n.thin = nthin,
+  #                  n.iter = niter,
+  #                  n.burnin = nburn)
 
 
-Sys.time()
+# Sys.time()
 ```
+
+
+
+```{r,echo=FALSE}
+# SAVE THE MODEL OUTPUT SO YOU DON'T HAVE TO RUN IT EVERY TIME!!
+
+#saveRDS(hurdle_damDen_m4_SW,
+#        "hurdle_damDen_m4_SW_model.rds")
+
+
+hurdle_damDen_m4_SW <- readRDS("hurdle_damDen_m4_SW_model.rds")
+```
+
+
+
 
 
 ----
@@ -2786,7 +2801,6 @@ Sys.time()
 
 DIAGNOSTICS:
 ----
-
 
 ```{r,echo=FALSE}
 # Extract posterior draws
@@ -2917,7 +2931,7 @@ Slope:
 m4_slope_log
 ```
 
-    1.006 suggests model fits the data well, though slightly underestimates variance in
+    1.008 suggests model fits the data well, though slightly underestimates variance in
     logSWA at lower values.
 
 ----
@@ -3098,7 +3112,7 @@ exp(mean(hurdle_damDen_m4_SW$sims.list$zeta_damDen))
 p_SW_damDen_0 <- plogis(m4_epsilon)
 #p_SW_damDen_0
 
-p_SW_damDen_1 <- plogis(m4_epsilon + 0.025)
+p_SW_damDen_1 <- plogis(m4_epsilon + 0.017)
 #p_SW_damDen_1
 
 print("Change in Psi(SW) with 1 SD increase in dam density")
@@ -3107,8 +3121,8 @@ print("Change in Psi(SW) with 1 SD increase in dam density")
 
 
     For a typical stream at mean covariate conditions, a 1 SD increase dam density is associated
-    with basically no change in the probability of surface water presence (+0.03 change on 
-    log-odds scale corresponds to an increase of 0.5% on the probability scale).
+    with basically no change in the probability of surface water presence (0.017 change on 
+    log-odds scale corresponds to an increase of (0.2%) on the probability scale).
     
     NOTE: HEAVILY OVERLAPS 0. This indicates that there is no consistent influence of damDensity
     across grouping variables (stream,year,event) in the data. Some settings see strong positive
@@ -3127,7 +3141,7 @@ exp(mean(hurdle_damDen_m4_SW$sims.list$beta_damDen))
 SWA_damDen_0 <- exp(m4_alpha)
 #SWA_damDen_0
 
-SWA_damDen_1 <- exp(m4_alpha + 0.15)
+SWA_damDen_1 <- exp(m4_alpha + 0.12)
 #SWA_damDen_1
 
 print("SWA change with 1 SD increase in dam density")
@@ -3135,14 +3149,18 @@ print("SWA change with 1 SD increase in dam density")
 
 ```
 
-    A 1 SD increase dam density is associated with ~ 14-15% increase in log(SWA+1),
+    A 1 SD increase dam density is associated with ~ 12% increase in log(SWA+1),
     which, for a "typical" stream under mean geomorphic covariate conditions, corresponds
-    to an increase of ~ 50 m^2 of SW.
+    to an increase of ~ 42 m^2 of SW.
     
     Note: at the high end of dam density, a typical stream at mean covariate conditions
     would see an estimated increase of ~150-300 m^2 of SW.
     
     NOTE: see above note re: 0 overlap and consistency of damDensity effect across the data
+    
+    
+What is 300-m^2 compared to the baseline SW?
+What is 300-m^2 compared to riparian_area_m2_0?
 
 ----
 
@@ -3161,7 +3179,7 @@ exp(mean(hurdle_damDen_m4_SW$sims.list$zeta_incis))
 p_SW_incis_0 <- plogis(m4_epsilon)
 #p_SW_incis_0
 
-p_SW_incis_1 <- plogis(m4_epsilon - 1.32)
+p_SW_incis_1 <- plogis(m4_epsilon - 1.10)
 #p_SW_incis_1
 
 print("Change in Psi(SW) with 1 SD increase in incision")
@@ -3169,7 +3187,7 @@ print("Change in Psi(SW) with 1 SD increase in incision")
 ```
 
     A 1 SD increase in incision (incis) (which corresponds to ~0.1 increase on the raw scale) is associated with
-    a ~73% decrease in odds of SW presence, which is approximately a 10% drop in probability of SW (Psi), for a 
+    a ~77% decrease in odds of SW presence, which is ~21% drop in probability of SW (Psi), for a 
     typical stream, at mean covariate conditions. 
     
     Convincing negative effect, not overlappping 0.
@@ -3189,16 +3207,16 @@ exp(mean(hurdle_damDen_m4_SW$sims.list$beta_incis))
 SWA_incis_0 <- exp(m4_alpha)
 #SWA_incis_0
 
-SWA_incis_1 <- exp(m4_alpha - 0.77)
+SWA_incis_1 <- exp(m4_alpha - 0.68)
 #SWA_incis_1
 
 print("SWA change with 1 SD increase in incision")
 (SWA_incis_1 - SWA_incis_0)
 ```
 
-    A 1 SD increase in incision is associated with a ~54% decrease in surface water area (log(SWA)),
+    A 1 SD increase in incision is associated with a ~51% decrease in surface water area (log(SWA)),
     conditional on surface water presence (z=1). For a typical stream at mean covariate conditions, 
-    this corresponds to a decrease in ~319 m^2. 
+    this corresponds to a decrease in ~162 m^2. 
     
     Strong negative effect, not overlapping 0.
 
@@ -3216,19 +3234,17 @@ exp(mean(hurdle_damDen_m4_SW$sims.list$zeta_RIPA))
 p_SW_RIPA_0 <- plogis(m4_epsilon)
 #p_SW_RIPA_0
 
-p_SW_RIPA_1 <- plogis(m4_epsilon + 0.08)
+p_SW_RIPA_1 <- plogis(m4_epsilon + 0.48)
 #p_SW_RIPA_1
 
 print("Change in Psi(SW) with 1 SD increase in riparian area")
 (p_SW_RIPA_1 - p_SW_RIPA_0)
 ```
     
-    A 1 SD increase in riparian area (corresponds with an increase of ~10366 m^2
-    on the raw RIPA scale), is associated with a 8% increase in ODDS, which corresponds
-    with a ~1% increase in the PROBABILITY of SW presence.
-    
-    NOTE: HEAVY overlap of 0. 
-    
+    A 1 SD increase in riparian area (corresponds with an increase of ~1000 m^2
+    on the raw RIPA scale), is associated with an increase of 0.48 in ODDS, which corresponds
+    with a ~5.9% increase in the PROBABILITY of SW presence.
+
 
     
 **Effect of 1 SD increase in riparian area on SW amount:**
@@ -3244,7 +3260,7 @@ exp(mean(hurdle_damDen_m4_SW$sims.list$beta_RIPA))
 SWA_RIPA_0 <- exp(m4_alpha)
 #SWA_UDA_0
 
-SWA_RIPA_1 <- exp(m4_alpha - 0.08)
+SWA_RIPA_1 <- exp(m4_alpha - 0.07)
 #SWA_UDA_1
 
 print("SWA change with 1 SD increase in riparian area")
@@ -3252,8 +3268,8 @@ print("SWA change with 1 SD increase in riparian area")
 ```
 
 
-    A 1 SD increase in RIPA is associated with a ~ 8% decrease in log(SWA). Meager negative
-    effect, slightly overlapping 0. This corresponds with a decrease of ~23 m^2
+    A 1 SD increase in RIPA is associated with a ~ 7% decrease in log(SWA). Meager negative
+    effect, slightly overlapping 0. This corresponds with a decrease of ~22 m^2
     (for typical stream under mean conditions).
     
 
@@ -3271,7 +3287,7 @@ exp(mean(hurdle_damDen_m4_SW$sims.list$zeta_UDA))
 p_SW_UDA_0 <- plogis(m4_epsilon)
 #p_SW_UDA_0
 
-p_SW_UDA_1 <- plogis(m4_epsilon + 2.28)
+p_SW_UDA_1 <- plogis(m4_epsilon + 2.06)
 #p_SW_UDA_1
 
 print("Change in Psi(SW) with 1 SD increase in drainage area")
@@ -3280,8 +3296,8 @@ print("Change in Psi(SW) with 1 SD increase in drainage area")
 ```
   
     A 1 SD increase in Upstream Drainage Area (UDA) (corresponds with an increase of ~1320 km^2
-    on the raw UDA scale), is associated with a ~885% increase in ODDS, which corresponds to a
-    ~48% increase in the PROBABILITY of SW presence (for typical stream under mean conditions)
+    on the raw UDA scale), is associated with a ~786% increase in ODDS, which corresponds to a
+    ~15% increase in the PROBABILITY of SW presence (for typical stream under mean conditions)
 
 ----  
     
@@ -3296,7 +3312,7 @@ exp(mean(hurdle_damDen_m4_SW$sims.list$beta_UDA))
 SWA_UDA_0 <- exp(m4_alpha)
 #SWA_UDA_0
 
-SWA_UDA_1 <- exp(m4_alpha + 0.538)
+SWA_UDA_1 <- exp(m4_alpha + 0.56)
 #SWA_UDA_1
 
 print("SWA change with 1 SD increase in drainage area")
@@ -3304,8 +3320,8 @@ print("SWA change with 1 SD increase in drainage area")
 
 ```
 
-    A 1 SD increase in Upstream Drainage Area (UDA) is associated with a 53% increase in log(SWA),
-    conditional on surface water presence. This corresponds to an increase of ~114.38 m^2 in SWA (m^2)
+    A 1 SD increase in Upstream Drainage Area (UDA) is associated with a 56% increase in log(SWA),
+    conditional on surface water presence. This corresponds to an increase of ~246.43 m^2 in SWA (m^2)
     for a "typical" stream at mean covariate conditions.
 
 ----

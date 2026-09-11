@@ -15,6 +15,9 @@ The purpose of this RMarkdown is to implement hierarchical generalized linear mi
     
     WAIC indicates that all four models perform comparably well. Given this, I only include code and results for m4, which models the effect of dam density on NDVI, conditional on geomorphic covariates.
 
+Apply "Model 4" to veg data at each buffer size; 0,10,20,30-m. 1 model for each buffer size. Then compare model outputs for each. How do posterior estimates change across buffers? 
+
+
 ----
 
 **HGLMM**
@@ -73,13 +76,13 @@ suppressPackageStartupMessages({
 
 NOTE: This ONLY uses data from 08/15-08/31. This is to avoid issues with pseudo-replication after the omission of random effects for sample event.
 
-Modeling reflects late August effect of beaver dams on NDVI. Green riparian 
+Modeling reflects EARLY August effect of beaver dams on NDVI. Green riparian 
 vegetation = mesic resource that is critical for grouse recruitment.
 
 
 ```{r,echo=FALSE}
-aoi_HurdleData <- read.csv("aoi_HurdleData.csv") |> 
-  filter(t == 6) # Late August
+aoi_HurdleData <- read.csv("aoi_HurdleData_091026Update.csv") %>% 
+  filter(t == 5) # EARLY August
 
 
 # add year/event index
@@ -95,11 +98,18 @@ N <- nrow(aoi_HurdleData)
 #y2 <- aoi_HurdleData$logSWA
 #y_veg <- aoi_HurdleData$y_veg
 #y_vegA <- aoi_HurdleData$VA
-y_NDVI <- aoi_HurdleData$NDVI
+y_NDVI_0 <- aoi_HurdleData$NDVI_0
+
+y_NDVI_10 <- aoi_HurdleData$NDVI_10
+
+y_NDVI_20 <- aoi_HurdleData$NDVI_20
+
+y_NDVI_30 <- aoi_HurdleData$NDVI_30
+
 stream <- aoi_HurdleData$stream
 year <- aoi_HurdleData$year_id
 event <- aoi_HurdleData$sampleEvent_new
-cluster <- aoi_HurdleData$clusterID_num
+cluster <- as.numeric(as.factor(aoi_HurdleData$clusterID_unique))
 damPres <- aoi_HurdleData$damPresence
 damDen <- as.numeric(aoi_HurdleData$dam_km_std)
 damDen_raw <- aoi_HurdleData$dam_km
@@ -107,7 +117,7 @@ damDen_raw <- aoi_HurdleData$dam_km
 n_stream <- length(unique(aoi_HurdleData$stream))
 n_year <- length(unique(aoi_HurdleData$year_id))
 n_event <- length(unique(aoi_HurdleData$sampleEvent_new))
-n_cluster <- length(unique(aoi_HurdleData$clusterID_num))
+n_cluster <- length(unique(as.numeric(as.factor(aoi_HurdleData$clusterID_unique))))
 
 str(aoi_HurdleData)
 ```
@@ -120,11 +130,15 @@ str(aoi_HurdleData)
       
 
 ```{r,echo=FALSE}
-par(mfrow = c(1,1),        # 2 rows, 2 columns
+par(mfrow = c(1,4),        # 2 rows, 2 columns
     mar = c(4, 4, 2, 1),    # smaller margins
     cex = 0.8) 
 
-hist(aoi_HurdleData$NDVI)
+hist(aoi_HurdleData$NDVI_0)
+hist(aoi_HurdleData$NDVI_10)
+hist(aoi_HurdleData$NDVI_20)
+hist(aoi_HurdleData$NDVI_30)
+
 ```
 
 
@@ -133,7 +147,7 @@ hist(aoi_HurdleData$NDVI)
 
 For NDVI models, data of interest include:
 
-     - NDVI: average NDVI for sample window[i]; response variable
+     - NDVI_BUFF: average NDVI for sample window[i] within x-m planar buffer (0,10,20,30); response variable
     
     - stream: index for random intercept on NDVI
     
@@ -389,7 +403,7 @@ par(mfrow = c(1,1),        # 2 rows, 2 columns
     mar = c(4, 4, 2, 1),    # smaller margins
     cex = 0.8)  
 
-# Posterior mean of predicted log(VA + 1)
+# Posterior mean of predicted log(NDVI + 1)
 m1_mu_NDVI_post <- apply(hglmm_m1_NDVI_damPres$sims.list$mu, 2, mean)
 
 # Observed log vegetation area
@@ -495,7 +509,7 @@ exp(mean(hglmm_m1_NDVI_damPres$sims.list$beta_damPres))
 hist(hglmm_m1_NDVI_damPres$sims.list$beta_damPres,
      breaks = 50,
      col = "steelblue",
-     main = "Posterior of damPresence effect on log(VA + 1)",
+     main = "Posterior of damPresence effect on NDVI ",
      xlab = "beta_damPres")
 abline(v = mean(hglmm_m1_NDVI_damPres$sims.list$beta_damPres), col = "red", lwd = 2)
 ```
@@ -824,7 +838,7 @@ par(mfrow = c(1,1),        # 1 rows, 1 columns
     mar = c(4, 4, 2, 1),    # smaller margins
     cex = 0.8)  
 
-# Posterior mean of predicted log(VA + 1)
+# Posterior mean of predicted NDVI 
 m2_mu_NDVI_post <- apply(hglmm_m2_NDVI_damPres$sims.list$mu, 2, mean)
 
 # Observed log vegetation area
@@ -1058,7 +1072,7 @@ ggplot(m2_NDVI_df, aes(x = Dam, y = NDVI, fill = Dam)) +
 
 **Partial dependence plots**
 
-Constrain PDP to empirical ranges for VA and target covariates
+Constrain PDP to empirical ranges for NDVI and target covariates
 
 ```{r,echo=FALSE}
 
@@ -1466,7 +1480,7 @@ par(mfrow = c(1,1),        # 2 rows, 2 columns
     mar = c(4, 4, 2, 1),    # smaller margins
     cex = 0.8) 
 
-# Posterior mean of predicted log(VA + 1)
+# Posterior mean of predicted NDVI 
 m3_mu_NDVI_post <- apply(hglmm_m3_NDVI_damDen$sims.list$mu, 2, mean)
 
 # Observed log vegetation area
@@ -1838,27 +1852,31 @@ ggplot(m3_pdp_year_named, aes(x = year_label, y = NDVI_med, color = damDen)) +
 
     
 
+
+M4_0-m Buffer:
+----
+
 ```{r,echo=FALSE}
-hglmm_m4_NDVI_damDen_data_list <- list(
+hglmm_damDen_m4_0_data_list <- list(
   N = N,
-  y = y_NDVI,
+  y = log(y_NDVI_0 + 1),
   stream = stream,
   year = year,
   cluster = cluster,
   damDen = damDen,
   incis = as.numeric(scale(1-(aoi_HurdleData$TO/90))), # Channel Incision
-  RIPA = as.numeric(scale(aoi_HurdleData$riparian_area_m2)),
-  UDA = as.numeric(scale(aoi_HurdleData$catchment_km2)), 
+  RIPA = as.numeric(scale(aoi_HurdleData$riparian_area_m2_0)), #RIPA of DEM-derived pondableZone
+  UDA = as.numeric(scale(aoi_HurdleData$catchment_km2)), # Upstream Drainage Area
   n_stream = n_stream,
   n_year = n_year,
   n_cluster = n_cluster
 )
 
-hglmm_m4_NDVI_damDen_inits <- function(){
-  list( )
+hglmm_damDen_m4_inits <- function(){
+  list()
 }
 
-hglmm_m4_NDVI_damDen_params <- c(
+hglmm_damDen_m4_params <- c(
   "alpha",
   "mu",
   "beta_damDen",
@@ -1870,24 +1888,24 @@ hglmm_m4_NDVI_damDen_params <- c(
   "eta_cluster",
   "sigma",
   "sigma_eta_stream",
-  "sigma_eta_year",
+  "sigma_eta_event",
   "sigma_eta_cluster",
   "loglik"
 )
 
-#nchains <- 3
-#nthin <- 5
-#niter <- 100000
-#nburn <- 25000
+nchains <- 3
+nthin <- 5
+niter <- 100000
+nburn <- 25000
 
 
 Sys.time()
 
 set.seed(12345)
 
-hglmm_m4_NDVI_damDen <- jags(data = hglmm_m4_NDVI_damDen_data_list,
-                   inits = hglmm_m4_NDVI_damDen_inits,
-                   parameters.to.save = hglmm_m4_NDVI_damDen_params,
+hglmm_m4_0_damDen_NDVI <- jags(data = hglmm_damDen_m4_0_data_list,
+                   inits = hglmm_damDen_m4_inits,
+                   parameters.to.save = hglmm_damDen_m4_params,
                    model.file = "HGLMM_m4_NDVI_damDensity.jags",
                    parallel = T,
                    n.chains = nchains,
@@ -1898,10 +1916,235 @@ hglmm_m4_NDVI_damDen <- jags(data = hglmm_m4_NDVI_damDen_data_list,
 
 Sys.time()
 
+#print(hglmm_m4_0_damDen_NDVI) # model with local and watershed dam density as fixed effects
+#print(hglmm_m4_0_damDen_NDVI$summary[grep("beta_", rownames(hglmm_m4_0_damDen_NDVI$summary)), ])
+#print(hglmm_m4_0_damDen_NDVI$summary[grep("zeta_", rownames(hglmm_m4_0_damDen_NDVI$summary)), ])
+
 ```
 
 
 ----
+
+M4_10-m Buffer:
+----
+
+```{r,echo=FALSE}
+hglmm_damDen_m4_10_data_list <- list(
+  N = N,
+  y = log(y_NDVI_10 + 1),
+  stream = stream,
+  year = year,
+  cluster = cluster,
+  damDen = damDen,
+  incis = as.numeric(scale(1-(aoi_HurdleData$TO/90))), # Channel Incision
+  RIPA = as.numeric(scale(aoi_HurdleData$riparian_area_m2_0)), #RIPA of DEM-derived pondableZone
+  UDA = as.numeric(scale(aoi_HurdleData$catchment_km2)), # Upstream Drainage Area
+  n_stream = n_stream,
+  n_year = n_year,
+  n_cluster = n_cluster
+)
+
+hglmm_damDen_m4_inits <- function(){
+  list()
+}
+
+hglmm_damDen_m4_params <- c(
+  "alpha",
+  "mu",
+  "beta_damDen",
+  "beta_incis",
+  "beta_RIPA",
+  "beta_UDA",
+  "eta_stream",
+  "eta_year",
+  "eta_cluster",
+  "sigma",
+  "sigma_eta_stream",
+  "sigma_eta_event",
+  "sigma_eta_cluster",
+  "loglik"
+)
+
+nchains <- 3
+nthin <- 5
+niter <- 100000
+nburn <- 25000
+
+
+Sys.time()
+
+set.seed(12345)
+
+hglmm_m4_10_damDen_NDVI <- jags(data = hglmm_damDen_m4_10_data_list,
+                   inits = hglmm_damDen_m4_inits,
+                   parameters.to.save = hglmm_damDen_m4_params,
+                   model.file = "HGLMM_m4_NDVI_damDensity.jags",
+                   parallel = T,
+                   n.chains = nchains,
+                   n.thin = nthin,
+                   n.iter = niter,
+                   n.burnin = nburn)
+
+
+Sys.time()
+
+#print(hglmm_m4_0_damDen_NDVI) # model with local and watershed dam density as fixed effects
+#print(hglmm_m4_10_damDen_NDVI$summary[grep("beta_", rownames(hglmm_m4_10_damDen_NDVI$summary)), ])
+#print(hglmm_m4_10_damDen_NDVI$summary[grep("zeta_", rownames(hglmm_m4_10_damDen_NDVI$summary)), ])
+
+```
+
+----
+
+M4_20-m Buffer:
+----
+
+```{r,echo=FALSE}
+hglmm_damDen_m4_20_data_list <- list(
+  N = N,
+  y = log(y_NDVI_20 + 1),
+  stream = stream,
+  year = year,
+  cluster = cluster,
+  damDen = damDen,
+  incis = as.numeric(scale(1-(aoi_HurdleData$TO/90))), # Channel Incision
+  RIPA = as.numeric(scale(aoi_HurdleData$riparian_area_m2_0)), #RIPA of DEM-derived pondableZone
+  UDA = as.numeric(scale(aoi_HurdleData$catchment_km2)), # Upstream Drainage Area
+  n_stream = n_stream,
+  n_year = n_year,
+  n_cluster = n_cluster
+)
+
+hglmm_damDen_m4_inits <- function(){
+  list()
+}
+
+hglmm_damDen_m4_params <- c(
+  "alpha",
+  "mu",
+  "beta_damDen",
+  "beta_incis",
+  "beta_RIPA",
+  "beta_UDA",
+  "eta_stream",
+  "eta_year",
+  "eta_cluster",
+  "sigma",
+  "sigma_eta_stream",
+  "sigma_eta_event",
+  "sigma_eta_cluster",
+  "loglik"
+)
+
+nchains <- 3
+nthin <- 5
+niter <- 100000
+nburn <- 25000
+
+
+Sys.time()
+
+set.seed(12345)
+
+hglmm_m4_20_damDen_NDVI <- jags(data = hglmm_damDen_m4_20_data_list,
+                   inits = hglmm_damDen_m4_inits,
+                   parameters.to.save = hglmm_damDen_m4_params,
+                   model.file = "HGLMM_m4_NDVI_damDensity.jags",
+                   parallel = T,
+                   n.chains = nchains,
+                   n.thin = nthin,
+                   n.iter = niter,
+                   n.burnin = nburn)
+
+
+Sys.time()
+
+#print(hglmm_m4_20_damDen_NDVI) # model with local and watershed dam density as fixed effects
+#print(hglmm_m4_20_damDen_NDVI$summary[grep("beta_", rownames(hglmm_m4_20_damDen_NDVI$summary)), ])
+#print(hglmm_m4_20_damDen_NDVI$summary[grep("zeta_", rownames(hglmm_m4_20_damDen_NDVI$summary)), ])
+
+```
+
+----
+
+M4_30-m Buffer:
+----
+
+```{r,echo=FALSE}
+hglmm_damDen_m4_30_data_list <- list(
+  N = N,
+  y = log(y_NDVI_30 + 1),
+  stream = stream,
+  year = year,
+  cluster = cluster,
+  damDen = damDen,
+  incis = as.numeric(scale(1-(aoi_HurdleData$TO/90))), # Channel Incision
+  RIPA = as.numeric(scale(aoi_HurdleData$riparian_area_m2_0)), #RIPA of DEM-derived pondableZone
+  UDA = as.numeric(scale(aoi_HurdleData$catchment_km2)), # Upstream Drainage Area
+  n_stream = n_stream,
+  n_year = n_year,
+  n_cluster = n_cluster
+)
+
+hglmm_damDen_m4_inits <- function(){
+  list()
+}
+
+hglmm_damDen_m4_params <- c(
+  "alpha",
+  "mu",
+  "beta_damDen",
+  "beta_incis",
+  "beta_RIPA",
+  "beta_UDA",
+  "eta_stream",
+  "eta_year",
+  "eta_cluster",
+  "sigma",
+  "sigma_eta_stream",
+  "sigma_eta_event",
+  "sigma_eta_cluster",
+  "loglik"
+)
+
+nchains <- 3
+nthin <- 5
+niter <- 100000
+nburn <- 25000
+
+
+Sys.time()
+
+set.seed(12345)
+
+hglmm_m4_30_damDen_NDVI <- jags(data = hglmm_damDen_m4_30_data_list,
+                   inits = hglmm_damDen_m4_inits,
+                   parameters.to.save = hglmm_damDen_m4_params,
+                   model.file = "HGLMM_m4_NDVI_damDensity.jags",
+                   parallel = T,
+                   n.chains = nchains,
+                   n.thin = nthin,
+                   n.iter = niter,
+                   n.burnin = nburn)
+
+
+Sys.time()
+
+#print(hglmm_m4_30_damDen_NDVI) # model with local and watershed dam density as fixed effects
+#print(hglmm_m4_30_damDen_NDVI$summary[grep("beta_", rownames(hglmm_m4_30_damDen_NDVI$summary)), ])
+#print(hglmm_m4_30_damDen_NDVI$summary[grep("zeta_", rownames(hglmm_m4_30_damDen_NDVI$summary)), ])
+
+```
+
+
+----
+
+
+
+
+
+
+
 
 
 DIAGNOSTICS:
@@ -1911,10 +2154,19 @@ DIAGNOSTICS:
 ```{r,echo=FALSE}
 # Extract posterior draws
 
-damDen_m4_post <- hglmm_m4_NDVI_damDen$sims.list 
+damDen_m4_0_post <- hglmm_m4_0_damDen_NDVI$sims.list 
+
+damDen_m4_10_post <- hglmm_m4_10_damDen_NDVI$sims.list 
+
+damDen_m4_20_post <- hglmm_m4_20_damDen_NDVI$sims.list 
+
+damDen_m4_30_post <- hglmm_m4_30_damDen_NDVI$sims.list 
+
 ```
 
 **Assess "Chain health" Rhat + ESS:**
+
+**0-m Buff:**
 
 ```{r,echo=FALSE} 
 # Choose only the parameters you care about
@@ -1924,56 +2176,108 @@ params_m4 <- c(
   "beta_incis",
   "beta_RIPA",
   "beta_UDA",
-  "sigma",
-  "sigma_eta_stream",
-  "sigma_eta_year",
-  "sigma_eta_cluster")
+  "sigma")
 
 # Gelman–Rubin convergence diagnostic
-gelman.diag(hglmm_m4_NDVI_damDen$samples[, params_m4], multivariate = FALSE)
+gelman.diag(hglmm_m4_0_damDen_NDVI$samples[, params_m4], multivariate = FALSE)
 
 # Effective sample size
-effectiveSize(hglmm_m4_NDVI_damDen$samples[, params_m4])
+effectiveSize(hglmm_m4_0_damDen_NDVI$samples[, params_m4])
 
 ```
 
     Rhat & Effective Sample Size:
     
-    Solid. Rhats 1.0, for both fixed (e.g., beta_damPres, beta_incis) and random
-    (e.g., sigma_eta_stream) effects. 
+    Solid. Rhats near ____; ESS ____
     
-    ESS good for all monitored parameters.
+    
+    
 
 
+**10-m Buff:**
+
+```{r,echo=FALSE} 
+
+# Gelman–Rubin convergence diagnostic
+gelman.diag(hglmm_m4_10_damDen_NDVI$samples[, params_m4], multivariate = FALSE)
+
+# Effective sample size
+effectiveSize(hglmm_m4_10_damDen_NDVI$samples[, params_m4])
+
+```
+
+    Rhat & Effective Sample Size:
+    
+    Solid. Rhats near ____; ESS ____
+    
+    
+    
+**20-m Buff:**
+
+```{r,echo=FALSE} 
+
+# Gelman–Rubin convergence diagnostic
+gelman.diag(hglmm_m4_20_damDen_NDVI$samples[, params_m4], multivariate = FALSE)
+
+# Effective sample size
+effectiveSize(hglmm_m4_20_damDen_NDVI$samples[, params_m4])
+
+```
+
+    Rhat & Effective Sample Size:
+    
+    Solid. Rhats near ____; ESS ____
+
+
+
+
+**30-m Buff:**
+
+```{r,echo=FALSE} 
+
+# Gelman–Rubin convergence diagnostic
+gelman.diag(hglmm_m4_30_damDen_NDVI$samples[, params_m4], multivariate = FALSE)
+
+# Effective sample size
+effectiveSize(hglmm_m4_30_damDen_NDVI$samples[, params_m4])
+
+```
+
+    Rhat & Effective Sample Size:
+    
+    Solid. Rhats near ____; ESS ____
+    
+    
+    
+<!---
 ----
 
 **Check traceplots** for critical parameters:
 
 ```{r,echo=FALSE} 
 
-par(mfrow = c(3, 2),        # 2 rows, 2 columns
+par(mfrow = c(2, 2),        # 2 rows, 2 columns
     mar = c(4, 4, 2, 1),    # smaller margins
     cex = 0.8)              # shrink text/points a bit
 
 
 tplot_params_m4 <- c("alpha","beta_damDen","beta_incis","beta_RIPA","beta_UDA",
-                     "sigma", "sigma_eta_stream")
+                     "sigma","sigma_eta_stream")
 
 
-mcmc_sub_m4 <- hglmm_m4_NDVI_damDen$samples[, tplot_params_m4]
+mcmc_sub_m4_0 <- hglmm_m4_0_damDen_NDVI$samples[, tplot_params_m4]
 
-coda::traceplot(mcmc_sub_m4)
+coda::traceplot(mcmc_sub_m4_0)
 ```
 
 
-    Traceplots all look fine. 
+    Traceplots all look good.
 
 
 ----
 
-**Posterior predictive plots:**
 
-Predicted NDVI vs observed NDVI
+**Predicted NDVI vs observed NDVI**
 
 Goal is 1:1 (ish)
 
@@ -1982,58 +2286,61 @@ par(mfrow = c(1,1),        # 2 rows, 2 columns
     mar = c(4, 4, 2, 1),    # smaller margins
     cex = 0.8) 
 
-# Posterior mean of predicted log(VA + 1)
-m4_mu_NDVI_post <- apply(hglmm_m4_NDVI_damDen$sims.list$mu, 2, mean)
+# Posterior mean of predicted NDVI 
+m4_0_mu_NDVI_post <- apply(hglmm_m4_0_damDen_NDVI$sims.list$mu, 2, mean)
 
-# Observed log vegetation area
-m4_obs_NDVI <- y_NDVI
+# Observed NDVI
+m4_0_obs_NDVI <- y_NDVI_0
 
 # Fit regression on the log scale
-m4_fit <- lm(m4_obs_NDVI ~ m4_mu_NDVI_post)
+m4_0_fit <- lm(m4_0_obs_NDVI ~ m4_0_mu_NDVI_post)
 
-m4_slope <- coef(m4_fit)[2]
-m4_R2    <- summary(m4_fit)$r.squared
+m4_0_slope <- coef(m4_0_fit)[2]
+m4_0_R2    <- summary(m4_0_fit)$r.squared
 
 # Plot
-plot(m4_mu_NDVI_post,
-     m4_obs_NDVI,
+plot(m4_0_mu_NDVI_post,
+     m4_0_obs_NDVI,
      pch = 16,
      col = rgb(0,0,1,0.3),
      xlab = "Model-estimated NDVI",
      ylab = "Observed NDVI")
 
 abline(0, 1, col = "red", lwd = 2)
+
 ```
 
 Slope:
 ```{r,echo=FALSE}
-m4_slope
+m4_0_slope
 ```
 
-    1.08 is pretty good
+    Near 1 = good. Noticeable underestimation of variance at low NDVI_0
 
 ----
+
+
+
 
 **Random effects shrinkage: **
 
 Goal is centered around 0(ish)
 
-1. eta_year; random effect of year on NDVI intercept (n=3)
-2. eta_stream; random effect of stream on NDVI intercept (n=6)
+1. eta_year; random effect of year log(VA+1) intercept
+2. eta_stream; random effect of stream on log(VA+1) intercept
 
 ```{r, echo=FALSE} 
-par(mfrow = c(2,1),        # 2 rows, 2 columns
+par(mfrow = c(1, 2),        # rows, columns
     mar = c(4, 4, 2, 1),    # smaller margins
     cex = 0.8)              # shrink text/points a bit
 
 
-boxplot(hglmm_m4_NDVI_damDen$sims.list$eta_year)
-boxplot(hglmm_m4_NDVI_damDen$sims.list$eta_stream)
+boxplot(hglmm_m4_0_damDen_NDVI$sims.list$eta_year)
+boxplot(hglmm_m4_0_damDen_NDVI$sims.list$eta_stream)
 ```
 
 
 ----
-
 
 **Prior-posterior overlap:**
 
@@ -2042,17 +2349,17 @@ par(mfrow = c(2, 2),        # 2 rows, 2 columns
     mar = c(4, 4, 2, 1),    # smaller margins
     cex = 0.8) 
 
-damDen_alpha_m4_post <- hglmm_m4_NDVI_damDen$sims.list$alpha
-damDen_beta_m4_post  <- hglmm_m4_NDVI_damDen$sims.list$beta_damDen
-damDen_beta_incis_m4_post <- hglmm_m4_NDVI_damDen$sims.list$beta_incis
-damDen_sigEtaStream_m4_post <- hglmm_m4_NDVI_damDen$sims.list$sigma_eta_stream
+damDen_alpha_m4_0_post <- hglmm_m4_0_damDen_NDVI$sims.list$alpha
+damDen_beta_m4_0_post  <- hglmm_m4_0_damDen_NDVI$sims.list$beta_damDen
+damDen_beta_incis_m4_0_post <- hglmm_m4_0_damDen_NDVI$sims.list$beta_incis
+damDen_sigmaEtaStream_m4_0_post <- hglmm_m4_0_damDen_NDVI$sims.list$sigma_eta_stream
 
-damDenMod_m4_n <- length(damDen_alpha_m4_post)
+damDenMod_m4_0_n <- length(damDen_alpha_m4_0_post)
 
-damDen_alpha_m4_prior <- rnorm(damDenMod_m4_n, 0.32, sqrt(1/0.04))
-damDen_beta_m4_prior  <- rnorm(damDenMod_m4_n, 0, sqrt(1/0.04))
-damDen_beta_incis_m4_prior  <- rnorm(damDenMod_m4_n, 0, sqrt(1/0.04))
-damDen_sigEtaStream_m4_prior <- pmax(rnorm(damDenMod_m4_n, 0, 1), 0)
+damDen_alpha_m4_0_prior <- rnorm(damDenMod_m4_0_n, 0, sqrt(1/0.04))
+damDen_beta_m4_0_prior  <- rnorm(damDenMod_m4_0_n, 0, sqrt(1/0.04))
+damDen_beta_incis_m4_0_prior  <- rnorm(damDenMod_m4_0_n, 0, sqrt(1/0.04))
+damDen_sigmaEtaStream_m4_0_prior <- pmax(rnorm(damDenMod_m4_0_n, 0, 1), 0)
 
 
 # Plot overlap:
@@ -2075,68 +2382,34 @@ plot_prior_post <- function(prior, post, name) {
     theme_minimal(base_size = 14)
 }
 
-plot_prior_post(damDen_alpha_m4_prior, damDen_alpha_m4_post, "alpha_m4")
-plot_prior_post(damDen_beta_m4_prior, damDen_beta_m4_post, "beta_damDen_m4")
-plot_prior_post(damDen_beta_incis_m4_prior, damDen_beta_incis_m4_post, "beta_incis_m4")
-plot_prior_post(damDen_sigEtaStream_m4_prior, damDen_sigEtaStream_m4_post, "sigma_eta_stream_m4")
+plot_prior_post(damDen_alpha_m4_0_prior, damDen_alpha_m4_0_post, "alpha_m4")
+plot_prior_post(damDen_beta_m4_0_prior, damDen_beta_m4_0_post, "beta_damDen_m4")
+plot_prior_post(damDen_beta_incis_m4_0_prior, damDen_beta_incis_m4_0_post, "beta_incis_m4")
+plot_prior_post(damDen_sigmaEtaStream_m4_0_prior, damDen_sigmaEtaStream_m4_0_post, "sigma_eta_stream_m4")
 ```
 
-    PPOs still look good pretty good.
+    PPOs look good pretty good.
 
 ----
-
-
-
-----
-
-
-**Posterior mean dam density effect**
-
-damDen --> NDVI (no geom.covar.)
-
-```{r,echo=FALSE}
-m4_coeffparams <- c(#"alpha",
-            "beta_damDen",
-            "beta_incis",
-            "beta_RIPA",
-            "beta_UDA",
-            "sigma")
-
-m4_coef_df <- hglmm_m4_NDVI_damDen$summary[m4_coeffparams, ] %>%
-  as.data.frame() %>%
-  rownames_to_column("parameter") %>%
-  select(parameter, mean, `2.5%`, `97.5%`)
-
-ggplot(m4_coef_df, aes(y = parameter, x = mean)) +
-  geom_point(size = 3) +
-  geom_errorbar(
-    aes(xmin = `2.5%`, xmax = `97.5%`),
-    width = 0.2,
-    orientation = "y"
-  ) +
-  geom_vline(xintercept = 0, color = "black", linewidth = 1) +
-  labs(
-    title = "Posterior Means and 95% Credible Intervals",
-    x = "Effect Size (log scale)",
-    y = ""
-  ) +
-  theme_bw(base_size = 14)
-```
+--->
 
 
 **Posterior Estimates**
 
+
+**0-m Buffer; i.e., DEM-derived 'pondable zone'**
+
 ```{r,echo=FALSE}
 
-m4_alpha <- mean(hglmm_m4_NDVI_damDen$sims.list$alpha)
+m4_0_alpha <- mean(hglmm_m4_0_damDen_NDVI$sims.list$alpha)
 
-m4_beta_dd <- mean(hglmm_m4_NDVI_damDen$sims.list$beta_damDen)
+m4_0_beta_dd <- mean(hglmm_m4_0_damDen_NDVI$sims.list$beta_damDen)
 
-m4_beta_in <- mean(hglmm_m4_NDVI_damDen$sims.list$beta_incis)
+m4_0_beta_in <- mean(hglmm_m4_0_damDen_NDVI$sims.list$beta_incis)
 
-m4_beta_rip <- mean(hglmm_m4_NDVI_damDen$sims.list$beta_RIPA)
+m4_0_beta_rip <- mean(hglmm_m4_0_damDen_NDVI$sims.list$beta_RIPA)
 
-m4_beta_uda <- mean(hglmm_m4_NDVI_damDen$sims.list$beta_UDA)
+m4_0_beta_uda <- mean(hglmm_m4_0_damDen_NDVI$sims.list$beta_UDA)
 
 ```
 
@@ -2148,21 +2421,22 @@ m4_coeffparams <- c(#"alpha",
             "beta_UDA",
             "sigma")
 
-m4_coef_df <- hglmm_m4_NDVI_damDen$summary[m4_coeffparams, ] %>%
+m4_0_coef_df <- hglmm_m4_0_damDen_NDVI$summary[m4_coeffparams, ] %>%
   as.data.frame() %>%
   rownames_to_column("parameter") %>%
   select(parameter, mean, `2.5%`, `97.5%`)
 
-ggplot(m4_coef_df, aes(y = parameter, x = mean)) +
-  geom_point(size = 3) +
+ggplot(m4_0_coef_df, aes(y = parameter, x = mean)) +
+  geom_point(size = 4) +
   geom_errorbar(
     aes(xmin = `2.5%`, xmax = `97.5%`),
-    width = 0.2,
+    width = 0.5,
     orientation = "y"
   ) +
   geom_vline(xintercept = 0, color = "black", linewidth = 1) +
   labs(
     title = "Posterior Means and 95% Credible Intervals",
+    subtitle = "0-m Buffer; DEM-derived 'pondable zone'",
     x = "Effect Size (log scale)",
     y = ""
   ) +
@@ -2174,13 +2448,25 @@ ggplot(m4_coef_df, aes(y = parameter, x = mean)) +
 **Effect of 1 SD increase in dam density on NDVI:**
 
 ```{r,echo=FALSE}
-summary(hglmm_m4_NDVI_damDen$sims.list$beta_damDen)
+summary(hglmm_m4_0_damDen_NDVI$sims.list$beta_damDen)
+
+exp(mean(hglmm_m4_0_damDen_NDVI$sims.list$beta_damDen))
+
+NDVI_0_damDen_0 <- exp(m4_0_alpha)  # with geom covar. at z-scaled mean (0)
+#NDVI_damDen_0
+
+NDVI_0_damDen_1 <- exp(m4_0_alpha + 0.05)  #make sure this value is correct
+#NDVI_damDen_1
+
+print("NDVI_0 change with 1 SD increase in dam density")
+(NDVI_0_damDen_1 - NDVI_0_damDen_0)
+
 ```
 
-    For a 'typical' stream at mean geomorphic covariate conditions, a 1 SD increase 
-    in dam density is associated with an increase of 0.007 on the raw NDVI scale.
+    A 1 SD increase dam density is associated with ____ in NDVI area WITHIN 0-m BUFFER around DEM-delineated riparian/pondable zone, for a "typical" stream under mean geomorphic covariate conditions.
     
-    Dam density's influence on NDVI, though "significantly" positive, is very weak. 
+    Note: at the upper end of the observed dam density range, a typical stream at mean covariate 
+    conditions could see an estimated ____ in riparian NDVI
     
     
 ----
@@ -2192,51 +2478,549 @@ summary(hglmm_m4_NDVI_damDen$sims.list$beta_damDen)
 **Effect of 1 SD increase in incision on NDVI:**
 
 ```{r,echo=FALSE}
-summary(hglmm_m4_NDVI_damDen$sims.list$beta_incis)
+summary(hglmm_m4_0_damDen_NDVI$sims.list$beta_incis)
+
+exp(mean(hglmm_m4_0_damDen_NDVI$sims.list$beta_incis))
+
+
+NDVI_0_incis_0 <- exp(m4_0_alpha)
+#NDVI_incis_0
+
+NDVI_0_incis_1 <- exp(m4_0_alpha + 0.01) # make sure this is correct
+#NDVI_incis_1
+
+print("NDVI change with 1 SD increase in incision")
+(NDVI_0_incis_1 - NDVI_0_incis_0)
 ```
 
-     For a typical stream at mean covariate conditions, a 1 SD increase in incision (~0.1)
-     is associated with a decrease of 0.008 on the raw NDVI scale.
-     
-     Again, though "significantly" negative, the effect of incision on NDVI is VERY weak.
+    A 1 SD increase in incision (~0.1) is associated with a ____ in NDVI, for a typical stream at mean covariate conditions. 
+    
+    Realistically, incision doesn't seem to influence NDVI. Weakly positive, with 
+    heavy overlap of 0.
+    
+
+----
+ 
+**Effect of 1 SD increase in pond-able space on NDVI:**
+
+```{r,echo=FALSE}
+summary(hglmm_m4_0_damDen_NDVI$sims.list$beta_RIPA)
+
+exp(mean(hglmm_m4_0_damDen_NDVI$sims.list$beta_RIPA))
+
+
+NDVI_0_RIPA_0 <- exp(m4_0_alpha)
+#SWA_UDA_0
+
+NDVI_0_RIPA_1 <- exp(m4_0_alpha + 0.54)  # make sure this is correct
+#SWA_UDA_1
+
+print("NDVI change with 1 SD increase in riparian area")
+(NDVI_0_RIPA_1 - NDVI_0_RIPA_0)
+```
+
+
+    A 1 SD increase in RIPA (11000 m^2) is associated with a ____ in ndvi WITHIN 0-m RIP BUFFER
+    (for typical stream under mean conditions).
+    
+----
+    
+**Effect of 1 SD increase in Upstream Drainage Area on SW amount:**
+
+```{r,echo=FALSE}
+summary(hglmm_m4_0_damDen_NDVI$sims.list$beta_UDA)
+
+exp(mean(hglmm_m4_0_damDen_NDVI$sims.list$beta_UDA))
+
+
+NDVI_0_UDA_0 <- exp(m4_0_alpha)
+#SWA_UDA_0
+
+NDVI_0_UDA_1 <- exp(m4_0_alpha - 0.48)   # make sure this is correct
+#SWA_UDA_1
+
+print("NDVI change with 1 SD increase in drainage area")
+(NDVI_0_UDA_1 - NDVI_0_UDA_0)
+
+```
+
+    A 1 SD increase in Upstream Drainage Area (UDA) (~1300km^2) is associated with a ____ in 
+    NDVI, for a "typical" stream at mean covariate conditions. 
+    
+
+  
+
+----
+
+----
+
+----
+
+----
+
+**10-m Planar Buffer around DEM-derived 'pondable zone'**
+
+```{r,echo=FALSE}
+
+m4_10_alpha <- mean(hglmm_m4_10_damDen_NDVI$sims.list$alpha)
+
+m4_10_beta_dd <- mean(hglmm_m4_10_damDen_NDVI$sims.list$beta_damDen)
+
+m4_10_beta_in <- mean(hglmm_m4_10_damDen_NDVI$sims.list$beta_incis)
+
+m4_10_beta_rip <- mean(hglmm_m4_10_damDen_NDVI$sims.list$beta_RIPA)
+
+m4_10_beta_uda <- mean(hglmm_m4_10_damDen_NDVI$sims.list$beta_UDA)
+
+```
+
+```{r,echo=FALSE}
+m4_10_coef_df <- hglmm_m4_10_damDen_NDVI$summary[m4_coeffparams, ] %>%
+  as.data.frame() %>%
+  rownames_to_column("parameter") %>%
+  select(parameter, mean, `2.5%`, `97.5%`)
+
+ggplot(m4_10_coef_df, aes(y = parameter, x = mean)) +
+  geom_point(size = 4) +
+  geom_errorbar(
+    aes(xmin = `2.5%`, xmax = `97.5%`),
+    width = 0.5,
+    orientation = "y"
+  ) +
+  geom_vline(xintercept = 0, color = "black", linewidth = 1) +
+  labs(
+    title = "Posterior Means and 95% Credible Intervals",
+    subtitle = "10-m Planar Buffer",
+    x = "Effect Size (log scale)",
+    y = ""
+  ) +
+  theme_bw(base_size = 14)
+```
+
+----
+
+**Effect of 1 SD increase in dam density on NDVI:**
+
+```{r,echo=FALSE}
+summary(hglmm_m4_10_damDen_NDVI$sims.list$beta_damDen)
+
+exp(mean(hglmm_m4_10_damDen_NDVI$sims.list$beta_damDen))
+
+NDVI_10_damDen_0 <- exp(m4_10_alpha)  # with geom covar. at z-scaled mean (0)
+#NDVI_damDen_10
+
+NDVI_10_damDen_1 <- exp(m4_10_alpha + 0.05)  #make sure this value is correct
+#NDVI_damDen_1
+
+print("NDVI_10 change with 1 SD increase in dam density")
+(NDVI_10_damDen_1 - NDVI_10_damDen_0)
+
+```
+
+    A 1 SD increase dam density is associated with ____ in NDVI WITHIN 10-m BUFFER around DEM-delineated riparian/pondable zone, for a "typical" stream under mean geomorphic covariate conditions.
+    
+    Note: at the upper end of the observed dam density range, a typical stream at mean covariate 
+    conditions could see an estimated ____ in riparian NDVI
+    
+----
+
+**Estimated effects of geomorphic covariates**
+
+----
+
+**Effect of 1 SD increase in incision on NDVI:**
+
+```{r,echo=FALSE}
+summary(hglmm_m4_10_damDen_NDVI$sims.list$beta_incis)
+
+exp(mean(hglmm_m4_10_damDen_NDVI$sims.list$beta_incis))
+
+
+NDVI_10_incis_0 <- exp(m4_10_alpha)
+#NDVI_incis_10
+
+NDVI_10_incis_1 <- exp(m4_10_alpha + 0.01) # make sure this is correct
+#NDVI_incis_1
+
+print("NDVI change with 1 SD increase in incision")
+(NDVI_10_incis_1 - NDVI_10_incis_0)
+```
+
+    A 1 SD increase in incision (~0.1) is associated with a ____ in NDVI, within the 10-m RIP buffer,
+    for a typical stream at mean covariate conditions.
 
 ----
  
 **Effect of 1 SD increase in riparian area on NDVI:**
 
 ```{r,echo=FALSE}
-summary(hglmm_m4_NDVI_damDen$sims.list$beta_RIPA)
+summary(hglmm_m4_10_damDen_NDVI$sims.list$beta_RIPA)
+
+exp(mean(hglmm_m4_10_damDen_NDVI$sims.list$beta_RIPA))
+
+
+NDVI_10_RIPA_0 <- exp(m4_10_alpha)
+#SWA_UDA_10
+
+NDVI_10_RIPA_1 <- exp(m4_10_alpha + 0.54)  # make sure this is correct
+#SWA_UDA_1
+
+print("NDVI change with 1 SD increase in riparian area")
+(NDVI_10_RIPA_1 - NDVI_10_RIPA_0)
 ```
 
 
-    For a "typcial" stream under mean geomorphic covariate conditions, a 1 SD increase
-    in riparian area (11000 m^2) is associated with a decrease of 0.006 on the raw 
-    NDVI scale.
-    
-    This estimate also overlaps zero. Interpretation = no effect of RIPA on NDVI.
-    
+    A 1 SD increase in RIPA (11000 m^2) is associated with a ___ in NDVI WITHIN 10-m RIP buffer (for typical stream under mean conditions).
 
 ----
     
 **Effect of 1 SD increase in Upstream Drainage Area on SW amount:**
 
 ```{r,echo=FALSE}
-summary(hglmm_m4_NDVI_damDen$sims.list$beta_UDA)
+summary(hglmm_m4_10_damDen_NDVI$sims.list$beta_UDA)
+
+exp(mean(hglmm_m4_10_damDen_NDVI$sims.list$beta_UDA))
+
+
+NDVI_10_UDA_0 <- exp(m4_10_alpha)
+#SWA_UDA_10
+
+NDVI_10_UDA_1 <- exp(m4_10_alpha - 0.48)   # make sure this is correct
+#SWA_UDA_1
+
+print("NDVI change with 1 SD increase in drainage area")
+(NDVI_10_UDA_1 - NDVI_10_UDA_0)
+
 ```
 
-    For a "typical" stream under mean geomorphic covariate conditions, a 1 SD increase
-    in Upstream Drainage Area (UDA) (~1300km^2) is associated an increase of 0.028 on
-    the raw NDVI scale. 
+    A 1 SD increase in Upstream Drainage Area (UDA) (~1300km^2) is associated with a ____ in 
+    NDVI, for a "typical" stream at mean covariate conditions. 
+   
+
+----
+
+----
+
+----
+
+----
+
+**20-m Planar Buffer around DEM-derived 'pondable zone'**
+
+```{r,echo=FALSE}
+
+m4_20_alpha <- mean(hglmm_m4_20_damDen_NDVI$sims.list$alpha)
+
+m4_20_beta_dd <- mean(hglmm_m4_20_damDen_NDVI$sims.list$beta_damDen)
+
+m4_20_beta_in <- mean(hglmm_m4_20_damDen_NDVI$sims.list$beta_incis)
+
+m4_20_beta_rip <- mean(hglmm_m4_20_damDen_NDVI$sims.list$beta_RIPA)
+
+m4_20_beta_uda <- mean(hglmm_m4_20_damDen_NDVI$sims.list$beta_UDA)
+
+```
+
+```{r,echo=FALSE}
+m4_20_coef_df <- hglmm_m4_20_damDen_NDVI$summary[m4_coeffparams, ] %>%
+  as.data.frame() %>%
+  rownames_to_column("parameter") %>%
+  select(parameter, mean, `2.5%`, `97.5%`)
+
+ggplot(m4_20_coef_df, aes(y = parameter, x = mean)) +
+  geom_point(size = 4) +
+  geom_errorbar(
+    aes(xmin = `2.5%`, xmax = `97.5%`),
+    width = 0.5,
+    orientation = "y"
+  ) +
+  geom_vline(xintercept = 0, color = "black", linewidth = 1) +
+  labs(
+    title = "Posterior Means and 95% Credible Intervals",
+    subtitle = "20-m Planar Buffer",
+    x = "Effect Size (log scale)",
+    y = ""
+  ) +
+  theme_bw(base_size = 14)
+```
+
+----
+
+**Effect of 1 SD increase in dam density on NDVI:**
+
+```{r,echo=FALSE}
+summary(hglmm_m4_20_damDen_NDVI$sims.list$beta_damDen)
+
+exp(mean(hglmm_m4_20_damDen_NDVI$sims.list$beta_damDen))
+
+NDVI_20_damDen_0 <- exp(m4_20_alpha)  # with geom covar. at z-scaled mean (0)
+#NDVI_damDen_20
+
+NDVI_20_damDen_1 <- exp(m4_20_alpha + 0.05)  #make sure this value is correct
+#NDVI_damDen_1
+
+print("NDVI_20 change with 1 SD increase in dam density")
+(NDVI_20_damDen_1 - NDVI_20_damDen_0)
+
+```
+
+    A 1 SD increase dam density is associated with ~ ____ in NDVI WITHIN 20-m BUFFER around DEM-delineated riparian/pondable zone, for a "typical" stream under mean geomorphic covariate conditions.
+    
+    Note: at the upper end of the observed dam density range, a typical stream at mean covariate 
+    conditions could see an estimated ____ in riparian NDVI 
+    
+    
+----
+
+**Estimated effects of geomorphic covariates**
+
+----
+
+**Effect of 1 SD increase in incision on NDVI:**
+
+```{r,echo=FALSE}
+summary(hglmm_m4_20_damDen_NDVI$sims.list$beta_incis)
+
+exp(mean(hglmm_m4_20_damDen_NDVI$sims.list$beta_incis))
+
+
+NDVI_20_incis_0 <- exp(m4_20_alpha)
+#NDVI_incis_20
+
+NDVI_20_incis_1 <- exp(m4_20_alpha + 0.01) # make sure this is correct
+#NDVI_incis_1
+
+print("NDVI change with 1 SD increase in incision")
+(NDVI_20_incis_1 - NDVI_20_incis_0)
+```
+
+    A 1 SD increase in incision (~0.1) is associated with a ~___ in NDVI, within the 20-m RIP buffer, 
+    for a typical stream at mean covariate conditions. 
+    
+    Realistically, incision doesn't seem to influence NDVI.
+    
+    <Weak negative effect, heavily overlapping 0.>
+
+----
  
-    Though strongly positive, and the strongest covariate effect, 0.028 is still a very
-    small change in NDVI. 
+**Effect of 1 SD increase in riparian area on NDVI:**
+
+```{r,echo=FALSE}
+summary(hglmm_m4_20_damDen_NDVI$sims.list$beta_RIPA)
+
+exp(mean(hglmm_m4_20_damDen_NDVI$sims.list$beta_RIPA))
+
+
+NDVI_20_RIPA_0 <- exp(m4_20_alpha)
+#SWA_UDA_20
+
+NDVI_20_RIPA_1 <- exp(m4_20_alpha + 0.54)  # make sure this is correct
+#SWA_UDA_1
+
+print("NDVI change with 1 SD increase in riparian area")
+(NDVI_20_RIPA_1 - NDVI_20_RIPA_0)
+```
+
+
+    A 1 SD increase in RIPA (11000 m^2) is associated with a ____ in NDVI WITHIN 20-m RIP buffer 
+    (for typical stream under mean conditions).
+
+----
     
+**Effect of 1 SD increase in Upstream Drainage Area on SW amount:**
+
+```{r,echo=FALSE}
+summary(hglmm_m4_20_damDen_NDVI$sims.list$beta_UDA)
+
+exp(mean(hglmm_m4_20_damDen_NDVI$sims.list$beta_UDA))
+
+
+NDVI_20_UDA_0 <- exp(m4_20_alpha)
+#SWA_UDA_20
+
+NDVI_20_UDA_1 <- exp(m4_20_alpha - 0.48)   # make sure this is correct
+#SWA_UDA_1
+
+print("NDVI change with 1 SD increase in drainage area")
+(NDVI_20_UDA_1 - NDVI_20_UDA_0)
+
+```
+
+    A 1 SD increase in Upstream Drainage Area (UDA) (~1300km^2) is associated with a ____ in 
+    NDVI, for a "typical" stream at mean covariate conditions. 
+
+
+
+
+----
+
+----
+
+----
+
+----
+
+**30-m Planar Buffer around DEM-derived 'pondable zone'**
+
+```{r,echo=FALSE}
+
+m4_30_alpha <- mean(hglmm_m4_30_damDen_NDVI$sims.list$alpha)
+
+m4_30_beta_dd <- mean(hglmm_m4_30_damDen_NDVI$sims.list$beta_damDen)
+
+m4_30_beta_in <- mean(hglmm_m4_30_damDen_NDVI$sims.list$beta_incis)
+
+m4_30_beta_rip <- mean(hglmm_m4_30_damDen_NDVI$sims.list$beta_RIPA)
+
+m4_30_beta_uda <- mean(hglmm_m4_30_damDen_NDVI$sims.list$beta_UDA)
+
+```
+
+```{r,echo=FALSE}
+m4_30_coef_df <- hglmm_m4_30_damDen_NDVI$summary[m4_coeffparams, ] %>%
+  as.data.frame() %>%
+  rownames_to_column("parameter") %>%
+  select(parameter, mean, `2.5%`, `97.5%`)
+
+ggplot(m4_30_coef_df, aes(y = parameter, x = mean)) +
+  geom_point(size = 4) +
+  geom_errorbar(
+    aes(xmin = `2.5%`, xmax = `97.5%`),
+    width = 0.5,
+    orientation = "y"
+  ) +
+  geom_vline(xintercept = 0, color = "black", linewidth = 1) +
+  labs(
+    title = "Posterior Means and 95% Credible Intervals",
+    subtitle = "30-m Planar Buffer",
+    x = "Effect Size (log scale)",
+    y = ""
+  ) +
+  theme_bw(base_size = 14)
+```
+
+----
+
+**Effect of 1 SD increase in dam density on NDVI:**
+
+```{r,echo=FALSE}
+summary(hglmm_m4_30_damDen_NDVI$sims.list$beta_damDen)
+
+exp(mean(hglmm_m4_30_damDen_NDVI$sims.list$beta_damDen))
+
+NDVI_30_damDen_0 <- exp(m4_30_alpha)  # with geom covar. at z-scaled mean (0)
+#NDVI_damDen_30
+
+NDVI_30_damDen_1 <- exp(m4_30_alpha + 0.05)  #make sure this value is correct
+#NDVI_damDen_1
+
+print("NDVI_30 change with 1 SD increase in dam density")
+(NDVI_30_damDen_1 - NDVI_30_damDen_0)
+
+```
+
+    A 1 SD increase dam density is associated with ~ ____ in NDVI WITHIN 30-m BUFFER around DEM-delineated riparian/pondable zone, for a "typical" stream under mean geomorphic covariate conditions.
     
-    Take-Away:
-    Beaver dam density is not noticeably changing the vegetation structure within the
-    riparian zone, thus mean NDVI at dammed reaches is not meaningfully different than 
-    mean NDVI at paired undammed reaches. Broader-scale hydrologic processes drive 
-    riparian veg greenness in late August.
+    Note: at the upper end of the observed dam density range, a typical stream at mean covariate 
+    conditions could see an estimated ____ in riparian NDVI 
+    
+----
+
+**Estimated effects of geomorphic covariates**
+
+----
+
+**Effect of 1 SD increase in incision on NDVI:**
+
+```{r,echo=FALSE}
+summary(hglmm_m4_30_damDen_NDVI$sims.list$beta_incis)
+
+exp(mean(hglmm_m4_30_damDen_NDVI$sims.list$beta_incis))
+
+
+NDVI_30_incis_0 <- exp(m4_30_alpha)
+#NDVI_incis_30
+
+NDVI_30_incis_1 <- exp(m4_30_alpha + 0.01) # make sure this is correct
+#NDVI_incis_1
+
+print("NDVI change with 1 SD increase in incision")
+(NDVI_30_incis_1 - NDVI_30_incis_0)
+```
+
+    A 1 SD increase in incision (~0.1) is associated with a ____ in NDVI, within the 30-m RIP buffer,
+    for a typical stream at mean covariate conditions. 
+    
+    Realistically, incision doesn't seem to influence NDVI.
+    
+    <Weak negative effect, heavily overlapping 0.>
+
+----
+ 
+**Effect of 1 SD increase in riparian area on NDVI:**
+
+```{r,echo=FALSE}
+summary(hglmm_m4_30_damDen_NDVI$sims.list$beta_RIPA)
+
+exp(mean(hglmm_m4_30_damDen_NDVI$sims.list$beta_RIPA))
+
+
+NDVI_30_RIPA_0 <- exp(m4_30_alpha)
+#SWA_UDA_30
+
+NDVI_30_RIPA_1 <- exp(m4_30_alpha + 0.54)  # make sure this is correct
+#SWA_UDA_1
+
+print("NDVI change with 1 SD increase in riparian area")
+(NDVI_30_RIPA_1 - NDVI_30_RIPA_0)
+```
+
+
+    A 1 SD increase in RIPA (11000 m^2) is associated with a ~ ___% increase in NDVI WITHIN 30-m RIP buffer (for typical stream under mean conditions).
+  
+
+----
+    
+**Effect of 1 SD increase in Upstream Drainage Area on NDVI:**
+
+```{r,echo=FALSE}
+summary(hglmm_m4_30_damDen_NDVI$sims.list$beta_UDA)
+
+exp(mean(hglmm_m4_30_damDen_NDVI$sims.list$beta_UDA))
+
+
+NDVI_30_UDA_0 <- exp(m4_30_alpha)
+#SWA_UDA_30
+
+NDVI_30_UDA_1 <- exp(m4_30_alpha - 0.48)   # make sure this is correct
+#SWA_UDA_1
+
+print("NDVI change with 1 SD increase in drainage area")
+(NDVI_30_UDA_1 - NDVI_30_UDA_0)
+
+```
+
+    A 1 SD increase in Upstream Drainage Area (UDA) (~1300km^2) is associated with a _____ in 
+    NDVI for a "typical" stream at mean covariate conditions. 
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 ----
