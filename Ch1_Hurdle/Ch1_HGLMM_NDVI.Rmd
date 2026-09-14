@@ -2535,7 +2535,7 @@ summary(hglmm_m4_0_damDen_NDVI$sims.list$beta_incis)
 
     A 1 SD increase in incision (~0.1) is associated with a decrease of 0.005 in NDVI, for a typical stream at mean covariate conditions. 
     
-    Realistically, incision doesn't seem to influence NDVI. Weakly positive, with 
+    Realistically, incision doesn't seem to influence NDVI. Weakly negative, with 
     heavy overlap of 0.
     
 

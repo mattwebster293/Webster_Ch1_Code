@@ -1892,24 +1892,24 @@ M4_0-m Buffer:
 
 ```{r,echo=FALSE}
 #hglmm_damDen_m4_0_data_list <- list(
- # N = N,
+#  N = N,
 #  y = log(y_vegA_0 + 1),
- # stream = stream,
+#  stream = stream,
 #  year = year,
- # cluster = cluster,
+#  cluster = cluster,
 #  damDen = damDen,
- # incis = as.numeric(scale(1-(aoi_HurdleData$TO/90))), # Channel Incision
+#  incis = as.numeric(scale(1-(aoi_HurdleData$TO/90))), # Channel Incision
 #  RIPA = as.numeric(scale(aoi_HurdleData$riparian_area_m2_0)), #RIPA of DEM-derived pondableZone
- # UDA = as.numeric(scale(aoi_HurdleData$catchment_km2)), # Upstream Drainage Area
+#  UDA = as.numeric(scale(aoi_HurdleData$catchment_km2)), # Upstream Drainage Area
 #  n_stream = n_stream,
- # n_year = n_year,
+#  n_year = n_year,
 #  n_cluster = n_cluster
 #)
-
+#
 #hglmm_damDen_m4_inits <- function(){
 #  list()
 #}
-
+#
 #hglmm_damDen_m4_params <- c(
 #  "alpha",
 #  "mu",
@@ -1918,25 +1918,25 @@ M4_0-m Buffer:
 #  "beta_RIPA",
 #  "beta_UDA",
 #  "eta_stream",
-#  "eta_year",
-#  "eta_cluster",
-#  "sigma",
-#  "sigma_eta_stream",
-#  "sigma_eta_event",
-#  "sigma_eta_cluster",
-#  "loglik"
+ # "eta_year",
+ # "eta_cluster",
+ # "sigma",
+ # "sigma_eta_stream",
+ # "sigma_eta_event",
+ # "sigma_eta_cluster",
+ # "loglik"
 #)
-
+#
 #nchains <- 3
 #nthin <- 5
 #niter <- 100000
 #nburn <- 25000
-
-
+#
+#
 #Sys.time()
-
+#
 #set.seed(12345)
-
+##
 #hglmm_m4_0_damDen_Veg <- jags(data = hglmm_damDen_m4_0_data_list,
 #                   inits = hglmm_damDen_m4_inits,
 #                   parameters.to.save = hglmm_damDen_m4_params,
@@ -1946,8 +1946,8 @@ M4_0-m Buffer:
 #                   n.thin = nthin,
 #                   n.iter = niter,
 #                   n.burnin = nburn)
-
-
+#
+#
 #Sys.time()
 
 #print(hglmm_m4_0_damDen_Veg) # model with local and watershed dam density as fixed effects
@@ -1971,17 +1971,17 @@ M4_10-m Buffer:
 #  cluster = cluster,
 #  damDen = damDen,
 #  incis = as.numeric(scale(1-(aoi_HurdleData$TO/90))), # Channel Incision
-##  RIPA = as.numeric(scale(aoi_HurdleData$riparian_area_m2_0)), #RIPA of DEM-derived pondableZone
+#  RIPA = as.numeric(scale(aoi_HurdleData$riparian_area_m2_0)), #RIPA of DEM-derived pondableZone
 #  UDA = as.numeric(scale(aoi_HurdleData$catchment_km2)), # Upstream Drainage Area
 #  n_stream = n_stream,
 #  n_year = n_year,
 #  n_cluster = n_cluster
 #)
-
+#
 #hglmm_damDen_m4_inits <- function(){
 #  list()
 #}
-
+#
 #hglmm_damDen_m4_params <- c(
 #  "alpha",
 #  "mu",
@@ -1998,28 +1998,28 @@ M4_10-m Buffer:
 #  "sigma_eta_cluster",
 #  "loglik"
 #)
-
-#nchains <- 3
-#nthin <- 5
-#niter <- 100000
-#nburn <- 25000
-
-
+#
+##nchains <- 3
+##nthin <- 5
+##niter <- 100000
+##nburn <- 25000
+#
+#
 #Sys.time()
-
+#
 #set.seed(12345)
-
+#
 #hglmm_m4_10_damDen_Veg <- jags(data = hglmm_damDen_m4_10_data_list,
- #                  inits = hglmm_damDen_m4_inits,
+#                   inits = hglmm_damDen_m4_inits,
 #                   parameters.to.save = hglmm_damDen_m4_params,
- #                  model.file = "HGLMM_m4_Veg_damDensity.jags",
+#                   model.file = "HGLMM_m4_Veg_damDensity.jags",
 #                   parallel = T,
- #                  n.chains = nchains,
+#                   n.chains = nchains,
 #                   n.thin = nthin,
- #                  n.iter = niter,
+#                   n.iter = niter,
 #                   n.burnin = nburn)
-
-
+#
+#
 #Sys.time()
 
 #print(hglmm_m4_0_damDen_Veg) # model with local and watershed dam density as fixed effects
@@ -2048,11 +2048,11 @@ M4_20-m Buffer:
 #  n_year = n_year,
 #  n_cluster = n_cluster
 #)
-
+#
 #hglmm_damDen_m4_inits <- function(){
 #  list()
 #}
-
+#
 #hglmm_damDen_m4_params <- c(
 #  "alpha",
 #  "mu",
@@ -2069,28 +2069,28 @@ M4_20-m Buffer:
 #  "sigma_eta_cluster",
 #  "loglik"
 #)
-
-#nchains <- 3
-#nthin <- 5
-#niter <- 100000
-#nburn <- 25000
-
-
+#
+##nchains <- 3
+##nthin <- 5
+##niter <- 100000
+##nburn <- 25000
+#
+#
 #Sys.time()
-
+#
 #set.seed(12345)
-
+#
 #hglmm_m4_20_damDen_Veg <- jags(data = hglmm_damDen_m4_20_data_list,
 #                   inits = hglmm_damDen_m4_inits,
 #                   parameters.to.save = hglmm_damDen_m4_params,
 #                   model.file = "HGLMM_m4_Veg_damDensity.jags",
 #                   parallel = T,
 #                   n.chains = nchains,
-##                   n.thin = nthin,
+#                   n.thin = nthin,
 #                   n.iter = niter,
 #                   n.burnin = nburn)
-
-
+#
+#
 #Sys.time()
 
 #print(hglmm_m4_20_damDen_Veg) # model with local and watershed dam density as fixed effects
@@ -2148,9 +2148,9 @@ M4_30-m Buffer:
 
 
 #Sys.time()
-
+#
 #set.seed(12345)
-
+#
 #hglmm_m4_30_damDen_Veg <- jags(data = hglmm_damDen_m4_30_data_list,
 #                   inits = hglmm_damDen_m4_inits,
 #                   parameters.to.save = hglmm_damDen_m4_params,
@@ -2160,8 +2160,8 @@ M4_30-m Buffer:
 #                   n.thin = nthin,
 #                   n.iter = niter,
 #                   n.burnin = nburn)
-
-
+#
+#
 #Sys.time()
 
 #print(hglmm_m4_30_damDen_Veg) # model with local and watershed dam density as fixed effects
@@ -2175,26 +2175,22 @@ M4_30-m Buffer:
 ```{r,echo=FALSE}
 # SAVE THE MODEL OUTPUTS SO YOU DON'T HAVE TO RUN THEM EVERY TIME!!
 
-#saveRDS(hglmm_m4_0_damDen_Veg,
-#        "C:\Users\mattw\Desktop\Ch1_ModelOutputs\hglmm_m4_0_damDen_Veg.rds")
+#saveRDS(hglmm_m4_0_damDen_Veg, "C:\\Users\\mattw\\Desktop\\Ch1_ModelOutputs\\hglmm_m4_0_damDen_Veg.rds")
 
-#saveRDS(hglmm_m4_10_damDen_Veg,
-#        "C:\Users\mattw\Desktop\Ch1_ModelOutputs\hglmm_m4_10_damDen_Veg.rds")
+#saveRDS(hglmm_m4_10_damDen_Veg, "C:\\Users\\mattw\\Desktop\\Ch1_ModelOutputs\\hglmm_m4_10_damDen_Veg.rds")
 
-#saveRDS(hglmm_m4_20_damDen_Veg,
-#        "C:\Users\mattw\Desktop\Ch1_ModelOutputs\hglmm_m4_20_damDen_Veg.rds")
+#saveRDS(hglmm_m4_20_damDen_Veg, "C:\\Users\\mattw\\Desktop\\Ch1_ModelOutputs\\hglmm_m4_20_damDen_Veg.rds")
 
-#saveRDS(hglmm_m4_30_damDen_Veg,
-#        "C:\Users\mattw\Desktop\Ch1_ModelOutputs\hglmm_m4_30_damDen_Veg.rds")
+#saveRDS(hglmm_m4_30_damDen_Veg, "C:\\Users\\mattw\\Desktop\\Ch1_ModelOutputs\\hglmm_m4_30_damDen_Veg.rds")
 
 
-#hglmm_m4_0_damDen_Veg <- readRDS("C:\Users\mattw\Desktop\Ch1_ModelOutputs\hglmm_m4_0_damDen_Veg.rds")
+hglmm_m4_0_damDen_Veg <- readRDS("C:\Users\mattw\Desktop\Ch1_ModelOutputs\hglmm_m4_0_damDen_Veg.rds")
 
-#hglmm_m4_10_damDen_Veg <- readRDS("C:\Users\mattw\Desktop\Ch1_ModelOutputs\hglmm_m4_10_damDen_Veg.rds")
+hglmm_m4_10_damDen_Veg <- readRDS("C:\Users\mattw\Desktop\Ch1_ModelOutputs\hglmm_m4_10_damDen_Veg.rds")
 
-#hglmm_m4_20_damDen_Veg <- readRDS("C:\Users\mattw\Desktop\Ch1_ModelOutputs\hglmm_m4_20_damDen_Veg.rds")
+hglmm_m4_20_damDen_Veg <- readRDS("C:\Users\mattw\Desktop\Ch1_ModelOutputs\hglmm_m4_20_damDen_Veg.rds")
 
-#hglmm_m4_30_damDen_Veg <- readRDS("C:\Users\mattw\Desktop\Ch1_ModelOutputs\hglmm_m4_30_damDen_Veg.rds")
+hglmm_m4_30_damDen_Veg <- readRDS("C:\Users\mattw\Desktop\Ch1_ModelOutputs\hglmm_m4_30_damDen_Veg.rds")
 ```
 
 

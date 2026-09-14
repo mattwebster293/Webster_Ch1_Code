@@ -360,99 +360,99 @@ library(jagsUI)
     
 
 ```{r,echo=FALSE}
-hurdle_damPres_m1_data_list <- list(
-  N = N,
-  y = y,
-  y2 = y2,
-  stream = stream,
-  year = year,
-  event = event,
-  cluster = cluster,
-  damPres = damPres,
-  incis = as.numeric(scale(1-(aoi_HurdleData$TO/90))), # Channel Incision
-  RIPA = as.numeric(scale(aoi_HurdleData$riparian_area_m2)),
-  UDA = as.numeric(scale(aoi_HurdleData$catchment_km2)),
-  n_stream = n_stream,
-  n_year = n_year,
-  n_event = n_event,
-  n_cluster = n_cluster,
-  event_year = event_year_3_4
-)
+#hurdle_damPres_m1_data_list <- list(
+#  N = N,
+#  y = y,
+#  y2 = y2,
+#  stream = stream,
+#  year = year,
+#  event = event,
+#  cluster = cluster,
+#  damPres = damPres,
+#  incis = as.numeric(scale(1-(aoi_HurdleData$TO/90))), # Channel Incision
+#  RIPA = as.numeric(scale(aoi_HurdleData$riparian_area_m2)),
+#  UDA = as.numeric(scale(aoi_HurdleData$catchment_km2)),
+#  n_stream = n_stream,
+#  n_year = n_year,
+#  n_event = n_event,
+#  n_cluster = n_cluster,
+#  event_year = event_year_3_4
+#)
 
-hurdle_damPres_m1_inits <- function(){ # let jags figure it out.
-  list()
-}
+#hurdle_damPres_m1_inits <- function(){ # let jags figure it out.
+#  list()
+#}
 
-hurdle_damPres_m1_params <- c(
-  "psi",
-  "mu",
-  "epsilon",
-  "alpha",
-  "zeta_damPres",
-  "zeta_incis",
-  "zeta_RIPA",
-  "zeta_UDA",
-  "zeta_stream",
-  "zeta_year",
-  "zeta_event",
-  "iota_stream",
-  "iota_event",
-  "iota_year",
-  "iota_cluster",
-  "beta_damPres",
-  "beta_incis",
-  "beta_RIPA",
-  "beta_UDA",
-  "beta_stream",
-  "beta_year",
-  "beta_event",
-  "eta_stream",
-  "eta_event",
-  "eta_year",
-  "eta_cluster",
-  "sigma",
-  "sigma_zeta_stream",
-  "sigma_zeta_year",
-  "sigma_zeta_event",
-  "sigma_iota_stream",
-  "sigma_iota_event",
-  "sigma_iota_cluster",
-  "sigma_iota_year",
-  "sigma_beta_stream",
-  "sigma_beta_year",
-  "sigma_beta_event",
-  "sigma_eta_stream",
-  "sigma_eta_year",
-  "sigma_eta_event",
-  "sigma_eta_cluster",
-  "p_TP",
-  "p_FP",
-  "z",
-  "tau_eff",
-  "loglik"
-)
+#hurdle_damPres_m1_params <- c(
+#  "psi",
+#  "mu",
+#  "epsilon",
+#  "alpha",
+#  "zeta_damPres",
+#  "zeta_incis",
+#  "zeta_RIPA",
+#  "zeta_UDA",
+#  "zeta_stream",
+#  "zeta_year",
+#  "zeta_event",
+#  "iota_stream",
+#  "iota_event",
+#  "iota_year",
+#  "iota_cluster",
+#  "beta_damPres",
+#  "beta_incis",
+#  "beta_RIPA",
+#  "beta_UDA",
+#  "beta_stream",
+#  "beta_year",
+#  "beta_event",
+#  "eta_stream",
+#  "eta_event",
+#  "eta_year",
+#  "eta_cluster",
+#  "sigma",
+#  "sigma_zeta_stream",
+#  "sigma_zeta_year",
+#  "sigma_zeta_event",
+#  "sigma_iota_stream",
+#  "sigma_iota_event",
+#  "sigma_iota_cluster",
+#  "sigma_iota_year",
+#  "sigma_beta_stream",
+#  "sigma_beta_year",
+#  "sigma_beta_event",
+#  "sigma_eta_stream",
+#  "sigma_eta_year",
+#  "sigma_eta_event",
+#  "sigma_eta_cluster",
+#  "p_TP",
+#  "p_FP",
+#  "z",
+#  "tau_eff",
+#  "loglik"
+#)
 
-nchains <- 3
-nthin <- 5
-niter <- 100000
-nburn <- 25000
+#nchains <- 3
+#nthin <- 5
+#niter <- 100000
+#nburn <- 25000
 
-set.seed(12345)
+#set.seed(12345)
 
-Sys.time()
+#Sys.time()
 
-hurdle_damPres_m1_SW <- jags(data = hurdle_damPres_m1_data_list,
-                   inits = hurdle_damPres_m1_inits,
-                   parameters.to.save = hurdle_damPres_m1_params,
-                   model.file = "HGLMM_Hurdle_m1_SW_damPres.jags",
-                   parallel = T,
-                   n.chains = nchains,
-                   n.thin = nthin,
-                   n.iter = niter,
-                   n.burnin = nburn)
-
-
-Sys.time()
+#hurdle_damPres_m1_SW <- jags(data = hurdle_damPres_m1_data_list,
+#                   inits = hurdle_damPres_m1_inits,
+#                   parameters.to.save = hurdle_damPres_m1_params,
+#                   model.file = "HGLMM_Hurdle_m1_SW_damPres.jags",
+#                   parallel = T,
+#                   n.chains = nchains,
+#                   n.thin = nthin,
+#                   n.iter = niter,
+#                   n.burnin = nburn)
+#
+#
+#Sys.time()
 ```
 
 <!---
@@ -996,115 +996,115 @@ Now, include geomorphic covariates:
     
 
 ```{r,include=FALSE}
-hurdle_damPres_m2_data_list <- list(
-  N = N,
-  y = y,
-  y2 = y2,
-  stream = stream,
-  year = year,
-  event = event,
-  cluster = cluster,
-  damPres = damPres,
-  incis = as.numeric(scale(1-(aoi_HurdleData$TO/90))), # Channel Incision
-  RIPA = as.numeric(scale(aoi_HurdleData$riparian_area_m2)),
-  UDA = as.numeric(scale(aoi_HurdleData$catchment_km2)),
-  n_stream = n_stream,
-  n_year = n_year,
-  n_event = n_event,
-  n_cluster = n_cluster,
-  event_year = event_year_3_4
-)
+#hurdle_damPres_m2_data_list <- list(
+#  N = N,
+#  y = y,
+#  y2 = y2,
+#  stream = stream,
+#  year = year,
+#  event = event,
+#  cluster = cluster,
+#  damPres = damPres,
+#  incis = as.numeric(scale(1-(aoi_HurdleData$TO/90))), # Channel Incision
+#  RIPA = as.numeric(scale(aoi_HurdleData$riparian_area_m2)),
+#  UDA = as.numeric(scale(aoi_HurdleData$catchment_km2)),
+#  n_stream = n_stream,
+#  n_year = n_year,
+#  n_event = n_event,
+#  n_cluster = n_cluster,
+#  event_year = event_year_3_4
+#)
 
-hurdle_damPres_m2_inits <- function(){
-  list(
-    alpha        = rnorm(1, 0, 1),
-    epsilon      = rnorm(1, 0, 1),
+#hurdle_damPres_m2_inits <- function(){
+#  list(
+#    alpha        = rnorm(1, 0, 1),
+#    epsilon      = rnorm(1, 0, 1),
+#
+#    sigma        = runif(1, 0.1, 2),
+#    sigma_zeta_stream  = runif(1, 0.1, 2),
+#    sigma_zeta_year    = runif(1, 0.1, 2),
+#    sigma_zeta_event   = runif(1, 0.1, 2),
+#    sigma_iota_stream  = runif(1, 0.1, 2),
+#    sigma_iota_event   = runif(1, 0.1, 2),
+#    sigma_iota_cluster = runif(1, 0.1, 2),
+#
+#    sigma_beta_stream  = runif(1, 0.1, 2),
+#    sigma_beta_year    = runif(1, 0.1, 2),
+#    sigma_beta_event   = runif(1, 0.1, 2),
+#    sigma_eta_stream   = runif(1, 0.1, 2),
+#    sigma_eta_event    = runif(1, 0.1, 2),
+#    sigma_eta_cluster  = runif(1, 0.1, 2)
+#  )
+#}
 
-    sigma        = runif(1, 0.1, 2),
-    sigma_zeta_stream  = runif(1, 0.1, 2),
-    sigma_zeta_year    = runif(1, 0.1, 2),
-    sigma_zeta_event   = runif(1, 0.1, 2),
-    sigma_iota_stream  = runif(1, 0.1, 2),
-    sigma_iota_event   = runif(1, 0.1, 2),
-    sigma_iota_cluster = runif(1, 0.1, 2),
-
-    sigma_beta_stream  = runif(1, 0.1, 2),
-    sigma_beta_year    = runif(1, 0.1, 2),
-    sigma_beta_event   = runif(1, 0.1, 2),
-    sigma_eta_stream   = runif(1, 0.1, 2),
-    sigma_eta_event    = runif(1, 0.1, 2),
-    sigma_eta_cluster  = runif(1, 0.1, 2)
-  )
-}
-
-hurdle_damPres_m2_params <- c(
-  "psi",
-  "mu",
-  "epsilon",
-  "alpha",
-  "zeta_damPres",
-  "zeta_incis",
-  "zeta_RIPA",
-  "zeta_UDA",
-  "zeta_stream",
-  "zeta_year",
-  "zeta_event",
-  "iota_stream",
-  "iota_event",
-  "iota_cluster",
-  "beta_damPres",
-  "beta_incis",
-  "beta_RIPA",
-  "beta_UDA",
-  "beta_stream",
-  "beta_year",
-  "beta_event",
-  "eta_stream",
-  "eta_event",
-  "eta_cluster",
-  "sigma",
-  "sigma_zeta_stream",
-  "sigma_zeta_year",
-  "sigma_zeta_event",
-  "sigma_iota_stream",
-  "sigma_iota_event",
-  "sigma_iota_year",
-  "sigma_iota_cluster",
-  "sigma_beta_stream",
-  "sigma_beta_year",
-  "sigma_beta_event",
-  "sigma_eta_stream",
-  "sigma_eta_event",
-  "sigma_eta_year",
-  "sigma_eta_cluster",
-  "p_TP",
-  "p_FP",
-  "z",
-  "tau_eff",
-  "loglik"
-)
+#hurdle_damPres_m2_params <- c(
+#  "psi",
+#  "mu",
+#  "epsilon",
+#  "alpha",
+#  "zeta_damPres",
+#  "zeta_incis",
+#  "zeta_RIPA",
+#  "zeta_UDA",
+#  "zeta_stream",
+#  "zeta_year",
+#  "zeta_event",
+#  "iota_stream",
+#  "iota_event",
+#  "iota_cluster",
+#  "beta_damPres",
+#  "beta_incis",
+#  "beta_RIPA",
+#  "beta_UDA",
+#  "beta_stream",
+#  "beta_year",
+#  "beta_event",
+#  "eta_stream",
+#  "eta_event",
+#  "eta_cluster",
+#  "sigma",
+#  "sigma_zeta_stream",
+#  "sigma_zeta_year",
+#  "sigma_zeta_event",
+#  "sigma_iota_stream",
+#  "sigma_iota_event",
+#  "sigma_iota_year",
+#  "sigma_iota_cluster",
+#  "sigma_beta_stream",
+#  "sigma_beta_year",
+#  "sigma_beta_event",
+#  "sigma_eta_stream",
+#  "sigma_eta_event",
+#  "sigma_eta_year",
+#  "sigma_eta_cluster",
+#  "p_TP",
+#  "p_FP",
+#  "z",
+#  "tau_eff",
+#  "loglik"
+#)
 
 #nchains <- 3
 #nthin <- 5
 #niter <- 100000
 #nburn <- 25000
 
-set.seed(12345)
+#set.seed(12345)
 
-Sys.time()
+#Sys.time()
 
-hurdle_damPres_m2_SW <- jags(data = hurdle_damPres_m2_data_list,
-                   inits = hurdle_damPres_m2_inits,
-                   parameters.to.save = hurdle_damPres_m2_params,
-                   model.file = "HGLMM_Hurdle_m2_SW_damPres.jags",
-                   parallel = T,
-                   n.chains = nchains,
-                   n.thin = nthin,
-                   n.iter = niter,
-                   n.burnin = nburn)
-
-
-Sys.time()
+#hurdle_damPres_m2_SW <- jags(data = hurdle_damPres_m2_data_list,
+#                   inits = hurdle_damPres_m2_inits,
+#                   parameters.to.save = hurdle_damPres_m2_params,
+#                   model.file = "HGLMM_Hurdle_m2_SW_damPres.jags",
+#                   parallel = T,
+#                   n.chains = nchains,
+#                   n.thin = nthin,
+#                   n.iter = niter,
+#                   n.burnin = nburn)
+#
+#
+#Sys.time()
 
 #print(hurdle_damPres_m2_SW) # model with local and watershed dam density as fixed effects
 #print(hurdle_damPres_m2_SW$summary[grep("beta_", rownames(hurdle_damPres_m2_SW$summary)), ])
@@ -1945,68 +1945,68 @@ SW ~ Dam Density
     
 
 ```{r,include=FALSE}
-hurdle_damDen_m3_data_list <- list(
-  N = N,
-  y = y,
-  y2 = y2,
-  stream = stream,
-  year = year,
-  event = event,
-  cluster = cluster,
-  damDen = damDen,
-  n_stream = n_stream,
-  n_year = n_year,
-  n_event = n_event,
-  n_cluster = n_cluster,
-  event_year = event_year_3_4
-)
+#hurdle_damDen_m3_data_list <- list(
+#  N = N,
+#  y = y,
+#  y2 = y2,
+#  stream = stream,
+#  year = year,
+#  event = event,
+#  cluster = cluster,
+#  damDen = damDen,
+#  n_stream = n_stream,
+#  n_year = n_year,
+#  n_event = n_event,
+#  n_cluster = n_cluster,
+#  event_year = event_year_3_4
+#)
 
-hurdle_damDen_m3_inits <- function(){
-  list()
-}
+#hurdle_damDen_m3_inits <- function(){
+#  list()
+#}
 
-hurdle_damDen_m3_params <- c(
-  "psi",
-  "mu",
-  "epsilon",
-  "alpha",
-  "zeta_damDen",
-  "zeta_stream",
-  "zeta_year",
-  "zeta_event",
-  "iota_stream",
-  "iota_year",
-  "iota_event",
-  "iota_cluster",
-  "beta_damDen",
-  "beta_stream",
-  "beta_year",
-  "beta_event",
-  "eta_stream",
-  "eta_year",
-  "eta_event",
-  "eta_cluster",
-  "sigma",
-  "sigma_zeta_stream",
-  "sigma_zeta_year",
-  "sigma_zeta_event",
-  "sigma_iota_stream",
-  "sigma_iota_year",
-  "sigma_iota_event",
-  "sigma_iota_cluster",
-  "sigma_beta_stream",
-  "sigma_beta_year",
-  "sigma_beta_event",
-  "sigma_eta_stream",
-  "sigma_eta_year",
-  "sigma_eta_event",
-  "sigma_eta_cluster",
-  "p_TP",
-  "p_FP",
-  "z",
-  "tau_eff",
-  "loglik"
-)
+#hurdle_damDen_m3_params <- c(
+#  "psi",
+#  "mu",
+#  "epsilon",
+#  "alpha",
+#  "zeta_damDen",
+#  "zeta_stream",
+#  "zeta_year",
+#  "zeta_event",
+#  "iota_stream",
+#  "iota_year",
+#  "iota_event",
+#  "iota_cluster",
+#  "beta_damDen",
+#  "beta_stream",
+#  "beta_year",
+#  "beta_event",
+#  "eta_stream",
+#  "eta_year",
+#  "eta_event",
+#  "eta_cluster",
+#  "sigma",
+#  "sigma_zeta_stream",
+#  "sigma_zeta_year",
+#  "sigma_zeta_event",
+#  "sigma_iota_stream",
+#  "sigma_iota_year",
+#  "sigma_iota_event",
+#  "sigma_iota_cluster",
+#  "sigma_beta_stream",
+#  "sigma_beta_year",
+#  "sigma_beta_event",
+#  "sigma_eta_stream",
+#  "sigma_eta_year",
+#  "sigma_eta_event",
+#  "sigma_eta_cluster",
+#  "p_TP",
+#  "p_FP",
+#  "z",
+#  "tau_eff",
+#  "loglik"
+#)
 
 #nchains <- 3
 #nthin <- 5
@@ -2014,22 +2014,22 @@ hurdle_damDen_m3_params <- c(
 #nburn <- 25000
 
 
-set.seed(12345)
+#set.seed(12345)
 
-Sys.time()
+#Sys.time()
 
-hurdle_damDen_m3_SW <- jags(data = hurdle_damDen_m3_data_list,
-                   inits = hurdle_damDen_m3_inits,
-                   parameters.to.save = hurdle_damDen_m3_params,
-                   model.file = "HGLMM_Hurdle_m3_SW_damDen.jags",
-                   parallel = T,
-                   n.chains = nchains,
-                   n.thin = nthin,
-                   n.iter = niter,
-                   n.burnin = nburn)
-
-
-Sys.time()
+#hurdle_damDen_m3_SW <- jags(data = hurdle_damDen_m3_data_list,
+#                   inits = hurdle_damDen_m3_inits,
+#                   parameters.to.save = hurdle_damDen_m3_params,
+#                   model.file = "HGLMM_Hurdle_m3_SW_damDen.jags",
+#                   parallel = T,
+#                   n.chains = nchains,
+#                   n.thin = nthin,
+#                   n.iter = niter,
+#                   n.burnin = nburn)
+#
+#
+#Sys.time()
 
 ```
 
@@ -2691,7 +2691,7 @@ ggplot(m3_pdp_event_named, aes(x = event_label, y = SWA_med, color = damDen)) +
 #   y2 = y2,
 #   stream = stream,
 #   year = year,
-#   event = event,
+##   event = event,
 #   cluster = cluster,
 #   damDen = damDen,
 #   incis = as.numeric(scale(1-(aoi_HurdleData$TO/90))), # Channel Incision
@@ -2703,11 +2703,11 @@ ggplot(m3_pdp_event_named, aes(x = event_label, y = SWA_med, color = damDen)) +
 #   n_cluster = n_cluster,
 #   event_year = event_year_3_4
 # )
-
+#
 # hurdle_damDen_m4_inits <- function(){
 #   list()
 # }
-
+#
 # hurdle_damDen_m4_params <- c(
 #   "psi",
 #   "mu",
@@ -2717,8 +2717,8 @@ ggplot(m3_pdp_event_named, aes(x = event_label, y = SWA_med, color = damDen)) +
 #   "zeta_incis",
 #   "zeta_RIPA",
 #   "zeta_UDA",
-#   "zeta_stream",
-#   "zeta_year",
+##   "zeta_stream",
+##   "zeta_year",
 #   "zeta_event",
 #   "iota_stream",
 #   "iota_year",
@@ -2756,27 +2756,27 @@ ggplot(m3_pdp_event_named, aes(x = event_label, y = SWA_med, color = damDen)) +
 #   "tau_eff",
 #   "loglik"
 # )
-
+#
 # nchains <- 3
 # nthin <- 5
 # niter <- 100000
 # nburn <- 25000
-
+#
 # set.seed(12345)
-
+#
 # Sys.time()
-
+#
 # hurdle_damDen_m4_SW <- jags(data = hurdle_damDen_m4_data_list,
-  #                  inits = hurdle_damDen_m4_inits,
-  #                  parameters.to.save = hurdle_damDen_m4_params,
-  #                  model.file = "HGLMM_Hurdle_m4_SW_DamDen.jags",
-  #                  parallel = T,
-  #                  n.chains = nchains,
-  #                  n.thin = nthin,
-  #                  n.iter = niter,
-  #                  n.burnin = nburn)
-
-
+#                    inits = hurdle_damDen_m4_inits,
+#                    parameters.to.save = hurdle_damDen_m4_params,
+#                    model.file = "HGLMM_Hurdle_m4_SW_DamDen.jags",
+#                    parallel = T,
+#                    n.chains = nchains,
+#                    n.thin = nthin,
+#                    n.iter = niter,
+#                    n.burnin = nburn)
+#
+#
 # Sys.time()
 ```
 
@@ -2785,10 +2785,10 @@ ggplot(m3_pdp_event_named, aes(x = event_label, y = SWA_med, color = damDen)) +
 ```{r,echo=FALSE}
 # SAVE THE MODEL OUTPUT SO YOU DON'T HAVE TO RUN IT EVERY TIME!!
 
-#saveRDS(hurdle_damDen_m4_SW, "C:\Users\mattw\Desktop\Ch1_ModelOutputs\hurdle_damDen_m4_SW_model.rds")
+# saveRDS(hurdle_damDen_m4_SW, "C:\\Users\\mattw\\Desktop\\Ch1_ModelOutputs\\hurdle_damDen_m4_SW_model.rds")
 
 
-# hurdle_damDen_m4_SW <- readRDS("C:\Users\mattw\Desktop\Ch1_ModelOutputs\hurdle_damDen_m4_SW_model.rds")
+hurdle_damDen_m4_SW <- readRDS("C:\\Users\\mattw\\Desktop\\Ch1_ModelOutputs\\hurdle_damDen_m4_SW_model.rds")
 ```
 
 
